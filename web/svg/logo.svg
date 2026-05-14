@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <defs>
+    <linearGradient id="logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#6366f1;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#8b5cf6;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Фон -->
+  <rect width="48" height="48" rx="12" fill="url(#logo-grad)"/>
+  
+  <!-- Иконка сердца/сердца -->
+  <path d="M24 35 C 15 28, 10 22, 10 16 A 6 6 0 0 1 24 16 C 24 16, 24 16, 24 16 A 6 6 0 0 1 38 16 C 38 22, 33 28, 24 35 Z" 
+        fill="white" opacity="0.95"/>
+  
+  <!-- Две точки связи -->
+  <circle cx="18" cy="20" r="2" fill="white" opacity="0.8"/>
+  <circle cx="30" cy="20" r="2" fill="white" opacity="0.8"/>
+  
+  <!-- Линия связи -->
+  <path d="M 18 20 Q 24 26, 30 20" stroke="white" stroke-width="1.5" fill="none" opacity="0.7"/>
+</svg>
