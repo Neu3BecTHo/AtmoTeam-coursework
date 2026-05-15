@@ -491,11 +491,6 @@ async function openPostModal(postId) {
             </div>
             <div class="post-modal-text">${escapeHtml(post.content || '')}</div>
             ${post.image_url ? `<img src="${post.image_url}" class="post-modal-image" alt="Post image">` : ''}
-            <div class="post-modal-actions">
-                <button class="post-action btn-like ${post.is_liked ? 'liked' : ''}" onclick="handleLike(${post.id}); updateModalLike(this, ${post.id})" title="Нравится">
-                    <svg class="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
-                </button>
-            </div>
             <div class="post-modal-comments">
                 <div class="post-modal-comments-header">Комментарии</div>
                 <div id="modal-comments-list"></div>

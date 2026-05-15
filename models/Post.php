@@ -213,6 +213,10 @@ class Post extends ActiveRecord
             }
         }
 
+        // Удаляем связанные репосты и сохранения
+        \app\models\Repost::deleteAll(['post_id' => $this->id]);
+        \app\models\SavedPost::deleteAll(['post_id' => $this->id]);
+
         Yii::$app->cache->delete('popular_posts');
     }
 

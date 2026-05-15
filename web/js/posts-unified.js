@@ -385,7 +385,14 @@ function initPostForm() {
                     if (btnPublish) btnPublish.disabled = true;
                     showNotification('Пост опубликован!', 'success');
 
-                    window.location.reload();
+                    // reload posts instead of full page reload
+                    if (typeof loadPosts === 'function') {
+                        loadPosts(true);
+                    } else if (typeof loadInitialProfilePosts === 'function') {
+                        loadInitialProfilePosts();
+                    } else {
+                        window.location.reload();
+                    }
                 } else {
                     showNotification(result.error || 'Ошибка публикации', 'error');
                 }
@@ -395,6 +402,128 @@ function initPostForm() {
             }
         });
     }
+}
+
+// ==================== Poll functions ====================
+
+function addPoll() {
+    const pollContainer = document.getElementById('poll-container');
+    const addPollBtn = document.querySelector('.btn-add-poll');
+    
+    if (!pollContainer || !addPollBtn) return;
+    
+    if (pollContainer.style.display === 'none') {
+        pollContainer.style.display = 'block';
+        addPollBtn.classList.add('active');
+        addPollBtn.textContent = '📊';
+    } else {
+        removePoll();
+    }
+    
+    if (typeof updatePublishButton === 'function') updatePublishButton();
+}
+
+function removePoll() {
+    const pollContainer = document.getElementById('poll-container');
+    const addPollBtn = document.querySelector('.btn-add-poll');
+
+    if (!pollContainer || !addPollBtn) return;
+    
+    pollContainer.style.display = 'none';
+    addPollBtn.classList.remove('active');
+    addPollBtn.textContent = '📊';
+
+    const q = document.getElementById('poll-question');
+    if (q) q.value = '';
+    
+    const m = document.getElementById('poll-multiple');
+    if (m) m.checked = false;
+
+    const oc = document.getElementById('poll-options');
+    if (oc) {
+        oc.innerHTML = `
+            <div class="poll-option-input">
+                <input type="text" placeholder="Вариант ответа 1..." maxlength="100" class="option-input">
+                <button type="button" class="btn-remove-option" onclick="removeOption(this)">✕</button>
+            </div>
+            <div class="poll-option-input">
+                <input type="text" placeholder="Вариант ответа 2..." maxlength="100" class="option-input">
+                <button type="button" class="btn-remove-option" onclick="removeOption(this)">✕</button>
+            </div>
+        `;
+    }
+    
+    if (typeof updatePublishButton === 'function') updatePublishButton();
+}
+
+function addPollOption() {
+    const oc = document.getElementById('poll-options');
+    if (!oc) return;
+    
+    const cur = oc.querySelectorAll('.poll-option-input').length;
+    if (cur >= 10) {
+        showNotification('Максимум 10 вариантов ответа', 'error');
+        return;
+    }
+    
+    const d = document.createElement('div');
+    d.className = 'poll-option-input';
+    d.innerHTML = `
+        <input type="text" placeholder="Вариант ответа ${cur + 1}..." maxlength="100" class="option-input">
+        <button type="button" class="btn-remove-option" onclick="removeOption(this)">✕</button>
+    `;
+    
+    oc.appendChild(d);
+    d.querySelector('.option-input').addEventListener('input', function() {
+        if (typeof updatePublishButton === 'function') updatePublishButton();
+    });
+    
+    if (typeof updatePublishButton === 'function') updatePublishButton();
+}
+
+function removeOption(button) {
+    const oc = document.getElementById('poll-options');
+    if (!oc) return;
+    
+    const opts = oc.querySelectorAll('.poll-option-input');
+    if (opts.length <= 2) {
+        showNotification('Минимум 2 варианта ответа', 'error');
+        return;
+    }
+    
+    button.parentElement.remove();
+    if (typeof updatePublishButton === 'function') updatePublishButton();
+}
+
+// ==================== End Poll functions ====================
+
+function updatePublishButton() {
+    const textarea = document.getElementById('post-content');
+    const btnPublish = document.getElementById('btn-publish');
+    if (!textarea || !btnPublish) return;
+    const hasContent = textarea.value.trim().length > 0;
+    const hasImage = typeof selectedImage !== 'undefined' && selectedImage !== null;
+    const pollData = getPollData ? getPollData() : null;
+    const hasValidPoll = pollData !== null;
+    btnPublish.disabled = !hasContent && !hasImage && !hasValidPoll;
+}
+
+function getPollData() {
+    const pollContainer = document.getElementById('poll-container');
+    if (!pollContainer || pollContainer.style.display === 'none') return null;
+    const question = document.getElementById('poll-question');
+    if (!question) return null;
+    const questionText = question.value.trim();
+    if (!questionText) return null;
+    const multiple = document.getElementById('poll-multiple');
+    const multipleVotes = multiple ? multiple.checked : false;
+    const options = [];
+    document.querySelectorAll('.option-input').forEach(input => {
+        const value = input.value.trim();
+        if (value) options.push(value);
+    });
+    if (options.length < 2) return null;
+    return { question: questionText, multiple_votes: multipleVotes, options: options };
 }
 
 function removeSelectedImage() {
@@ -411,38 +540,41 @@ let selectedImage = null;
 function initializePosts() {
     currentUserId = window.currentUserId || null;
 
-    document.querySelectorAll('.post-card').forEach(card => {
-        const postId = card.dataset.postId;
-        if (!postId) return;
+    // Event delegation for dynamically loaded posts
+    document.removeEventListener('click', handlePostActionClick);
+    document.addEventListener('click', handlePostActionClick);
+}
 
-        const likeBtn = card.querySelector('.btn-action.btn-like, .btn-like');
-        if (likeBtn) {
-            likeBtn.addEventListener('click', () => handleLike(postId));
+function handlePostActionClick(e) {
+    const likeBtn = e.target.closest('.post-action.btn-like[data-post-id]');
+    if (likeBtn) {
+        e.preventDefault();
+        const postId = likeBtn.dataset.postId;
+        if (typeof handleLike === 'function') {
+            handleLike(postId, likeBtn);
+        } else if (typeof likePost === 'function') {
+            likePost(postId, likeBtn);
         }
-        
-        const commentBtn = card.querySelector('.post-action.btn-comment-toggle, .btn-comment-toggle');
-        if (commentBtn) {
-            commentBtn.addEventListener('click', () => toggleComments(postId));
+        return;
+    }
+const saveBtn = e.target.closest('.post-action.btn-save[data-post-id]');
+    if (saveBtn) {
+        e.preventDefault();
+        const postId = saveBtn.dataset.postId;
+        if (typeof handleSave === 'function') {
+            handleSave(postId);
         }
-        
-        const saveBtn = card.querySelector('.post-action.btn-save, .btn-save');
-        if (saveBtn) {
-            saveBtn.addEventListener('click', () => handleSave(postId));
+        return;
+    }
+const repostBtn = e.target.closest('.post-action.btn-repost[data-post-id]');
+    if (repostBtn) {
+        e.preventDefault();
+        const postId = repostBtn.dataset.postId;
+        if (typeof toggleRepost === 'function') {
+            toggleRepost(postId);
         }
-        
-        const repostBtn = card.querySelector('.post-action.btn-repost, .btn-repost');
-        if (repostBtn) {
-            repostBtn.addEventListener('click', () => toggleRepost(postId));
-        }
-
-        const commentForm = card.querySelector('.comment-form');
-        if (commentForm) {
-            commentForm.addEventListener('submit', (e) => {
-                e.preventDefault();
-                sendComment(postId);
-            });
-        }
-    });
+        return;
+    }
 }
 
 
@@ -542,6 +674,10 @@ window.showBlockModal = showBlockModal;
 window.viewStory = viewStory;
 window.hideStoryView = hideStoryView;
 window.closeCommentsModal = closeCommentsModal;
+window.addPoll = addPoll;
+window.removePoll = removePoll;
+window.addPollOption = addPollOption;
+window.removeOption = removeOption;
 
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {

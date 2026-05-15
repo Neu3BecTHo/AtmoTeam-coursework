@@ -18,7 +18,7 @@ $isReposted = !Yii::$app->user->isGuest && $post->isRepostedBy(Yii::$app->user->
                 <a href="<?= Url::to(['profile/view', 'id' => $post->user_id]) ?>" class="author-name-link">
                     <span class="author-name"><?= Html::encode($post->user->username) ?></span>
                 </a>
-                <span class="post-time"><?= $post->timeAgo ?></span>
+                <span class="post-time"><?= $post->getTimeAgo() ?></span>
             </div>
         </div>
         <?php if (!Yii::$app->user->isGuest && Yii::$app->user->id == $post->user_id): ?>
@@ -48,10 +48,10 @@ $isReposted = !Yii::$app->user->isGuest && $post->isRepostedBy(Yii::$app->user->
         </div>
     <?php endif; ?>
     
-    <div class="post-stats">
-        <span class="likes-count"><?= $post->likes_count ?> лайков</span>
-        <span class="comments-count"><?= $post->comments_count ?> комментариев</span>
-        <span class="reposts-count"><?= $post->reposts_count ?? 0 ?> репостов</span>
+<div class="post-stats">
+        <span class="likes-count"><?= $post->getLikes()->count() ?> лайков</span>
+        <span class="comments-count"><?= $post->getComments()->count() ?> комментариев</span>
+        <span class="reposts-count"><?= $post->getRepostsCount() ?> репостов</span>
     </div>
     
     <div class="post-actions-bar">

@@ -37,16 +37,19 @@ class SavedPost extends ActiveRecord
         return $this->hasOne(Post::class, ['id' => 'post_id']);
     }
     
-    public static function toggle($userId, $postId) {
+public static function toggle($userId, $postId) {
         $existing = self::findOne(['user_id' => $userId, 'post_id' => $postId]);
         if ($existing) {
             $existing->delete();
-            return ['saved' => false, 'count' => self::getSavedCount($postId)];
+            $newCount = self::getSavedCount($postId);
+            return ['saved' => false, 'count' => $newCount];
         }
         $model = new self(['user_id' => $userId, 'post_id' => $postId]);
-        return $model->save() 
-            ? ['saved' => true, 'count' => self::getSavedCount($postId)]
-            : ['saved' => false, 'error' => 'Ошибка сохранения'];
+        if ($model->save()) {
+            $newCount = self::getSavedCount($postId);
+            return ['saved' => true, 'count' => $newCount];
+        }
+        return ['saved' => false, 'error' => 'Ошибка сохранения'];
     }
     
     public static function isSaved($userId, $postId) {

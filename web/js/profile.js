@@ -1,5 +1,3 @@
-
-
 function submitPollVote(pollId, postId) {
     const pollContainer = document.querySelector(`[data-poll-id="${pollId}"]`);
     const selectedOptions = pollContainer.querySelectorAll('input:checked');
@@ -25,7 +23,6 @@ function submitPollVote(pollId, postId) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-
             const pollContainer = document.querySelector(`[data-poll-id="${pollId}"]`);
             pollContainer.innerHTML = renderPoll(data.poll);
             
@@ -35,13 +32,12 @@ function submitPollVote(pollId, postId) {
         }
     })
     .catch(error => {
-        
         showNotification('Ошибка сети', 'error');
     });
 }
 
 function renderPoll(poll) {
-    const inputType = 'radio';
+    const inputType = poll.has_user_voted ? 'radio' : 'radio';
     const name = `poll_${poll.id}`;
     
     let html = `
@@ -51,7 +47,7 @@ function renderPoll(poll) {
     `;
     
     poll.options.forEach(option => {
-        const isChecked = poll.user_votes.includes(option.id);
+        const isChecked = poll.user_votes && poll.user_votes.includes(option.id);
         html += `
             <div class="poll-option" data-option-id="${option.id}">
                 <label class="poll-option-label">
@@ -60,7 +56,7 @@ function renderPoll(poll) {
                            value="${option.id}" 
                            ${isChecked ? 'checked' : ''}
                            ${poll.has_user_voted ? 'disabled' : ''}>
-                    <span class="poll-option-text">${option.text}</span>
+                    <span class="poll-option-text">${escapeHtml(option.text)}</span>
                 </label>
                 <div class="poll-results">
                     <div class="poll-bar" style="width: ${option.percentage}%"></div>
@@ -75,7 +71,7 @@ function renderPoll(poll) {
             </div>
             <div class="poll-footer">
                 <span class="poll-total-votes">Всего голосов: ${poll.total_votes}</span>
-                ${!poll.has_user_voted ? `<button class="btn-vote">Голосовать</button>` : ''}
+                ${!poll.has_user_voted ? `<button class="btn-vote" onclick="submitPollVote(${poll.id})">Голосовать</button>` : ''}
             </div>
         </div>
     `;
@@ -83,9 +79,47 @@ function renderPoll(poll) {
     return html;
 }
 
-document.addEventListener('DOMContentLoaded', function() {
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
 
+let savedLoaded = false;
+let repostsLoaded = false;
+let savedLoading = false;
+let repostsLoading = false;
+
+// Экспортируем для common.js
+window.savedLoaded = false;
+window.repostsLoaded = false;
+window.savedLoading = false;
+window.repostsLoading = false;
+
+document.addEventListener('DOMContentLoaded', function() {
+    initPostForm();
     loadInitialProfilePosts();
+    
+    // Tab click handling
+    document.querySelectorAll('.profile-tabs .tab-btn[data-tab]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tab = btn.dataset.tab;
+            
+            document.querySelectorAll('.profile-tabs .tab-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            
+            document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+            const tabContent = document.getElementById(`${tab}-tab`);
+            if (tabContent) tabContent.style.display = 'block';
+            
+if (tab === 'saved') {
+                loadSavedPosts();
+            } else if (tab === 'reposts') {
+                loadRepostsPosts();
+            }
+        });
+    });
     
     const postCards = document.querySelectorAll('.post-card');
     postCards.forEach(card => {
@@ -93,18 +127,12 @@ document.addEventListener('DOMContentLoaded', function() {
         const pollContainer = card.querySelector('.post-poll');
         
         if (pollContainer && postId) {
-
             fetch(`/post/get?id=${postId}`)
                 .then(response => response.json())
                 .then(data => {
                     if (data.success && data.post.poll) {
                         pollContainer.innerHTML = renderPoll(data.post.poll);
                         pollContainer.style.display = 'block';
-
-                        const voteBtn = pollContainer.querySelector('.btn-vote');
-                        if (voteBtn) {
-                            voteBtn.addEventListener('click', () => submitPollVote(data.post.poll.id, postId));
-                        }
                     }
                 })
                 .catch(error => {});
@@ -259,11 +287,9 @@ async function likePost(postId, button) {
         const result = await response.json();
         
         if (result.success) {
-
             if (!button) {
                 button = document.querySelector(`[data-post-id="${postId}"] .btn-like`);
                 if (!button) {
-
                     button = document.querySelector(`#post-modal .btn-like`);
                 }
             }
@@ -288,6 +314,7 @@ async function likePost(postId, button) {
             }
         }
     } catch (error) {
+        console.error('Like error:', error);
     }
 }
 
@@ -361,19 +388,16 @@ async function loadComments(postId, listId = 'modal-comments-list') {
 }
 
 function updateModalLike(button, postId) {
-
     const isLiked = button.classList.contains('liked');
     button.classList.toggle('liked', !isLiked);
 }
 
 function updateModalSave(button, postId) {
-
     const isSaved = button.classList.contains('saved');
     button.classList.toggle('saved', !isSaved);
 }
 
 function updateModalRepost(button, postId) {
-
     const isReposted = button.classList.contains('reposted');
     button.classList.toggle('reposted', !isReposted);
 }
@@ -400,26 +424,27 @@ async function submitModalComment(postId) {
         
         const result = await response.json();
         
-        if (result.success) {
+if (result.success) {
             input.value = '';
-
             await loadComments(postId, 'modal-comments-list');
+            // Обновляем счётчик комментариев
+            const postEl = document.querySelector('[data-post-id="'+postId+'"]');
+            if (postEl) {
+                const commentsCount = postEl.querySelector('.comments-count');
+                if (commentsCount) {
+                    const match = commentsCount.textContent.match(/(\d+)/);
+                    if (match) {
+                        const count = parseInt(match[1]) + 1;
+                        commentsCount.textContent = count + ' комментариев';
+                    }
+                }
+            }
         } else {
             showNotification(result.error || 'Ошибка отправки комментария', 'error');
         }
     } catch (error) {
         showNotification('Ошибка отправки комментария', 'error');
     }
-}
-
-function closePostModal() {
-    const modal = document.getElementById('post-modal');
-    if (modal) modal.classList.add('hidden');
-}
-
-function closeProfilePostModal() {
-    const modal = document.getElementById('profile-post-modal');
-    if (modal) modal.classList.add('hidden');
 }
 
 async function editComment(commentId, postId) {
@@ -485,148 +510,164 @@ async function editComment(commentId, postId) {
         } else if (e.key === 'Escape') {
             editForm.querySelector('.btn-cancel-edit').click();
         }
-    });
+});
 }
 
-window.handleLike = likePost;
-window.toggleComments = toggleComments;
-
-document.addEventListener('DOMContentLoaded', () => {
-    const canvas = document.getElementById('crop-canvas');
-    if (canvas) {
-        canvas.addEventListener('mousedown', (e) => {
-            isDragging = true;
-            dragStartX = e.clientX - cropOffsetX;
-            dragStartY = e.clientY - cropOffsetY;
-        });
+async function loadSavedPosts() {
+    if (window.savedLoading) return;
+    const container = document.getElementById('user-saved');
+    if (!container) return;
+    
+    window.savedLoading = true;
+    const sentinel = document.getElementById('load-more-sentinel-saved');
+    const spinner = document.getElementById('load-more-spinner-saved');
+    
+    try {
+        const response = await fetch(`/profile/${window.profileUserId}/saved?offset=0`);
+        const result = await response.json();
         
-        window.addEventListener('mousemove', (e) => {
-            if (!isDragging) return;
-            cropOffsetX = e.clientX - dragStartX;
-            cropOffsetY = e.clientY - dragStartY;
-            renderCropCanvas();
-        });
-        
-        window.addEventListener('mouseup', () => {
-            isDragging = false;
-        });
-    }
-
-    const scaleInput = document.getElementById('crop-scale');
-    if (scaleInput) {
-        scaleInput.addEventListener('input', (e) => {
-            cropScale = parseFloat(e.target.value);
-            renderCropCanvas();
-        });
-    }
-});
-
-function previewAvatar(input) {
-    if (input.files && input.files[0]) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const preview = document.getElementById('avatar-preview');
-            if (preview) {
-                preview.src = e.target.result;
-                preview.style.border = '2px solid var(--primary-500)';
+        if (result.html !== undefined) {
+            if (result.count === 0) {
+                container.innerHTML = '<div class="empty-profile"><div class="empty-icon">🔖</div><p>Нет сохранённых постов</p></div>';
+            } else {
+                container.innerHTML = result.html;
             }
-        };
-        reader.readAsDataURL(input.files[0]);
+if (sentinel) sentinel.dataset.offset = result.count;
+        }
+        initializePosts();
+    } catch (error) {
+        console.error('Error loading saved posts:', error);
+    } finally {
+        window.savedLoading = false;
+        window.savedLoaded = true;
+        if (spinner) spinner.classList.add('hidden');
     }
 }
 
-document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+// Экспортируем сразу после определения
+window.loadSavedPosts = loadSavedPosts;
+
+async function loadRepostsPosts() {
+    if (window.repostsLoading) return;
+    const container = document.getElementById('user-reposts');
+    if (!container) return;
+    
+    window.repostsLoading = true;
+    const sentinel = document.getElementById('load-more-sentinel-reposts');
+    const spinner = document.getElementById('load-more-spinner-reposts');
+    
+    try {
+        const response = await fetch(`/profile/${window.profileUserId}/reposts?offset=0`);
+        const result = await response.json();
         
-        btn.classList.add('active');
-        document.getElementById(btn.dataset.tab + '-tab').style.display = 'block';
-    });
-});
+        if (result.html !== undefined) {
+            if (result.count === 0) {
+                container.innerHTML = '<div class="empty-profile"><div class="empty-icon">🔄</div><p>Нет репостов</p></div>';
+            } else {
+                container.innerHTML = result.html;
+            }
+            if (sentinel) sentinel.dataset.offset = result.count;
+        }
+        initializePosts();
+    } catch (error) {
+        console.error('Error loading reposts:', error);
+    } finally {
+        window.repostsLoading = false;
+        window.repostsLoaded = true;
+        if (spinner) spinner.classList.add('hidden');
+    }
+}
+
+// Экспортируем сразу после определения
+window.loadRepostsPosts = loadRepostsPosts;
+
+const loadMoreSentinel = document.getElementById('load-more-sentinel');
+const loadMoreSpinner = document.getElementById('load-more-spinner');
+let initialProfileLoadComplete = false;
 
 async function loadInitialProfilePosts() {
     const userId = window.profileUserId;
     
     if (!userId) {
+        initialProfileLoadComplete = true;
         return;
     }
     
     const grid = document.getElementById('user-posts');
     
     if (!grid) {
+        initialProfileLoadComplete = true;
         return;
     }
     
     try {
         const response = await fetch(`/profile/${userId}/posts?offset=0`);
         const result = await response.json();
-
+        
         if (result.html !== undefined) {
             if (result.count === 0) {
-
                 grid.innerHTML = '<div class="empty-profile"><div class="empty-icon">📝</div><p>Пока нет постов</p></div>';
-                return;
             } else {
-
                 grid.innerHTML = result.html;
             }
+            
+            if (loadMoreSentinel) {
+                loadMoreSentinel.dataset.offset = result.count;
+            }
         } else {
-
             if (result.length === 0) {
                 grid.innerHTML = '<div class="empty-profile"><div class="empty-icon">📝</div><p>Пока нет постов</p></div>';
-                return;
+            } else {
+                grid.innerHTML = '';
+                result.forEach(post => {
+                    const card = document.createElement('div');
+                    card.className = 'post-card';
+                    card.dataset.postId = post.id;
+                    card.innerHTML = `
+                        <div class="post-header">
+                            <div class="post-author">
+                                <img src="${post.user.avatar_url || 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + post.user.username}" alt="avatar" class="author-avatar">
+                                <div class="author-info">
+                                    <span class="author-name">${escapeHtml(post.user.username)}</span>
+                                    <span class="post-time">${post.time_ago || 'Только что'}</span>
+                                </div>
+                            </div>
+                            ${post.is_owner ? `<button class="btn-delete-post" onclick="deletePost(${post.id})">🗑️</button>` : ''}
+                        </div>
+                        <div class="post-content">${escapeHtml(post.content)}</div>
+                        ${post.image_url ? `<img src="${post.image_url}" alt="post image" class="post-image">` : ''}
+                        <div class="post-actions">
+                            <button class="btn-action ${post.is_liked ? 'liked' : ''}" onclick="likePost(${post.id}, this)">
+                                <span>${post.is_liked ? '❤️' : '🤍'}</span>
+                                <span>${post.likes_count || 0}</span>
+                            </button>
+                            <button class="btn-action" onclick="toggleComments(${post.id})">
+                                <span>💬</span>
+                                <span>${post.comments_count || 0}</span>
+                            </button>
+                            <button class="btn-action" onclick="toggleRepost(${post.id})">
+                                <span>🔄</span>
+                                <span>${post.reposts_count || 0}</span>
+                            </button>
+                        </div>
+                    `;
+                    grid.appendChild(card);
+                });
             }
             
-            result.forEach(post => {
-                const card = document.createElement('div');
-                card.className = 'post-card';
-                card.dataset.postId = post.id;
-                card.innerHTML = `
-                    <div class="post-header">
-                        <div class="post-author">
-                            <img src="${post.user.avatar_url || 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + post.user.username}" alt="avatar" class="author-avatar">
-                            <div class="author-info">
-                                <span class="author-name">${post.user.username}</span>
-                                <span class="post-time">${post.time_ago || 'Только что'}</span>
-                            </div>
-                        </div>
-                        ${post.is_owner ? `<button class="btn-delete-post" onclick="deletePost(${post.id})">🗑️</button>` : ''}
-                    </div>
-                    <div class="post-content">${post.content}</div>
-                    ${post.image_url ? `<img src="${post.image_url}" alt="post image" class="post-image">` : ''}
-                    <div class="post-actions">
-                        <button class="btn-action ${post.is_liked ? 'liked' : ''}" onclick="handleLike(${post.id})">
-                            <span>${post.is_liked ? '❤️' : '🤍'}</span>
-                            <span>${post.likes_count || 0}</span>
-                        </button>
-                        <button class="btn-action" onclick="toggleComments(${post.id})">
-                            <span>💬</span>
-                            <span>${post.comments_count || 0}</span>
-                        </button>
-                        <button class="btn-action" onclick="toggleRepost(${post.id})">
-                            <span>🔄</span>
-                            <span>${post.reposts_count || 0}</span>
-                        </button>
-                    </div>
-                `;
-                grid.appendChild(card);
-            });
-        }
-
-        if (loadMoreSentinel) {
-            const postCount = result.html !== undefined ? result.count : result.length;
-            loadMoreSentinel.dataset.offset = postCount;
+            if (loadMoreSentinel) {
+                loadMoreSentinel.dataset.offset = result.length;
+            }
         }
 
         initializePosts();
+        initialProfileLoadComplete = true;
         
     } catch (error) {
+        console.error('Error loading profile posts:', error);
+        initialProfileLoadComplete = true;
     }
 }
-
-const loadMoreSentinel = document.getElementById('load-more-sentinel');
-const loadMoreSpinner = document.getElementById('load-more-spinner');
 
 if (loadMoreSentinel && 'IntersectionObserver' in window) {
     let isLoading = false;
@@ -634,6 +675,7 @@ if (loadMoreSentinel && 'IntersectionObserver' in window) {
     const observer = new IntersectionObserver(async (entries) => {
         const entry = entries[0];
         if (!entry.isIntersecting || isLoading) return;
+        if (!initialProfileLoadComplete) return;
         
         const offset = loadMoreSentinel.dataset.offset;
         const userId = window.profileUserId;
@@ -652,15 +694,14 @@ if (loadMoreSentinel && 'IntersectionObserver' in window) {
                     if (loadMoreSpinner) loadMoreSpinner.classList.add('hidden');
                     return;
                 } else {
-
                     const grid = document.getElementById('user-posts');
-                    grid.innerHTML += result.html;
-
-                    const newOffset = parseInt(offset) + result.count;
-                    loadMoreSentinel.dataset.offset = newOffset;
+                    if (grid) {
+                        grid.innerHTML += result.html;
+                        const newOffset = parseInt(offset) + result.count;
+                        loadMoreSentinel.dataset.offset = newOffset;
+                    }
                 }
             } else {
-
                 if (result.length === 0) {
                     observer.disconnect();
                     if (loadMoreSpinner) loadMoreSpinner.classList.add('hidden');
@@ -668,56 +709,133 @@ if (loadMoreSentinel && 'IntersectionObserver' in window) {
                 }
                 
                 const grid = document.getElementById('user-posts');
-                result.forEach(post => {
-                    const card = document.createElement('div');
-                    card.className = 'profile-post-card';
-                    card.dataset.postId = post.id;
-                    const isLiked = post.is_liked;
-                    card.innerHTML = `
-                        <div class="post-header-small">
-                            <div class="post-author-small">
-                                <img src="${post.author?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${post.author?.id||1}`}" alt="avatar" class="author-avatar-small">
-                                <div class="author-info-small">
-                                    <span class="author-name-small">${post.author?.username || 'Аноним'}</span>
-                                    <span class="post-time-small">${post.timeAgo || ''}</span>
+                if (grid) {
+                    result.forEach(post => {
+                        const card = document.createElement('div');
+                        card.className = 'profile-post-card';
+                        card.dataset.postId = post.id;
+                        const isLiked = post.is_liked;
+                        card.innerHTML = `
+                            <div class="post-header-small">
+                                <div class="post-author-small">
+                                    <img src="${post.author?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${post.author?.id || 1}`}" alt="avatar" class="author-avatar-small">
+                                    <div class="author-info-small">
+                                        <span class="author-name-small">${escapeHtml(post.author?.username || 'Аноним')}</span>
+                                        <span class="post-time-small">${post.timeAgo || ''}</span>
+                                    </div>
                                 </div>
+                                ${window.currentUserId == post.user_id ? `<button class="btn-delete-post" onclick="deletePost(${post.id})" title="Удалить">🗑️</button>` : ''}
                             </div>
-                            ${window.currentUserId == post.user_id ? `<button class="btn-delete-post" onclick="deletePost(${post.id})" title="Удалить">🗑️</button>` : ''}
-                        </div>
-                        <a href="/post/view?id=${post.id}" class="post-content-link">
-                            <p class="post-content-preview">${post.content || ''}</p>
-                        </a>
-                        <div class="post-actions-small">
-                            <button class="btn-action-small ${isLiked ? 'liked' : ''}" onclick="likePost(${post.id}, this)">
-                                <span>${isLiked ? '❤️' : '🤍'}</span>
-                                <span>${post.likes_count || 0}</span>
-                            </button>
-                            <a href="/post/view?id=${post.id}" class="btn-action-small">
-                                <span>💬</span>
-                                <span>${post.comments_count || 0}</span>
+                            <a href="/post/view?id=${post.id}" class="post-content-link">
+                                <p class="post-content-preview">${escapeHtml(post.content || '')}</p>
                             </a>
-                        </div>
-                    `;
-                    grid.appendChild(card);
-                });
+                            <div class="post-actions-small">
+                                <button class="btn-action-small ${isLiked ? 'liked' : ''}" onclick="likePost(${post.id}, this)">
+                                    <span>${isLiked ? '❤️' : '🤍'}</span>
+                                    <span>${post.likes_count || 0}</span>
+                                </button>
+                                <a href="/post/view?id=${post.id}" class="btn-action-small">
+                                    <span>💬</span>
+                                    <span>${post.comments_count || 0}</span>
+                                </a>
+                            </div>
+                        `;
+                        grid.appendChild(card);
+                    });
 
-                const newOffset = parseInt(offset) + result.length;
-                loadMoreSentinel.dataset.offset = newOffset;
+                    const newOffset = parseInt(offset) + result.length;
+                    loadMoreSentinel.dataset.offset = newOffset;
+                }
             }
 
             initializePosts();
         } catch (error) {
+            console.error('Error loading more posts:', error);
         } finally {
             isLoading = false;
             if (loadMoreSpinner) loadMoreSpinner.classList.add('hidden');
         }
     }, { rootMargin: '100px' });
     
-    observer.observe(loadMoreSentinel);
+observer.observe(loadMoreSentinel);
+}
+
+// Infinite scroll for saved posts
+if (document.getElementById('load-more-sentinel-saved') && 'IntersectionObserver' in window) {
+    let savedLoadingMore = false;
+    const savedObserver = new IntersectionObserver(async (entries) => {
+        const entry = entries[0];
+        if (!entry.isIntersecting || savedLoadingMore) return;
+        
+        const offset = document.getElementById('load-more-sentinel-saved')?.dataset.offset || 0;
+        const container = document.getElementById('user-saved');
+        const spinner = document.getElementById('load-more-spinner-saved');
+        
+        savedLoadingMore = true;
+        if (spinner) spinner.classList.remove('hidden');
+        
+        try {
+            const response = await fetch(`/profile/${window.profileUserId}/saved?offset=${offset}`);
+            const result = await response.json();
+            
+            if (result.html !== undefined && result.count > 0 && container) {
+                container.innerHTML += result.html;
+                document.getElementById('load-more-sentinel-saved').dataset.offset = parseInt(offset) + result.count;
+            } else {
+                savedObserver.disconnect();
+            }
+            initializePosts();
+        } catch (error) {
+            console.error('Error loading more saved:', error);
+        } finally {
+            savedLoadingMore = false;
+            if (spinner) spinner.classList.add('hidden');
+        }
+    }, { rootMargin: '100px' });
+    
+    savedObserver.observe(document.getElementById('load-more-sentinel-saved'));
+}
+
+// Infinite scroll for reposts
+if (document.getElementById('load-more-sentinel-reposts') && 'IntersectionObserver' in window) {
+    let repostsLoadingMore = false;
+    const repostsObserver = new IntersectionObserver(async (entries) => {
+        const entry = entries[0];
+        if (!entry.isIntersecting || repostsLoadingMore) return;
+        
+        const offset = document.getElementById('load-more-sentinel-reposts')?.dataset.offset || 0;
+        const container = document.getElementById('user-reposts');
+        const spinner = document.getElementById('load-more-spinner-reposts');
+        
+        repostsLoadingMore = true;
+        if (spinner) spinner.classList.remove('hidden');
+        
+        try {
+            const response = await fetch(`/profile/${window.profileUserId}/reposts?offset=${offset}`);
+            const result = await response.json();
+            
+            if (result.html !== undefined && result.count > 0 && container) {
+                container.innerHTML += result.html;
+                document.getElementById('load-more-sentinel-reposts').dataset.offset = parseInt(offset) + result.count;
+            } else {
+                repostsObserver.disconnect();
+            }
+            initializePosts();
+        } catch (error) {
+            console.error('Error loading more reposts:', error);
+        } finally {
+            repostsLoadingMore = false;
+            if (spinner) spinner.classList.add('hidden');
+        }
+    }, { rootMargin: '100px' });
+    
+    repostsObserver.observe(document.getElementById('load-more-sentinel-reposts'));
 }
 
 async function toggleFollow(userId) {
     const btn = document.getElementById('follow-btn');
+    if (!btn) return;
+    
     const isFollowing = btn.classList.contains('following');
     const action = isFollowing ? 'unfollow' : 'follow';
     
@@ -737,7 +855,7 @@ async function toggleFollow(userId) {
             showNotification(result.error || 'Ошибка', 'error');
         }
     } catch (error) {
-        
+        console.error('Error toggling follow:', error);
     }
 }
 
@@ -756,7 +874,7 @@ async function toggleFollowUser(btn, userId) {
             showNotification(result.error || 'Ошибка', 'error');
         }
     } catch (error) {
-        
+        console.error('Error toggling follow:', error);
     }
 }
 
@@ -770,14 +888,12 @@ function confirmDelete() {
     }
 }
 
-
-
 function showBlockModal(userId, username) {
     blockTargetUserId = userId;
     const modal = document.getElementById('block-modal');
     const nameEl = document.getElementById('block-modal-username');
     const confirmBtn = document.getElementById('block-confirm-btn');
-    
+
     if (nameEl) {
         nameEl.textContent = username;
     }
@@ -792,11 +908,9 @@ function showBlockModal(userId, username) {
                 doBlockUser(blockTargetUserId);
             }
         };
-    } else {
-        
     }
 }
-    
+
 function hideBlockModal() {
     const modal = document.getElementById('block-modal');
     if (modal) {
@@ -842,7 +956,7 @@ async function doBlockUser(userId) {
             showNotification(result.error || 'Ошибка блокировки', 'error');
         }
     } catch (error) {
-        
+        console.error('Error blocking user:', error);
         showNotification('Ошибка блокировки', 'error');
     }
 }
@@ -867,7 +981,7 @@ async function unblockUser(userId) {
             showNotification(result.error || 'Ошибка разблокировки', 'error');
         }
     } catch (error) {
-        
+        console.error('Error unblocking user:', error);
         showNotification('Ошибка разблокировки', 'error');
     }
 }
@@ -886,3 +1000,8 @@ function updateBlockButton(userId, isBlocked) {
         btn.onclick = () => showBlockModal(userId, username);
     }
 }
+
+window.likePost = likePost;
+window.toggleComments = toggleComments;
+window.deletePost = typeof deletePost !== 'undefined' ? deletePost : null;
+

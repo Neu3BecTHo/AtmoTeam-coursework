@@ -116,7 +116,8 @@ class PostController extends Controller
             return ['success' => false, 'error' => 'Пост не найден'];
         }
         
-        $data = $post->toArray();
+$data = $post->toArray();
+        $data['reposts_count'] = $post->getRepostsCount(); // Явно получаем актуальный счётчик
         $data['is_liked'] = !Yii::$app->user->isGuest && $post->isLikedBy(Yii::$app->user->id);
         $data['is_saved'] = !Yii::$app->user->isGuest && $post->isSavedBy(Yii::$app->user->id);
         $data['is_reposted'] = !Yii::$app->user->isGuest && $post->isRepostedBy(Yii::$app->user->id);

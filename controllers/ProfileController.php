@@ -13,6 +13,8 @@ use app\models\Follow;
 use yii\web\UploadedFile;
 use app\components\ApiValidator;
 use app\components\RateLimiter;
+use app\models\Repost;
+use app\models\SavedPost;
 
 class ProfileController extends Controller
 {
@@ -256,6 +258,56 @@ class ProfileController extends Controller
     }
 
     
+    public function actionSaved($id = null)
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        if (Yii::$app->user->isGuest) {
+            return ['html' => '', 'count' => 0];
+        }
+
+        $offset = (int) Yii::$app->request->get('offset', 0);
+        $userId = Yii::$app->user->id;
+
+        $posts = SavedPost::getUserSavedPosts($userId, 3, $offset);
+
+        $html = '';
+        foreach ($posts as $post) {
+            $html .= $this->renderPartial('/post/_post_card', ['post' => $post]);
+        }
+
+        return ['html' => $html, 'count' => count($posts)];
+    }
+
+    public function actionReposts($id = null)
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        if ($id === null) {
+            $id = Yii::$app->user->id;
+        }
+
+        $offset = (int) Yii::$app->request->get('offset', 0);
+
+        $reposts = Repost::find()
+            ->with(['post', 'post.user', 'post.poll.options'])
+            ->where(['user_id' => $id])
+            ->orderBy(['created_at' => SORT_DESC])
+            ->offset($offset)
+            ->limit(3)
+            ->all();
+
+        $html = '';
+        foreach ($reposts as $repost) {
+            $post = $repost->post;
+            if ($post && $post->user) {
+                $html .= $this->renderPartial('/post/_post_card', ['post' => $post]);
+            }
+        }
+
+        return ['html' => $html, 'count' => count($reposts)];
+    }
+
     public function actionUnfollow($id)
     {
         Yii::$app->response->format = Response::FORMAT_JSON;

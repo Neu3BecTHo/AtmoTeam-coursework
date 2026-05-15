@@ -103,20 +103,28 @@ $avatar = $user->getAvatarUrl();
 
     <!-- Tabs -->
     <div class="profile-tabs">
-        <button class="tab-btn active" data-tab="posts">Посты</button>
+        <button class="tab-btn active" data-tab="posts">📝 Посты</button>
+        <?php if ($isOwner): ?>
+            <button class="tab-btn" data-tab="saved">🔖 Сохранённые</button>
+            <button class="tab-btn" data-tab="reposts">🔄 Репосты</button>
+        <?php endif; ?>
         <button class="tab-btn" onclick="location.href='<?= Url::to(['/profile/followers', 'id' => $user->id]) ?>'">
-            Подписчики
+            👥 Подписчики
         </button>
         <button class="tab-btn" onclick="location.href='<?= Url::to(['/profile/following', 'id' => $user->id]) ?>'">
-            Подписки
+            📋 Подписки
         </button>
         <?php if ($isOwner): ?>
-            <button class="tab-btn" data-tab="settings">Настройки</button>
+            <button class="tab-btn" data-tab="settings">⚙️ Настройки</button>
         <?php endif; ?>
     </div>
 
     <!-- Content -->
     <div class="profile-content">
+        <?php if ($isOwner): ?>
+            <?= $this->render('/post/_create_form') ?>
+        <?php endif; ?>
+
         <!-- Posts Tab -->
         <div class="tab-content active" id="posts-tab">
             <div class="posts-container" id="user-posts">
@@ -132,6 +140,40 @@ $avatar = $user->getAvatarUrl();
             </div>
         </div>
 
+        <!-- Saved Tab (only for owner) -->
+        <?php if ($isOwner): ?>
+        <div class="tab-content" id="saved-tab" style="display: none;">
+            <div class="posts-container" id="user-saved">
+                <!-- Сохранённые посты -->
+            </div>
+            <div id="load-more-sentinel-saved" data-offset="0" style="height: 20px;"></div>
+            <div class="load-more-spinner hidden" id="load-more-spinner-saved">
+                <div class="spinner">
+                    <div class="spinner-ring"></div>
+                    <div class="spinner-ring"></div>
+                    <div class="spinner-ring"></div>
+                </div>
+            </div>
+        </div>
+        <?php endif; ?>
+
+        <!-- Reposts Tab (only for owner) -->
+        <?php if ($isOwner): ?>
+        <div class="tab-content" id="reposts-tab" style="display: none;">
+            <div class="posts-container" id="user-reposts">
+                <!-- Репосты -->
+            </div>
+            <div id="load-more-sentinel-reposts" data-offset="0" style="height: 20px;"></div>
+            <div class="load-more-spinner hidden" id="load-more-spinner-reposts">
+                <div class="spinner">
+                    <div class="spinner-ring"></div>
+                    <div class="spinner-ring"></div>
+                    <div class="spinner-ring"></div>
+                </div>
+            </div>
+        </div>
+        <?php endif; ?>
+
         <!-- Settings Tab (only for owner) -->
         <?php if ($isOwner): ?>
             <div class="tab-content" id="settings-tab" style="display: none;">
@@ -146,7 +188,9 @@ $avatar = $user->getAvatarUrl();
                 </div>
             </div>
         <?php endif; ?>
-    </div>
+
+
+
 </div>
 
 <!-- Block Confirmation Modal -->
@@ -167,15 +211,7 @@ $avatar = $user->getAvatarUrl();
     </div>
 </div>
 
-<!-- Post Comments Modal -->
-<div id="post-modal" class="modal hidden">
-    <div class="modal-overlay" onclick="closePostModal()"></div>
-    <div class="modal-content post-modal-content">
-        <button class="modal-close" onclick="closePostModal()">&times;</button>
-        <div id="post-modal-body"></div>
-        <div id="modal-comments-list"></div>
-    </div>
-</div>
+<?= $this->render('/post/_post_modal') ?>
 
 
 <script>

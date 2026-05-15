@@ -48,7 +48,7 @@ class Repost extends ActiveRecord
         return $this->hasOne(Post::class, ['id' => 'post_id']);
     }
 
-    public static function toggle($userId, $postId)
+public static function toggle($userId, $postId)
     {
         $existing = self::find()
             ->where(['user_id' => $userId, 'post_id' => $postId])
@@ -56,7 +56,8 @@ class Repost extends ActiveRecord
 
         if ($existing) {
             $existing->delete();
-            return ['reposted' => false, 'reposts_count' => self::getPostRepostsCount($postId)];
+            $newCount = self::getPostRepostsCount($postId);
+            return ['reposted' => false, 'reposts_count' => $newCount];
         } else {
             $repost = new self([
                 'user_id' => $userId,
@@ -64,7 +65,8 @@ class Repost extends ActiveRecord
                 'created_at' => time(),
             ]);
             $repost->save();
-            return ['reposted' => true, 'reposts_count' => self::getPostRepostsCount($postId)];
+            $newCount = self::getPostRepostsCount($postId);
+            return ['reposted' => true, 'reposts_count' => $newCount];
         }
     }
 

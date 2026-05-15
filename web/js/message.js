@@ -231,8 +231,8 @@ function initMessageHandlers() {
 
         if (receiverId) {
 
-            const isMobile = window.innerWidth < 768;
-            const pollInterval = isMobile ? 20000 : 10000; // 20с на мобильных, 10с на десктопе
+const isMobile = window.innerWidth < 768;
+            const pollInterval = isMobile ? 60000 : 30000; // 60с на мобильных, 30с на десктопе
             
             setInterval(pollMessages, pollInterval);
 
@@ -464,10 +464,10 @@ function formatDialogueTime(timestamp) {
 }
 
 if (window.location.pathname.includes('/message')) {
-    setInterval(updateUnreadCount, 10000); // Каждые 10 секунд
+    setInterval(updateUnreadCount, 30000); // Каждые 30 секунд
 
     if (window.location.pathname === '/message') {
-        setInterval(updateDialoguesList, 15000); // Каждые 15 секунд
+        setInterval(updateDialoguesList, 60000); // Каждые 60 секунд
 
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'visible') {
