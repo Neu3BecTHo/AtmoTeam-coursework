@@ -782,7 +782,8 @@ function likePost(postId, btn) {
             }
         }
     })
-    .catch(err => );
+    .catch(err => {});
+
 }
 
 function repostPost(postId) {
