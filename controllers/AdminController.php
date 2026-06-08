@@ -112,6 +112,9 @@ class AdminController extends Controller
     /**
      * Страница управления постами
      */
+    /**
+     * Страница управления постами
+     */
     public function actionPosts()
     {
         $posts = Post::find()
@@ -119,8 +122,18 @@ class AdminController extends Controller
             ->orderBy(['created_at' => SORT_DESC])
             ->all();
 
+        // Подсчёт статистики
+        $stats = [
+            'posts' => count($posts),
+            'today' => count(array_filter($posts, fn($p) => $p->created_at > time() - 86400)),
+            'poll' => count(array_filter($posts, fn($p) => $p->poll)),
+            'image' => count(array_filter($posts, fn($p) => $p->image)),
+            'likes' => array_sum(array_map(fn($p) => $p->likes_count, $posts)),
+        ];
+
         return $this->render('posts', [
             'posts' => $posts,
+            'stats' => $stats,  // ← добавить
         ]);
     }
 
@@ -177,24 +190,31 @@ class AdminController extends Controller
     /**
      * API: Удалить пост
      */
-    public function actionDeletePost($id)
+    public function actionDeletePost()  // убрали $id из параметров
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
-        
+
         $adminCheck = ApiValidator::requireAdmin();
         if ($adminCheck !== true) {
             return $adminCheck;
         }
-        
-        $post = Post::findOne($id);
+
+        $data = Yii::$app->request->post();
+        $postId = $data['post_id'] ?? null;
+
+        if (!$postId) {
+            return ['success' => false, 'error' => 'Не указан ID поста'];
+        }
+
+        $post = Post::findOne($postId);
         if (!$post) {
             return ['success' => false, 'error' => 'Пост не найден'];
         }
-        
+
         if ($post->delete()) {
             return ['success' => true];
         }
-        
+
         return ['success' => false, 'error' => 'Ошибка удаления'];
     }
 

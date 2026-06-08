@@ -12,10 +12,15 @@ $privateCount = 0;
 $activeCount = 0;
 
 foreach ($users as $user) {
-    if ($user->username === 'admin') $adminCount++;
-    elseif ($user->is_blocked ?? false) $blockedCount++;
-    elseif ($user->is_private ?? false) $privateCount++;
-    else $activeCount++;
+    if ($user->username === 'admin') {
+        $adminCount++;
+    } elseif ($user->is_blocked ?? false) {
+        $blockedCount++;
+    } elseif ($user->is_private ?? false) {
+        $privateCount++;
+    } else {
+        $activeCount++;
+    }
 }
 
 ?>
@@ -50,7 +55,8 @@ foreach ($users as $user) {
         <div class="section-header">
             <h3 class="section-title">👥 Список пользователей</h3>
             <div class="section-actions">
-                <input type="text" id="userSearch" class="search-input" placeholder="🔎 Поиск по имени или email..." style="width: 250px;">
+                <input type="text" id="userSearch" class="search-input" placeholder="🔎 Поиск по имени или email..."
+                    style="width: 250px;">
                 <button class="btn-refresh" onclick="location.reload()">🔄 Обновить</button>
             </div>
         </div>
@@ -69,23 +75,22 @@ foreach ($users as $user) {
                     </tr>
                 </thead>
                 <tbody id="users-tbody">
-                    <?php foreach ($users as $user): 
+                    <?php foreach ($users as $user):
                         $postsCount = $user->getPosts()->count();
                         $followersCount = $user->getFollowers()->count();
-                    ?>
-                        <tr class="user-row" 
-                            data-user-id="<?= $user->id ?>"
+                        ?>
+                        <tr class="user-row" data-user-id="<?= $user->id ?>"
                             data-username="<?= Html::encode(mb_strtolower($user->username)) ?>"
                             data-email="<?= Html::encode(mb_strtolower($user->email)) ?>"
                             data-status="<?= $user->username === 'admin' ? 'admin' : (($user->is_blocked ?? false) ? 'blocked' : (($user->is_private ?? false) ? 'private' : 'active')) ?>">
-                            
+
                             <!-- Пользователь -->
                             <td>
                                 <div class="user-info-cell">
                                     <a href="<?= Url::to(['/profile/view', 'id' => $user->id]) ?>" target="_blank">
                                         <img class="user-avatar-small"
-                                             src="<?= $user->avatar ?: 'https://api.dicebear.com/7.x/avataaars/svg?seed=' . $user->id ?>"
-                                             alt="<?= Html::encode($user->username) ?>">
+                                            src="<?= $user->avatar ?: 'https://api.dicebear.com/7.x/avataaars/svg?seed=' . $user->id ?>"
+                                            alt="<?= Html::encode($user->username) ?>">
                                     </a>
                                     <div class="user-details">
                                         <div class="username"><?= Html::encode($user->username) ?></div>
@@ -93,19 +98,19 @@ foreach ($users as $user) {
                                     </div>
                                 </div>
                             </td>
-                            
+
                             <!-- Email -->
                             <td>
                                 <div class="email-cell">
                                     <?= Html::encode($user->email) ?>
                                 </div>
                             </td>
-                            
+
                             <!-- Дата регистрации -->
                             <td>
                                 <div class="date-cell"><?= date('d.m.Y H:i', $user->created_at) ?></div>
                             </td>
-                            
+
                             <!-- Статус -->
                             <td>
                                 <div class="status-cell">
@@ -120,40 +125,37 @@ foreach ($users as $user) {
                                     <?php endif; ?>
                                 </div>
                             </td>
-                            
+
                             <!-- Посты -->
-                            <td> class="stats-cell"><?= number_format($postsCount) ?></div>
-                            </div>
-                            
+                            <td>
+                                <div class="stats-cell"><?= number_format($postsCount) ?></div>
+                            </td>
+
                             <!-- Подписчики -->
-                            <td> class="stats-cell"><?= number_format($followersCount) ?></div>
-                            </div>
-                            
+                            <td>
+                                <div class="stats-cell"><?= number_format($followersCount) ?></div>
+                            </td>
+
                             <!-- Действия -->
                             <td>
                                 <div class="user-actions">
-                                    <a href="<?= Url::to(['/profile/view', 'id' => $user->id]) ?>" 
-                                       class="action-btn view"
-                                       target="_blank"
-                                       title="Посмотреть профиль">👁️</a>
-                                    
+                                    <a href="<?= Url::to(['/profile/view', 'id' => $user->id]) ?>" class="action-btn view"
+                                        target="_blank" title="Посмотреть профиль">👁️</a>
+
                                     <?php if ($user->username !== 'admin'): ?>
                                         <?php if ($user->is_blocked ?? false): ?>
-                                            <button type="button" class="action-btn unblock" 
-                                                    data-user-id="<?= $user->id ?>"
-                                                    data-username="<?= Html::encode($user->username) ?>"
-                                                    title="Разблокировать">🔓</button>
-                                        <?php else: ?>
-                                            <button type="button" class="action-btn block" 
-                                                    data-user-id="<?= $user->id ?>"
-                                                    data-username="<?= Html::encode($user->username) ?>"
-                                                    title="Заблокировать">🔒</button>
-                                        <?php endif; ?>
-                                        
-                                        <button type="button" class="action-btn delete" 
-                                                data-user-id="<?= $user->id ?>"
+                                            <button type="button" class="action-btn unblock" data-user-id="<?= $user->id ?>"
                                                 data-username="<?= Html::encode($user->username) ?>"
-                                                title="Удалить пользователя">🗑️</button>
+                                                title="Разблокировать">🔓</button>
+                                        <?php else: ?>
+                                            <button type="button" class="action-btn block" data-user-id="<?= $user->id ?>"
+                                                data-username="<?= Html::encode($user->username) ?>"
+                                                title="Заблокировать">🔒</button>
+                                        <?php endif; ?>
+
+                                        <button type="button" class="action-btn delete" data-user-id="<?= $user->id ?>"
+                                            data-username="<?= Html::encode($user->username) ?>"
+                                            title="Удалить пользователя">🗑️</button>
                                     <?php endif; ?>
                                 </div>
                             </td>
@@ -169,86 +171,81 @@ foreach ($users as $user) {
 $blockUserUrl = Url::to(['/api/admin/block-user']);
 $unblockUserUrl = Url::to(['/api/admin/unblock-user']);
 $deleteUserUrl = Url::to(['/api/admin/delete-user']);
+$csrfToken = Yii::$app->request->csrfToken;
 
 $script = <<<JS
-// ==================== Search ====================
+function postWithCsrf(url, data) {
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+    return fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': csrfToken
+        },
+        body: JSON.stringify(data)
+    });
+}
+
 function searchUsers() {
     const searchTerm = document.getElementById('userSearch')?.value.toLowerCase() || '';
-    let visibleCount = 0;
-    
     document.querySelectorAll('.user-row').forEach(row => {
         const username = row.dataset.username || '';
         const email = row.dataset.email || '';
         const matches = searchTerm === '' || username.includes(searchTerm) || email.includes(searchTerm);
-        
         row.style.display = matches ? '' : 'none';
-        if (matches) visibleCount++;
     });
 }
 
-// ==================== Block User ====================
 async function blockUser(userId, username) {
-    if (typeof showDeleteModal !== 'function') return;
-    
-    showDeleteModal(`Заблокировать пользователя "${username}"?`, async () => {
-        try {
-            const response = await postWithCsrf('$blockUserUrl', { user_id: userId });
-            const result = await response.json();
-            if (result.success) {
-                showNotification(`Пользователь "${username}" заблокирован`, 'success');
-                location.reload();
-            } else {
-                showNotification(result.error || 'Ошибка блокировки', 'error');
-            }
-        } catch (error) {
-            showNotification('Ошибка блокировки', 'error');
+    if (!confirm(`Заблокировать пользователя \${username}?`)) return;
+    try {
+        const response = await postWithCsrf('$blockUserUrl', { user_id: userId });
+        const result = await response.json();
+        if (result.success) {
+            alert('Пользователь заблокирован');
+            location.reload();
+        } else {
+            alert(result.error || 'Ошибка блокировки');
         }
-    });
+    } catch (error) {
+        alert('Ошибка блокировки');
+    }
 }
 
-// ==================== Unblock User ====================
 async function unblockUser(userId, username) {
-    if (typeof showDeleteModal !== 'function') return;
-    
-    showDeleteModal(`Разблокировать пользователя "${username}"?`, async () => {
-        try {
-            const response = await postWithCsrf('$unblockUserUrl', { user_id: userId });
-            const result = await response.json();
-            if (result.success) {
-                showNotification(`Пользователь "${username}" разблокирован`, 'success');
-                location.reload();
-            } else {
-                showNotification(result.error || 'Ошибка разблокировки', 'error');
-            }
-        } catch (error) {
-            showNotification('Ошибка разблокировки', 'error');
+    if (!confirm(`Разблокировать пользователя \${username}?`)) return;
+    try {
+        const response = await postWithCsrf('$unblockUserUrl', { user_id: userId });
+        const result = await response.json();
+        if (result.success) {
+            alert('Пользователь разблокирован');
+            location.reload();
+        } else {
+            alert(result.error || 'Ошибка разблокировки');
         }
-    });
+    } catch (error) {
+        alert('Ошибка разблокировки');
+    }
 }
 
-// ==================== Delete User ====================
 async function deleteUser(userId, username) {
-    if (typeof showDeleteModal !== 'function') return;
-    
-    showDeleteModal(`Удалить пользователя "${username}"? Все его данные будут удалены безвозвратно!`, async () => {
-        try {
-            const response = await postWithCsrf('$deleteUserUrl', { user_id: userId });
-            const result = await response.json();
-            if (result.success) {
-                showNotification(`Пользователь "${username}" удалён`, 'success');
-                const row = document.querySelector(`.user-row[data-user-id="${userId}"]`);
-                if (row) row.remove();
-                searchUsers();
-            } else {
-                showNotification(result.error || 'Ошибка удаления', 'error');
-            }
-        } catch (error) {
-            showNotification('Ошибка удаления', 'error');
+    if (!confirm(`Удалить пользователя \${username}? Все его данные будут удалены безвозвратно!`)) return;
+    try {
+        const response = await postWithCsrf('$deleteUserUrl', { user_id: userId });
+        const result = await response.json();
+        if (result.success) {
+            alert('Пользователь удалён');
+            const row = document.querySelector('.user-row[data-user-id=\"' + userId + '\"]');
+            if (row) row.remove();
+            searchUsers();
+        } else {
+            alert(result.error || 'Ошибка удаления');
         }
-    });
+    } catch (error) {
+        alert('Ошибка удаления');
+    }
 }
 
-// ==================== Event Listeners ====================
 document.addEventListener('DOMContentLoaded', function() {
     const searchInput = document.getElementById('userSearch');
     if (searchInput) {
@@ -260,7 +257,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// ==================== Event Delegation ====================
 document.addEventListener('click', function(e) {
     const blockBtn = e.target.closest('.action-btn.block');
     if (blockBtn) {
@@ -287,11 +283,11 @@ document.addEventListener('click', function(e) {
     }
 });
 
-// ==================== Exports ====================
 window.blockUser = blockUser;
 window.unblockUser = unblockUser;
 window.deleteUser = deleteUser;
 window.searchUsers = searchUsers;
+window.postWithCsrf = postWithCsrf;
 JS;
 $this->registerJs($script);
 ?>
