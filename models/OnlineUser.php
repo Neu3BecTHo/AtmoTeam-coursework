@@ -2,15 +2,39 @@
 
 namespace app\models;
 
-use yii\db\ActiveRecord;
 use Yii;
+use yii\db\ActiveRecord;
+use yii\behaviors\TimestampBehavior;
 
-
+/**
+ * OnlineUser model
+ *
+ * @property int $id
+ * @property int $user_id
+ * @property string $session_id
+ * @property string $ip_address
+ * @property string|null $user_agent
+ * @property int $last_activity
+ * @property int $created_at
+ */
 class OnlineUser extends ActiveRecord
 {
+    const ONLINE_TTL = 1800; // 30 минут
+
     public static function tableName()
     {
         return '{{%online_user}}';
+    }
+
+    public function behaviors()
+    {
+        return [
+            [
+                'class' => TimestampBehavior::class,
+                'updatedAtAttribute' => false,
+                'createdAtAttribute' => 'created_at',
+            ],
+        ];
     }
 
     public function rules()
@@ -25,21 +49,31 @@ class OnlineUser extends ActiveRecord
         ];
     }
 
+    public function attributeLabels()
+    {
+        return [
+            'id' => 'ID',
+            'user_id' => 'Пользователь',
+            'session_id' => 'Сессия',
+            'ip_address' => 'IP-адрес',
+            'user_agent' => 'Браузер',
+            'last_activity' => 'Последняя активность',
+            'created_at' => 'Время входа',
+        ];
+    }
+
     public function getUser()
     {
         return $this->hasOne(User::class, ['id' => 'user_id']);
     }
 
-    
     public static function updateActivity($userId)
     {
-        if (Yii::$app->user->isGuest) {
+        $sessionId = session_id();
+        if (!$sessionId) {
             return false;
         }
 
-        $sessionId = session_id();
-        $ipAddress = Yii::$app->request->userIP;
-        $userAgent = Yii::$app->request->userAgent;
         $now = time();
 
         $onlineUser = self::find()
@@ -47,95 +81,69 @@ class OnlineUser extends ActiveRecord
             ->one();
 
         if ($onlineUser) {
-
             $onlineUser->last_activity = $now;
-            $onlineUser->save(false);
-        } else {
-
-            $onlineUser = new self([
-                'user_id' => $userId,
-                'session_id' => $sessionId,
-                'ip_address' => $ipAddress,
-                'user_agent' => $userAgent,
-                'last_activity' => $now,
-                'created_at' => $now,
-            ]);
-            $onlineUser->save();
+            return $onlineUser->save(false);
         }
 
-        self::cleanup();
+        $onlineUser = new self([
+            'user_id' => $userId,
+            'session_id' => $sessionId,
+            'ip_address' => Yii::$app->request->userIP,
+            'user_agent' => Yii::$app->request->userAgent,
+            'last_activity' => $now,
+        ]);
 
-        return true;
+        return $onlineUser->save();
     }
 
-    
     public static function removeUser($userId)
     {
         return self::deleteAll(['user_id' => $userId]);
     }
 
-    
     public static function getOnlineCount()
     {
         return self::find()
-            ->where(['>', 'last_activity', time() - 30 * 60]) // Активные последние 30 минут
+            ->where(['>', 'last_activity', time() - self::ONLINE_TTL])
             ->count();
     }
 
-    
     public static function getOnlineUsers($limit = 50)
     {
         return self::find()
-            ->with(['user'])
-            ->where(['>', 'last_activity', time() - 30 * 60])
+            ->with('user')
+            ->where(['>', 'last_activity', time() - self::ONLINE_TTL])
             ->orderBy(['last_activity' => SORT_DESC])
             ->limit($limit)
             ->all();
     }
 
-    
     public static function isUserOnline($userId)
     {
         return self::find()
             ->where(['user_id' => $userId])
-            ->andWhere(['>', 'last_activity', time() - 30 * 60])
+            ->andWhere(['>', 'last_activity', time() - self::ONLINE_TTL])
             ->exists();
     }
 
-    
-    public static function cleanup()
-    {
-        return self::deleteAll(['<', 'last_activity', time() - 30 * 60]);
-    }
-
-    
     public static function getOnlineFriends($userId, $limit = 20)
     {
-
         $followingIds = Follow::getFollowingIds($userId);
         if (empty($followingIds)) {
             return [];
         }
 
         return self::find()
-            ->with(['user'])
+            ->with('user')
             ->where(['in', 'user_id', $followingIds])
-            ->andWhere(['>', 'last_activity', time() - 30 * 60])
+            ->andWhere(['>', 'last_activity', time() - self::ONLINE_TTL])
             ->orderBy(['last_activity' => SORT_DESC])
             ->limit($limit)
             ->all();
     }
 
-    public function beforeSave($insert)
+    public static function cleanup()
     {
-        if (!parent::beforeSave($insert)) {
-            return false;
-        }
-
-        if ($insert) {
-            $this->created_at = time();
-        }
-
-        return true;
+        return self::deleteAll(['<', 'last_activity', time() - self::ONLINE_TTL]);
     }
 }

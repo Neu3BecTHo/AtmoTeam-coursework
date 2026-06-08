@@ -2,8 +2,22 @@
 
 namespace app\models;
 
+use Yii;
 use yii\db\ActiveRecord;
+use yii\behaviors\TimestampBehavior;
+use yii\web\UploadedFile;
+use yii\helpers\FileHelper;
 
+/**
+ * Story model
+ *
+ * @property int $id
+ * @property int $user_id
+ * @property string $image
+ * @property string|null $caption
+ * @property int $expires_at
+ * @property int $created_at
+ */
 class Story extends ActiveRecord
 {
     public $imageFile;
@@ -13,18 +27,29 @@ class Story extends ActiveRecord
         return '{{%story}}';
     }
 
+    public function behaviors()
+    {
+        return [
+            [
+                'class' => TimestampBehavior::class,
+                'updatedAtAttribute' => false,
+                'createdAtAttribute' => 'created_at',
+            ],
+        ];
+    }
+
     public function rules()
     {
         return [
             [['user_id'], 'required'],
-            [['user_id'], 'integer'],
+            [['user_id', 'expires_at', 'created_at'], 'integer'],
             [['caption'], 'string'],
             [['image'], 'string', 'max' => 255],
-            [['imageFile'], 'file', 
-                'extensions' => ['jpg', 'jpeg', 'png', 'gif', 'webp'], 
-                'maxSize' => 10 * 1024 * 1024, // 10MB
+            [['imageFile'], 'file',
+                'extensions' => ['jpg', 'jpeg', 'png', 'gif', 'webp'],
+                'maxSize' => 10 * 1024 * 1024,
                 'skipOnEmpty' => true,
-                'wrongExtension' => 'Неподдерживаемый формат. Допустимы: JPG, PNG, GIF, WebP',
+                'wrongExtension' => 'Неподдерживаемый формат. Допустимы: JPG, PNG, GIF, WEBP',
             ],
         ];
     }
@@ -33,11 +58,12 @@ class Story extends ActiveRecord
     {
         return [
             'id' => 'ID',
-            'user_id' => 'Автор',
-            'image' => 'Изображение',
+            'user_id' => 'Пользователь',
+            'image' => 'Изображение истории',
+            'imageFile' => 'Файл истории',
             'caption' => 'Подпись',
-            'created_at' => 'Создано',
-            'expires_at' => 'Истекает',
+            'expires_at' => 'Истекает через',
+            'created_at' => 'Дата создания',
         ];
     }
 
@@ -52,77 +78,39 @@ class Story extends ActiveRecord
             return false;
         }
 
-        if ($insert) {
-
+        if ($insert && !$this->expires_at) {
             $this->expires_at = time() + 24 * 60 * 60;
-            $this->created_at = time();
         }
 
-        if ($this->imageFile) {
-            $filename = 'story_' . $this->user_id . '_' . time() . '.' . $this->imageFile->extension;
-            $path = \Yii::getAlias('@webroot/uploads/stories/');
-            
-            if (!is_dir($path)) {
-                mkdir($path, 0777, true);
-            }
-            
-            if ($this->imageFile->saveAs($path . $filename)) {
-                $this->image = $filename;
-            }
-            
-            $this->imageFile = null;
-        }
+        $this->uploadImage();
 
         return true;
     }
 
-    
-    public static function createStory($userId, $image, $caption = null)
+    private function uploadImage()
     {
-        $story = new self([
-            'user_id' => $userId,
-            'image' => $image,
-            'caption' => $caption,
-            'created_at' => time(),
-        ]);
+        if (!$this->imageFile instanceof UploadedFile) {
+            return;
+        }
 
-        return $story->save() ? $story : null;
+        $uploadDir = Yii::getAlias('@webroot/uploads/stories/');
+        FileHelper::createDirectory($uploadDir, 0755);
+
+        $filename = 'story_' . $this->user_id . '_' . time() . '.' . $this->imageFile->extension;
+        
+        if ($this->imageFile->saveAs($uploadDir . $filename)) {
+            $this->image = $filename;
+        }
+
+        $this->imageFile = null;
     }
 
-    
-    public static function getFollowingStories($userId, $limit = 20)
-    {
-        $followingIds = Follow::getFollowingIds($userId);
-        $followingIds[] = $userId; // Include own stories
-
-        return self::find()
-            ->with('user')
-            ->where(['user_id' => $followingIds])
-            ->andWhere(['>', 'expires_at', time()])
-            ->orderBy(['created_at' => SORT_DESC])
-            ->limit($limit)
-            ->all();
-    }
-
-    
-    public static function getUserStories($userId, $limit = 10)
-    {
-        return self::find()
-            ->where(['user_id' => $userId])
-            ->andWhere(['>', 'expires_at', time()])
-            ->orderBy(['created_at' => SORT_DESC])
-            ->limit($limit)
-            ->all();
-    }
-
-    
-    public function isActive()
+    public function isActive(): bool
     {
         return $this->expires_at > time();
     }
 
-    
-    public function getTimeLeft()
+    public function getTimeLeft(): string
     {
         $timeLeft = $this->expires_at - time();
         
@@ -140,16 +128,9 @@ class Story extends ActiveRecord
         return $minutes . 'м';
     }
 
-    
-    public static function deleteExpired()
+    public function getImageUrl(): ?string
     {
-        return self::deleteAll(['<', 'expires_at', time()]);
-    }
-
-    
-    public function getImageUrl()
-    {
-        if (empty($this->image)) {
+        if (!$this->image) {
             return null;
         }
         
@@ -157,36 +138,10 @@ class Story extends ActiveRecord
             return $this->image;
         }
         
-        return \Yii::$app->request->baseUrl . '/uploads/stories/' . $this->image;
+        return Yii::$app->request->baseUrl . '/uploads/stories/' . $this->image;
     }
 
-    public function afterDelete()
-    {
-        parent::afterDelete();
-
-        if ($this->image) {
-            $path = \Yii::getAlias('@webroot/uploads/stories/' . $this->image);
-            if (file_exists($path)) {
-                unlink($path);
-            }
-        }
-    }
-
-    public function toArray(array $fields = [], array $expand = [], $recursive = true)
-    {
-        $data = parent::toArray($fields, $expand, $recursive);
-        $data['author'] = $this->user ? [
-            'id' => $this->user->id,
-            'username' => $this->user->username,
-            'avatar' => $this->user->avatar ?: 'https://api.dicebear.com/7.x/avataaars/svg?seed=' . $this->user->id,
-        ] : null;
-        $data['image_url'] = $this->getImageUrl();
-        $data['time_left'] = $this->getTimeLeft();
-        $data['timeAgo'] = $this->getTimeAgo();
-        return $data;
-    }
-
-    public function getTimeAgo()
+    public function getTimeAgo(): string
     {
         $diff = time() - $this->created_at;
         
@@ -195,5 +150,68 @@ class Story extends ActiveRecord
         if ($diff < 86400) return floor($diff / 3600) . ' ч. назад';
         
         return date('d.m.Y', $this->created_at);
+    }
+
+    public static function getFollowingStories($userId, $limit = 20)
+    {
+        $followingIds = Follow::getFollowingIds($userId);
+        $followingIds[] = $userId;
+
+        return self::find()
+            ->with('user')
+            ->where(['user_id' => $followingIds])
+            ->andWhere(['>', 'expires_at', time()])
+            ->orderBy(['created_at' => SORT_DESC])
+            ->limit($limit)
+            ->all();
+    }
+
+    public static function getUserStories($userId, $limit = 10)
+    {
+        return self::find()
+            ->where(['user_id' => $userId])
+            ->andWhere(['>', 'expires_at', time()])
+            ->orderBy(['created_at' => SORT_DESC])
+            ->limit($limit)
+            ->all();
+    }
+
+    public static function deleteExpired()
+    {
+        return self::deleteAll(['<', 'expires_at', time()]);
+    }
+
+    public function afterDelete()
+    {
+        parent::afterDelete();
+
+        if ($this->image) {
+            $path = Yii::getAlias('@webroot/uploads/stories/' . $this->image);
+            if (file_exists($path)) {
+                unlink($path);
+            }
+        }
+    }
+
+    public function fields()
+    {
+        return [
+            'id',
+            'user_id',
+            'image_url' => 'imageUrl',
+            'caption',
+            'expires_at',
+            'created_at',
+            'time_left' => 'timeLeft',
+            'timeAgo' => 'timeAgo',
+            'is_active' => 'isActive',
+            'author' => function () {
+                return $this->user ? [
+                    'id' => $this->user->id,
+                    'username' => $this->user->username,
+                    'avatar' => $this->user->avatar ?: 'https://api.dicebear.com/7.x/avataaars/svg?seed=' . $this->user->id,
+                ] : null;
+            },
+        ];
     }
 }

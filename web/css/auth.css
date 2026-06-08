@@ -1,3 +1,6 @@
+/* ============================================
+   Auth Pages Styles
+   ============================================ */
 
 .auth-container {
     min-height: 100vh;
@@ -9,6 +12,7 @@
 }
 
 .auth-card {
+    position: relative;
     background-color: var(--surface-0);
     border: 1px solid var(--border-primary);
     border-radius: var(--radius-2xl);
@@ -16,10 +20,27 @@
     width: 100%;
     max-width: 400px;
     box-shadow: var(--shadow-2xl);
+    overflow: hidden;
+    transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+.auth-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle at 20% 20%, rgba(59,130,246,0.08), transparent 34%);
+    opacity: 0.85;
+    pointer-events: none;
+}
+.auth-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-2xl);
 }
 
 .auth-title {
-    font-size: var(--text-3xl);
+    font-size: var(--text-xl);
     font-weight: var(--font-bold);
     text-align: center;
     margin-bottom: var(--space-2);
@@ -32,130 +53,6 @@
     margin-bottom: var(--space-8);
     font-size: var(--text-sm);
 }
-
-
-.form-group {
-    margin-bottom: var(--space-5);
-}
-
-.form-label {
-    display: block;
-    font-size: var(--text-sm);
-    font-weight: var(--font-medium);
-    color: var(--text-primary);
-    margin-bottom: var(--space-2);
-}
-
-.form-input {
-    width: 100%;
-    padding: var(--form-padding);
-    border: var(--form-border);
-    border-radius: var(--form-radius);
-    font-size: var(--text-base);
-    background-color: var(--surface-0);
-    color: var(--text-primary);
-    transition: all var(--transition-fast);
-}
-
-.form-input::placeholder {
-    color: var(--text-quaternary);
-}
-
-.form-input:focus {
-    outline: none;
-    border: var(--form-focus-border);
-    box-shadow: var(--form-focus-shadow);
-    background-color: var(--surface-0);
-}
-
-.form-error {
-    color: var(--error);
-    font-size: var(--text-xs);
-    margin-top: var(--space-1);
-}
-
-.help-block {
-    color: var(--text-tertiary);
-    font-size: var(--text-xs);
-    margin-top: var(--space-1);
-}
-
-
-.checkbox-wrapper {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    margin: var(--space-4) 0;
-}
-
-.checkbox-wrapper input[type="checkbox"] {
-    width: var(--space-4);
-    height: var(--space-4);
-    accent-color: var(--primary-600);
-}
-
-.checkbox-label {
-    font-size: var(--text-sm);
-    color: var(--text-primary);
-    cursor: pointer;
-}
-
-
-.form-actions {
-    display: flex;
-    gap: var(--space-3);
-    margin-top: var(--space-6);
-}
-
-.btn-primary,
-.btn-cancel,
-.btn-save {
-    flex: 1;
-    padding: var(--btn-padding-md);
-    border-radius: var(--btn-radius);
-    font-size: var(--btn-font-size-md);
-    font-weight: var(--font-medium);
-    cursor: pointer;
-    transition: all var(--btn-transition);
-    text-align: center;
-    text-decoration: none;
-}
-
-.btn-save {
-    background-color: var(--primary-600);
-    color: var(--text-inverse);
-    border: none;
-}
-
-.btn-save:hover {
-    background-color: var(--primary-700);
-    transform: translateY(-1px);
-    box-shadow: var(--shadow-md);
-}
-
-.btn-primary {
-    background-color: var(--primary-600);
-    color: var(--text-inverse);
-    border: none;
-}
-
-.btn-primary:hover {
-    background-color: var(--primary-700);
-    transform: translateY(-1px);
-    box-shadow: var(--shadow-md);
-}
-
-.btn-cancel {
-    background-color: var(--surface-100);
-    color: var(--text-primary);
-    border: 1px solid var(--border-primary);
-}
-
-.btn-cancel:hover {
-    background-color: var(--surface-200);
-    border-color: var(--border-secondary);
-}
-
 
 .auth-footer {
     text-align: center;
@@ -180,18 +77,17 @@
     color: var(--primary-700);
 }
 
-
+/* Avatar Preview */
 #avatar-preview {
     width: 120px;
     height: 120px;
     border-radius: 50%;
     object-fit: cover;
     border: 2px solid var(--border-primary);
-    transition: all var(--transition-normal);
     box-shadow: var(--shadow-md);
 }
 
-
+/* Edit Profile */
 .edit-profile-container {
     max-width: 800px;
     margin: 0 auto;
@@ -234,6 +130,16 @@
 
 .file-upload {
     margin-bottom: var(--space-4);
+    position: relative;
+}
+
+.file-upload input[type="file"] {
+    position: absolute;
+    width: 0.1px;
+    height: 0.1px;
+    opacity: 0;
+    overflow: hidden;
+    z-index: -1;
 }
 
 .file-upload-label {
@@ -256,7 +162,7 @@
     border-color: var(--border-secondary);
 }
 
-
+/* Danger Zone */
 .danger-zone {
     background-color: var(--error-lighter);
     border: 1px solid var(--error);
@@ -278,70 +184,18 @@
     margin-bottom: var(--space-4);
 }
 
-.btn-delete-account {
-    padding: var(--space-3) var(--space-4);
-    background-color: var(--error-light);
-    color: var(--error);
-    border: 1px solid var(--error);
-    border-radius: var(--radius-lg);
-    font-size: var(--text-sm);
-    font-weight: var(--font-medium);
-    cursor: pointer;
-    transition: all var(--transition-fast);
-}
-
-.btn-delete-account:hover {
-    background-color: var(--error);
-    color: var(--text-inverse);
-    transform: translateY(-1px);
-    box-shadow: var(--shadow-sm);
-}
-
-
+/* Responsive */
 @media (max-width: 640px) {
-    .auth-container {
-        padding: var(--space-4);
-    }
-    
-    .auth-card {
-        padding: var(--space-8);
-        margin: var(--space-4);
-    }
-    
-    .edit-profile-container {
-        padding: var(--space-4);
-    }
-    
-    .edit-card {
-        padding: var(--space-6);
-        margin: var(--space-4);
-    }
+    .auth-container { padding: var(--space-4); }
+    .auth-card { padding: var(--space-8); margin: var(--space-4); }
+    .edit-profile-container { padding: var(--space-4); }
+    .edit-card { padding: var(--space-6); margin: var(--space-4); }
 }
 
 @media (max-width: 480px) {
-    .auth-container {
-        padding: var(--space-3);
-    }
-    
-    .auth-card {
-        padding: var(--space-6);
-        margin: var(--space-3);
-    }
-    
-    .auth-title {
-        font-size: var(--text-2xl);
-    }
-    
-    .edit-profile-container {
-        padding: var(--space-3);
-    }
-    
-    .edit-card {
-        padding: var(--space-4);
-        margin: var(--space-3);
-    }
-    
-    .edit-title {
-        font-size: var(--text-2xl);
-    }
+    .auth-container { padding: var(--space-3); }
+    .auth-card { padding: var(--space-6); margin: var(--space-3); }
+    .auth-title { font-size: var(--text-2xl); }
+    .edit-title { font-size: var(--text-2xl); }
+    .edit-card { padding: var(--space-4); margin: var(--space-3); }
 }

@@ -2,8 +2,18 @@
 
 namespace app\models;
 
+use Yii;
 use yii\db\ActiveRecord;
+use yii\behaviors\TimestampBehavior;
 
+/**
+ * Repost model
+ *
+ * @property int $id
+ * @property int $user_id
+ * @property int $post_id
+ * @property int $created_at
+ */
 class Repost extends ActiveRecord
 {
     public static function tableName()
@@ -13,28 +23,31 @@ class Repost extends ActiveRecord
 
     public function behaviors()
     {
-        return [];
-    }
-
-    public function beforeSave($insert)
-    {
-        if (!parent::beforeSave($insert)) {
-            return false;
-        }
-        
-        if ($insert) {
-            $this->created_at = time();
-        }
-        
-        return true;
+        return [
+            [
+                'class' => TimestampBehavior::class,
+                'updatedAtAttribute' => false,
+                'createdAtAttribute' => 'created_at',
+            ],
+        ];
     }
 
     public function rules()
     {
         return [
             [['user_id', 'post_id'], 'required'],
-            [['user_id', 'post_id'], 'integer'],
+            [['user_id', 'post_id', 'created_at'], 'integer'],
             [['user_id', 'post_id'], 'unique', 'targetAttribute' => ['user_id', 'post_id']],
+        ];
+    }
+
+    public function attributeLabels()
+    {
+        return [
+            'id' => 'ID',
+            'user_id' => 'Пользователь',
+            'post_id' => 'Пост',
+            'created_at' => 'Дата репоста',
         ];
     }
 
@@ -48,7 +61,7 @@ class Repost extends ActiveRecord
         return $this->hasOne(Post::class, ['id' => 'post_id']);
     }
 
-public static function toggle($userId, $postId)
+    public static function toggle($userId, $postId)
     {
         $existing = self::find()
             ->where(['user_id' => $userId, 'post_id' => $postId])
@@ -56,28 +69,28 @@ public static function toggle($userId, $postId)
 
         if ($existing) {
             $existing->delete();
-            $newCount = self::getPostRepostsCount($postId);
-            return ['reposted' => false, 'reposts_count' => $newCount];
         } else {
             $repost = new self([
                 'user_id' => $userId,
                 'post_id' => $postId,
-                'created_at' => time(),
             ]);
             $repost->save();
-            $newCount = self::getPostRepostsCount($postId);
-            return ['reposted' => true, 'reposts_count' => $newCount];
         }
+
+        return [
+            'reposted' => !$existing,
+            'reposts_count' => self::getPostRepostsCount($postId),
+        ];
     }
 
-    public static function isRepostedBy($userId, $postId)
+    public static function isRepostedBy($userId, $postId): bool
     {
         return self::find()
             ->where(['user_id' => $userId, 'post_id' => $postId])
             ->exists();
     }
 
-    public static function getPostRepostsCount($postId)
+    public static function getPostRepostsCount($postId): int
     {
         return self::find()
             ->where(['post_id' => $postId])
@@ -93,5 +106,15 @@ public static function toggle($userId, $postId)
             ->limit($limit)
             ->offset($offset)
             ->all();
+    }
+
+    public function fields()
+    {
+        return [
+            'id',
+            'user_id',
+            'post_id',
+            'created_at',
+        ];
     }
 }

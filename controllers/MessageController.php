@@ -7,13 +7,22 @@ use yii\web\Controller;
 use yii\web\Response;
 use yii\web\NotFoundHttpException;
 use yii\filters\AccessControl;
+use yii\web\UploadedFile;
+use yii\helpers\FileHelper;
 use app\models\User;
 use app\models\Message;
+use app\models\Notification;
 use app\components\ApiValidator;
 use app\components\RateLimiter;
 
+/**
+ * MessageController - контроллер для работы с сообщениями
+ */
 class MessageController extends Controller
 {
+    /**
+     * @inheritdoc
+     */
     public function behaviors()
     {
         return [
@@ -21,7 +30,7 @@ class MessageController extends Controller
                 'class' => AccessControl::class,
                 'rules' => [
                     [
-                        'actions' => ['index', 'dialogue', 'get-dialogue', 'send', 'mark-read', 'unread-count', 'get-dialogues'],
+                        'actions' => ['index', 'dialogue', 'get-dialogue', 'send', 'mark-read', 'unread-count', 'get-dialogues', 'upload-images'],
                         'allow' => true,
                         'roles' => ['@'],
                     ],
@@ -30,67 +39,34 @@ class MessageController extends Controller
         ];
     }
 
-    
+    /**
+     * @inheritdoc
+     */
+    public function beforeAction($action)
+    {
+        if (in_array($action->id, ['send', 'mark-read', 'unread-count', 'get-dialogues', 'upload-images'])) {
+            $this->enableCsrfValidation = false;
+        }
+        
+        return parent::beforeAction($action);
+    }
+
+    /**
+     * Страница диалогов
+     */
     public function actionIndex()
     {
         $userId = Yii::$app->user->id;
-
-        $currentUserId = Yii::$app->user->id;
-        
-        $dialogues = (new \yii\db\Query())
-            ->select([
-                'u.id',
-                'u.username', 
-                'u.avatar',
-                'm.created_at as last_message_time',
-                'm.content as last_message',
-                'SUM(CASE WHEN m.sender_id != :current_user_id AND m.is_read = 0 THEN 1 ELSE 0 END) as unread_count'
-            ])
-            ->from('message m')
-            ->innerJoin('user u', '(u.id = m.sender_id AND u.id != :current_user_id) OR (u.id = m.receiver_id AND u.id != :current_user_id)')
-            ->where(['or', 
-                ['m.sender_id' => $currentUserId],
-                ['m.receiver_id' => $currentUserId]
-            ])
-            ->andWhere(['m.id' => (new \yii\db\Query())
-                ->select('MAX(id)')
-                ->from('message m2')
-                ->where(['or', 
-                    ['m2.sender_id' => $currentUserId, 'm2.receiver_id' => new \yii\db\Expression('u.id')],
-                    ['m2.receiver_id' => $currentUserId, 'm2.sender_id' => new \yii\db\Expression('u.id')]
-                ])
-            ])
-            ->addParams([':current_user_id' => $currentUserId])
-            ->groupBy(['u.id', 'u.username', 'u.avatar', 'm.created_at', 'm.content'])
-            ->orderBy(['last_message_time' => SORT_DESC])
-            ->all();
-
-        $dialoguesWithUsers = [];
-        $currentUser = User::findOne(Yii::$app->user->id);
-        foreach ($dialogues as $dialogue) {
-
-            if (!$currentUser->canInteractWith($dialogue['id'])) {
-                continue;
-            }
-            
-            $dialoguesWithUsers[] = [
-                'user' => [
-                    'id' => $dialogue['id'],
-                    'username' => $dialogue['username'],
-                    'avatar' => $dialogue['avatar'] ?: 'https://api.dicebear.com/7.x/avataaars/svg?seed=' . $dialogue['id'],
-                ],
-                'last_message_time' => $dialogue['last_message_time'],
-                'last_message' => $dialogue['last_message'],
-                'unread_count' => (int)$dialogue['unread_count'],
-            ];
-        }
+        $dialogues = Message::getDialogues($userId);
         
         return $this->render('index', [
-            'dialogues' => $dialoguesWithUsers,
+            'dialogues' => $dialogues,
         ]);
     }
 
-    
+    /**
+     * Страница диалога с пользователем
+     */
     public function actionDialogue($id = null)
     {
         if (!$id) {
@@ -104,14 +80,13 @@ class MessageController extends Controller
             throw new NotFoundHttpException('Пользователь не найден');
         }
 
-        $currentUser = User::findOne($userId);
-        if (!$currentUser->canInteractWith($id)) {
+        $currentUser = Yii::$app->user->identity;
+        if (!$currentUser instanceof User || !$currentUser->canInteractWith($id)) {
             Yii::$app->session->setFlash('error', 'Вы не можете общаться с этим пользователем');
             return $this->redirect(['/message/index']);
         }
 
         Message::markAsRead($userId, $id);
-
         $messages = Message::getDialogue($userId, $id);
         
         return $this->render('dialogue', [
@@ -120,57 +95,69 @@ class MessageController extends Controller
         ]);
     }
 
-    
+    /**
+     * API: Отправить сообщение
+     */
     public function actionSend()
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
 
         $authCheck = ApiValidator::requireAuth();
-        if ($authCheck !== true) {
-            return $authCheck;
-        }
+        if ($authCheck !== true) return $authCheck;
 
         $rateLimitCheck = RateLimiter::checkMessageLimit();
-        if ($rateLimitCheck !== true) {
-            return $rateLimitCheck;
+        if ($rateLimitCheck !== true) return $rateLimitCheck;
+
+        $data = ApiValidator::getRequestData();
+        $receiverId = $data['receiver_id'] ?? null;
+        $encryptedText = $data['encrypted_text'] ?? '';
+        $encryptedKey = $data['encrypted_key'] ?? '';
+        $content = trim($data['content'] ?? '');
+
+        // 1. Проверяем наличие хоть каких-то данных
+        if (empty($encryptedText) && empty($encryptedKey) && empty($content)) {
+            return ApiValidator::error('Нет данных сообщения');
         }
 
-        $data = json_decode(Yii::$app->request->getRawBody(), true);
-        $receiverId = $data['receiver_id'] ?? Yii::$app->request->post('receiver_id');
-        $content = $data['content'] ?? Yii::$app->request->post('content');
-        
-        if (empty($content)) {
-            return ApiValidator::error('Некорректное сообщение');
-        }
-
-        $contentLength = mb_strlen($content, 'UTF-8');
-        if ($contentLength > 1000) {
-            return ApiValidator::error('Сообщение слишком длинное (максимум 1000 символов)');
-        }
-        
+        // 2. Проверяем получателя
         $receiver = User::findOne($receiverId);
         if (!$receiver) {
             return ApiValidator::error('Пользователь не найден');
         }
-        
-        if (!Message::canSendMessage(Yii::$app->user->id, $receiverId)) {
-            return ['success' => false, 'error' => 'Нельзя отправлять сообщения этому пользователю'];
+
+        // 3. Проверяем возможность отправки (блокировки и т.д.)
+        if (!Message::canSendMessage(Yii::$app->user->id, (int)$receiverId)) {
+            return ApiValidator::error('Нельзя отправлять сообщения этому пользователю');
         }
-        
-        $message = Message::sendMessage(Yii::$app->user->id, $receiverId, $content);
-        
-        if ($message) {
-            return ['success' => true, 'message' => $message->toArray()];
+
+        // 4. Отправка зашифрованного сообщения (текст)
+        if (!empty($encryptedText) && !empty($encryptedKey)) {
+            $message = Message::sendMessage(Yii::$app->user->id, (int)$receiverId, $encryptedText, $encryptedKey);
+            if ($message) {
+                return ['success' => true, 'message' => $message->toArray()];
+            }
+            return ApiValidator::error('Ошибка отправки зашифрованного сообщения');
         }
-        
-        return ['success' => false, 'error' => 'Ошибка отправки'];
+
+        // 5. Отправка незашифрованного сообщения (например, изображения или fallback)
+        if (!empty($content)) {
+            $message = Message::sendUnencryptedMessage(Yii::$app->user->id, (int)$receiverId, $content);
+            if ($message) {
+                return ['success' => true, 'message' => $message->toArray()];
+            }
+            return ApiValidator::error('Ошибка отправки сообщения');
+        }
+
+        return ApiValidator::error('Некорректное сообщение');
     }
 
-    
+    /**
+     * API: Отметить сообщения как прочитанные
+     */
     public function actionMarkRead()
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
-        
+
         $data = json_decode(Yii::$app->request->getRawBody(), true);
         $senderId = $data['sender_id'] ?? Yii::$app->request->post('sender_id');
         
@@ -179,7 +166,9 @@ class MessageController extends Controller
         return ['success' => true];
     }
 
-    
+    /**
+     * API: Получить непрочитанные сообщения
+     */
     public function actionUnreadCount()
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
@@ -189,14 +178,12 @@ class MessageController extends Controller
         return ['success' => true, 'count' => $count];
     }
 
-    
+    /**
+     * API: Получить диалог с пользователем
+     */
     public function actionGetDialogue($id)
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
-        
-        if (Yii::$app->user->isGuest) {
-            return ['success' => false, 'error' => 'Не авторизован'];
-        }
         
         $userId = Yii::$app->user->id;
         $otherUser = User::findOne($id);
@@ -206,60 +193,162 @@ class MessageController extends Controller
         }
 
         Message::markAsRead($userId, $id);
-        
         $messages = Message::getDialogue($userId, $id, 50);
         
         return [
             'success' => true,
-            'messages' => array_map(function($msg) {
-                return $msg->toArray();
-            }, $messages)
+            'messages' => array_map(fn($msg) => $msg->toArray(), $messages)
         ];
     }
-
-    
+    /**
+     * API: Получить список диалогов
+     */
     public function actionGetDialogues()
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
-        
-        if (Yii::$app->user->isGuest) {
-            return ['success' => false, 'error' => 'Не авторизован'];
-        }
-        
         $userId = Yii::$app->user->id;
         $dialogues = Message::getDialogues($userId);
+        return ['success' => true, 'dialogues' => $dialogues];
+    }
 
+    /**
+     * Получить список диалогов пользователя
+     */
+    public static function getDialogues($userId, $limit = 20, $offset = 0)
+    {
+        return Message::getDialogues($userId, $limit, $offset);
+    }
+
+    /**
+     * API: Загрузить изображения для сообщения
+     */
+    public function actionUploadImages()
+{
+    Yii::$app->response->format = Response::FORMAT_JSON;
+
+    $receiverId = (int) Yii::$app->request->post('receiver_id');
+    $content    = trim(Yii::$app->request->post('content', ''));
+
+    $receiver = User::findOne($receiverId);
+    if (!$receiver) {
+        return ['success' => false, 'error' => 'Пользователь не найден'];
+    }
+
+    if (!Message::canSendMessage(Yii::$app->user->id, $receiverId)) {
+        return ['success' => false, 'error' => 'Нельзя отправлять сообщения этому пользователю'];
+    }
+
+    $images = UploadedFile::getInstancesByName('images');
+    if (empty($images)) {
+        $images = UploadedFile::getInstancesByName('images[]');
+    }
+
+    if (empty($images)) {
+        return ['success' => false, 'error' => 'Изображения не найдены'];
+    }
+
+    $uploadedImages = [];
+    foreach ($images as $image) {
+        $url = $this->uploadMessageImage($image);
+        if ($url !== null) {
+            $uploadedImages[] = $url;
+        }
+    }
+
+    if (empty($uploadedImages)) {
+        return ['success' => false, 'error' => 'Не удалось загрузить ни одного изображения'];
+    }
+
+    // Создаём сообщение напрямую, заполняя image_urls
+    $message = new Message([
+        'sender_id'   => Yii::$app->user->id,
+        'receiver_id' => $receiverId,
+        'content'     => $content,
+        'image_urls'  => json_encode($uploadedImages, JSON_UNESCAPED_UNICODE),
+    ]);
+
+    if ($message->save()) {
+        // Уведомление (не забываем импортировать Notification)
+        \app\models\Notification::create(
+            $receiverId,
+            \app\models\Notification::TYPE_MESSAGE,
+            Yii::$app->user->id,
+            null,
+            'Новое сообщение с изображениями'
+        );
+        // Возвращаем данные, чтобы image_urls попал в ответ
+        $messageData = $message->toArray();
+        $messageData['image_urls'] = $message->getImageUrls(); // убеждаемся, что это массив
+        return ['success' => true, 'message' => $messageData];
+    }
+
+    return ['success' => false, 'error' => 'Не удалось отправить сообщение'];
+}
+
+    /**
+     * Загрузить изображение сообщения
+     */
+    private function uploadMessageImage(UploadedFile $image): ?string
+    {
+        $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+        $extension = strtolower($image->extension);
+
+        if (!in_array($extension, $allowedExtensions, true) || $image->size > 5 * 1024 * 1024) {
+            return null;
+        }
+
+        $uploadDir = Yii::getAlias('@webroot/uploads/messages/' . date('Y/m'));
+        FileHelper::createDirectory($uploadDir, 0755, true);
+
+        $filename = uniqid('msgimg_') . '_' . time() . '.' . $extension;
+        $filePath = $uploadDir . '/' . $filename;
+
+        if ($image->saveAs($filePath)) {
+            return Yii::$app->request->baseUrl . '/uploads/messages/' . date('Y/m') . '/' . $filename;
+        }
+
+        return null;
+    }
+
+    /**
+     * Получить диалоги с информацией о пользователях
+     */
+    private function getDialoguesWithUsers(int $userId): array
+    {
+        $dialogues = Message::getDialogues($userId);
         $dialoguesWithUsers = [];
         $currentUser = User::findOne($userId);
+        
         foreach ($dialogues as $dialogue) {
+            // Проверяем наличие ключа other_user_id
+            if (!isset($dialogue['other_user_id'])) {
+                Yii::error('Missing other_user_id in dialogue: ' . json_encode($dialogue), 'message');
+                continue;
+            }
+            
             $otherUserId = $dialogue['other_user_id'];
             $otherUser = User::findOne($otherUserId);
-            if ($otherUser) {
-
-                if (!$currentUser->canInteractWith($otherUserId)) {
-                    continue;
-                }
-
-                $unreadCount = Message::find()
-                    ->where(['receiver_id' => $userId, 'sender_id' => $otherUserId, 'is_read' => 0])
-                    ->count();
-                
-                $dialoguesWithUsers[] = [
-                    'user' => [
-                        'id' => $otherUser->id,
-                        'username' => $otherUser->username,
-                        'avatar' => $otherUser->avatar ?: 'https://api.dicebear.com/7.x/avataaars/svg?seed=' . $otherUser->id,
-                    ],
-                    'last_message_time' => $dialogue['last_message_time'],
-                    'last_message' => $dialogue['last_message'] ?? null,
-                    'unread_count' => $unreadCount,
-                ];
+            
+            if (!$otherUser || !$currentUser->canInteractWith($otherUserId)) {
+                continue;
             }
+
+            $unreadCount = Message::find()
+                ->where(['receiver_id' => $userId, 'sender_id' => $otherUserId, 'is_read' => 0])
+                ->count();
+            
+            $dialoguesWithUsers[] = [
+                'user' => [
+                    'id' => $otherUser->id,
+                    'username' => $otherUser->username,
+                    'avatar' => $otherUser->avatar ?: 'https://api.dicebear.com/7.x/avataaars/svg?seed=' . $otherUser->id,
+                ],
+                'last_message_time' => $dialogue['last_message_time'] ?? 0,
+                'last_message' => $dialogue['last_message'] ?? null,
+                'unread_count' => $unreadCount,
+            ];
         }
         
-        return [
-            'success' => true,
-            'dialogues' => $dialoguesWithUsers
-        ];
+        return $dialoguesWithUsers;
     }
 }

@@ -5,6 +5,14 @@ namespace app\models;
 use yii\db\ActiveRecord;
 use yii\behaviors\TimestampBehavior;
 
+/**
+ * Like model
+ *
+ * @property int $id
+ * @property int $post_id
+ * @property int $user_id
+ * @property int $created_at
+ */
 class Like extends ActiveRecord
 {
     public static function tableName()
@@ -31,6 +39,16 @@ class Like extends ActiveRecord
         ];
     }
 
+    public function attributeLabels()
+    {
+        return [
+            'id' => 'ID',
+            'post_id' => 'Пост',
+            'user_id' => 'Пользователь',
+            'created_at' => 'Дата лайка',
+        ];
+    }
+
     public function getUser()
     {
         return $this->hasOne(User::class, ['id' => 'user_id']);
@@ -44,6 +62,7 @@ class Like extends ActiveRecord
     public function afterSave($insert, $changedAttributes)
     {
         parent::afterSave($insert, $changedAttributes);
+        
         $this->updatePostLikesCount();
 
         if ($insert && $this->post && $this->post->user_id != $this->user_id) {
@@ -65,6 +84,10 @@ class Like extends ActiveRecord
     private function updatePostLikesCount()
     {
         $count = static::find()->where(['post_id' => $this->post_id])->count();
-        Post::updateAll(['likes_count' => $count], ['id' => $this->post_id]);
+        
+        Post::updateAllCounters(
+            ['likes_count' => $count - ($this->post->likes_count ?? 0)],
+            ['id' => $this->post_id]
+        );
     }
 }

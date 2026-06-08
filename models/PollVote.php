@@ -2,8 +2,19 @@
 
 namespace app\models;
 
+use Yii;
 use yii\db\ActiveRecord;
+use yii\behaviors\TimestampBehavior;
 
+/**
+ * PollVote model
+ *
+ * @property int $id
+ * @property int $poll_id
+ * @property int $poll_option_id
+ * @property int $user_id
+ * @property int $created_at
+ */
 class PollVote extends ActiveRecord
 {
     public static function tableName()
@@ -13,25 +24,20 @@ class PollVote extends ActiveRecord
 
     public function behaviors()
     {
-        return [];
-    }
-
-    public function beforeSave($insert)
-    {
-        if (!parent::beforeSave($insert)) {
-            return false;
-        }
-        if ($insert) {
-            $this->created_at = time();
-        }
-        return true;
+        return [
+            [
+                'class' => TimestampBehavior::class,
+                'updatedAtAttribute' => false,
+                'createdAtAttribute' => 'created_at',
+            ],
+        ];
     }
 
     public function rules()
     {
         return [
             [['poll_id', 'poll_option_id', 'user_id'], 'required'],
-            [['poll_id', 'poll_option_id', 'user_id'], 'integer'],
+            [['poll_id', 'poll_option_id', 'user_id', 'created_at'], 'integer'],
         ];
     }
 
@@ -40,9 +46,9 @@ class PollVote extends ActiveRecord
         return [
             'id' => 'ID',
             'poll_id' => 'Опрос',
-            'poll_option_id' => 'Вариант',
+            'poll_option_id' => 'Вариант ответа',
             'user_id' => 'Пользователь',
-            'created_at' => 'Дата',
+            'created_at' => 'Дата голосования',
         ];
     }
 
@@ -61,7 +67,6 @@ class PollVote extends ActiveRecord
         return $this->hasOne(User::class, ['id' => 'user_id']);
     }
 
-    
     public static function vote($pollId, $optionIds, $userId)
     {
         $poll = Poll::findOne($pollId);
@@ -75,20 +80,13 @@ class PollVote extends ActiveRecord
             return false;
         }
 
-        if (!empty($existingVotes)) {
+        $transaction = Yii::$app->db->beginTransaction();
+        try {
             foreach ($existingVotes as $vote) {
-
-                $option = PollOption::findOne($vote->poll_option_id);
-                if ($option && $option->votes_count > 0) {
-                    $option->votes_count--;
-                    $option->save(false);
-                }
+                $vote->pollOption->decrementVotes();
                 $vote->delete();
             }
-        }
 
-        $transaction = \Yii::$app->db->beginTransaction();
-        try {
             foreach ($optionIds as $optionId) {
                 $option = PollOption::findOne($optionId);
                 if (!$option || $option->poll_id != $pollId) {
@@ -99,13 +97,10 @@ class PollVote extends ActiveRecord
                     'poll_id' => $pollId,
                     'poll_option_id' => $optionId,
                     'user_id' => $userId,
-                    'created_at' => time(),
                 ]);
 
                 if ($vote->save()) {
-
-                    $option->votes_count++;
-                    $option->save(false);
+                    $option->incrementVotes();
                 }
             }
 
@@ -115,5 +110,16 @@ class PollVote extends ActiveRecord
             $transaction->rollBack();
             return false;
         }
+    }
+
+    public function fields()
+    {
+        return [
+            'id',
+            'poll_id',
+            'poll_option_id',
+            'user_id',
+            'created_at',
+        ];
     }
 }

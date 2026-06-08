@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+    
+    <!-- Главная страница -->
+    <url>
+        <loc>http://localhost/feed</loc>
+        <lastmod>2026-05-17</lastmod>
+        <changefreq>hourly</changefreq>
+        <priority>1.0</priority>
+    </url>
+    
+    <!-- Страница регистрации -->
+    <url>
+        <loc>http://localhost/register</loc>
+        <lastmod>2026-05-17</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.8</priority>
+    </url>
+    
+    <!-- Страница входа -->
+    <url>
+        <loc>http://localhost/login</loc>
+        <lastmod>2026-05-17</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.8</priority>
+    </url>
+    
+    <!-- Поиск -->
+    <url>
+        <loc>http://localhost/search</loc>
+        <lastmod>2026-05-17</lastmod>
+        <changefreq>hourly</changefreq>
+        <priority>0.7</priority>
+    </url>
+    
+    <!-- Сообщения -->
+    <url>
+        <loc>http://localhost/message</loc>
+        <lastmod>2026-05-17</lastmod>
+        <changefreq>hourly</changefreq>
+        <priority>0.7</priority>
+    </url>
+    
+    <!-- Истории -->
+    <url>
+        <loc>http://localhost/story</loc>
+        <lastmod>2026-05-17</lastmod>
+        <changefreq>hourly</changefreq>
+        <priority>0.6</priority>
+    </url>
+    
+    <!-- Блок пользователей -->
+    <url>
+        <loc>http://localhost/block/list</loc>
+        <lastmod>2026-05-17</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.4</priority>
+    </url>
+    
+    <!-- Админка -->
+    <url>
+        <loc>http://localhost/admin</loc>
+        <lastmod>2026-05-17</lastmod>
+        <changefreq>daily</changefreq>
+        <priority>0.5</priority>
+    </url>
+    
+</urlset>

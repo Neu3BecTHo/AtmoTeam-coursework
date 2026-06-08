@@ -1,1007 +1,1117 @@
-function submitPollVote(pollId, postId) {
-    const pollContainer = document.querySelector(`[data-poll-id="${pollId}"]`);
-    const selectedOptions = pollContainer.querySelectorAll('input:checked');
-    
-    if (selectedOptions.length === 0) {
-        showNotification('Выберите вариант ответа', 'error');
-        return;
-    }
-    
-    const optionIds = Array.from(selectedOptions).map(input => input.value);
-    
-    fetch('/poll/vote', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-        },
-        body: JSON.stringify({
-            poll_id: pollId,
-            option_ids: optionIds
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            const pollContainer = document.querySelector(`[data-poll-id="${pollId}"]`);
-            pollContainer.innerHTML = renderPoll(data.poll);
-            
-            showNotification('Ваш голос учтен!', 'success');
-        } else {
-            showNotification(data.error || 'Ошибка голосования', 'error');
+// profile.js - все функции для профиля + сжатие изображений
+
+// ==================== Сжатие изображений (общая функция) ====================
+const PROFILE_IMAGE_MAX_WIDTH = 1200;
+const PROFILE_IMAGE_MAX_HEIGHT = 1200;
+const PROFILE_IMAGE_QUALITY = 0.85;
+const AVATAR_SIZE = 400; // итоговый размер аватара
+
+/**
+ * Сжимает изображение (для постов)
+ */
+async function compressProfileImage(file) {
+  if (file.type === "image/gif" || file.size < 100 * 1024) return file;
+
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (e) => {
+      const img = new Image();
+      img.src = e.target.result;
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+        if (
+          width > PROFILE_IMAGE_MAX_WIDTH ||
+          height > PROFILE_IMAGE_MAX_HEIGHT
+        ) {
+          const ratio = Math.min(
+            PROFILE_IMAGE_MAX_WIDTH / width,
+            PROFILE_IMAGE_MAX_HEIGHT / height,
+          );
+          width = Math.floor(width * ratio);
+          height = Math.floor(height * ratio);
         }
-    })
-    .catch(error => {
-        showNotification('Ошибка сети', 'error');
-    });
-}
-
-function renderPoll(poll) {
-    const inputType = poll.has_user_voted ? 'radio' : 'radio';
-    const name = `poll_${poll.id}`;
-    
-    let html = `
-        <div class="poll-container" data-poll-id="${poll.id}">
-            <div class="poll-question">${poll.question}</div>
-            <div class="poll-options">
-    `;
-    
-    poll.options.forEach(option => {
-        const isChecked = poll.user_votes && poll.user_votes.includes(option.id);
-        html += `
-            <div class="poll-option" data-option-id="${option.id}">
-                <label class="poll-option-label">
-                    <input type="${inputType}" 
-                           name="${name}" 
-                           value="${option.id}" 
-                           ${isChecked ? 'checked' : ''}
-                           ${poll.has_user_voted ? 'disabled' : ''}>
-                    <span class="poll-option-text">${escapeHtml(option.text)}</span>
-                </label>
-                <div class="poll-results">
-                    <div class="poll-bar" style="width: ${option.percentage}%"></div>
-                    <span class="poll-percentage">${option.percentage}%</span>
-                    <span class="poll-votes">${option.votes_count} голосов</span>
-                </div>
-            </div>
-        `;
-    });
-    
-    html += `
-            </div>
-            <div class="poll-footer">
-                <span class="poll-total-votes">Всего голосов: ${poll.total_votes}</span>
-                ${!poll.has_user_voted ? `<button class="btn-vote" onclick="submitPollVote(${poll.id})">Голосовать</button>` : ''}
-            </div>
-        </div>
-    `;
-    
-    return html;
-}
-
-function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-let savedLoaded = false;
-let repostsLoaded = false;
-let savedLoading = false;
-let repostsLoading = false;
-
-// Экспортируем для common.js
-window.savedLoaded = false;
-window.repostsLoaded = false;
-window.savedLoading = false;
-window.repostsLoading = false;
-
-document.addEventListener('DOMContentLoaded', function() {
-    initPostForm();
-    loadInitialProfilePosts();
-    
-    // Tab click handling
-    document.querySelectorAll('.profile-tabs .tab-btn[data-tab]').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const tab = btn.dataset.tab;
-            
-            document.querySelectorAll('.profile-tabs .tab-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            
-            document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
-            const tabContent = document.getElementById(`${tab}-tab`);
-            if (tabContent) tabContent.style.display = 'block';
-            
-if (tab === 'saved') {
-                loadSavedPosts();
-            } else if (tab === 'reposts') {
-                loadRepostsPosts();
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, width, height);
+        let mime = "image/webp";
+        let quality = PROFILE_IMAGE_QUALITY;
+        if (!canvas.toBlob) {
+          mime = "image/jpeg";
+          quality = 0.9;
+        }
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              reject(new Error("Не удалось создать Blob"));
+              return;
             }
-        });
-    });
-    
-    const postCards = document.querySelectorAll('.post-card');
-    postCards.forEach(card => {
-        const postId = card.dataset.postId;
-        const pollContainer = card.querySelector('.post-poll');
-        
-        if (pollContainer && postId) {
-            fetch(`/post/get?id=${postId}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success && data.post.poll) {
-                        pollContainer.innerHTML = renderPoll(data.post.poll);
-                        pollContainer.style.display = 'block';
-                    }
-                })
-                .catch(error => {});
-        }
-    });
-});
+            let newName = file.name;
+            if (mime === "image/webp" && !newName.endsWith(".webp")) {
+              newName = newName.replace(/\.(jpe?g|png)$/i, ".webp");
+            }
+            const compressed = new File([blob], newName, {
+              type: mime,
+              lastModified: Date.now(),
+            });
+            console.log(
+              `Сжатие для профиля: ${(file.size / 1024).toFixed(1)} KB → ${(compressed.size / 1024).toFixed(1)} KB`,
+            );
+            resolve(compressed);
+          },
+          mime,
+          quality,
+        );
+      };
+      img.onerror = () => reject(new Error("Ошибка загрузки изображения"));
+    };
+    reader.onerror = () => reject(new Error("Ошибка чтения файла"));
+  });
+}
 
+/**
+ * Сжимает изображение для аватара (до 400x400, WebP/JPEG)
+ */
+async function compressAvatar(file) {
+  if (file.type === "image/gif" || file.size < 50 * 1024) return file;
+
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (e) => {
+      const img = new Image();
+      img.src = e.target.result;
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+        if (width > AVATAR_SIZE || height > AVATAR_SIZE) {
+          const ratio = Math.min(AVATAR_SIZE / width, AVATAR_SIZE / height);
+          width = Math.floor(width * ratio);
+          height = Math.floor(height * ratio);
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, width, height);
+        let mime = "image/webp";
+        let quality = 0.9;
+        if (!canvas.toBlob) {
+          mime = "image/jpeg";
+          quality = 0.92;
+        }
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              reject(new Error("Не удалось создать Blob"));
+              return;
+            }
+            let newName = file.name;
+            if (mime === "image/webp" && !newName.endsWith(".webp")) {
+              newName = newName.replace(/\.(jpe?g|png)$/i, ".webp");
+            }
+            const compressed = new File([blob], newName, {
+              type: mime,
+              lastModified: Date.now(),
+            });
+            console.log(
+              `Сжатие аватара: ${(file.size / 1024).toFixed(1)} KB → ${(compressed.size / 1024).toFixed(1)} KB`,
+            );
+            resolve(compressed);
+          },
+          mime,
+          quality,
+        );
+      };
+      img.onerror = () =>
+        reject(new Error("Ошибка загрузки изображения аватара"));
+    };
+    reader.onerror = () => reject(new Error("Ошибка чтения файла аватара"));
+  });
+}
+
+// ==================== Create Post Form Handler (с сжатием) ====================
+function initProfilePostForm() {
+  const form = document.getElementById("create-post-form");
+  if (!form) return;
+  form.removeEventListener("submit", handleProfilePostSubmit);
+  form.addEventListener("submit", handleProfilePostSubmit);
+}
+
+async function handleProfilePostSubmit(e) {
+  e.preventDefault();
+
+  const content = document.getElementById("post-content")?.value.trim() || "";
+  const imageInput = document.getElementById("post-image");
+  const rawImages = imageInput ? Array.from(imageInput.files) : [];
+
+  const pollQuestion = document.getElementById("poll-question")?.value;
+  const pollMultiple = document.getElementById("poll-multiple")?.checked
+    ? 1
+    : 0;
+  const pollOptions = [];
+  document.querySelectorAll(".option-input").forEach((opt) => {
+    const val = opt.value.trim();
+    if (val) pollOptions.push(val);
+  });
+
+  if (!content && rawImages.length === 0 && !pollQuestion) {
+    showNotification("Заполните хотя бы одно поле", "error");
+    return;
+  }
+
+  const btnPublish = document.getElementById("btn-publish");
+  if (btnPublish) {
+    btnPublish.disabled = true;
+    btnPublish.textContent = "⏳ Публикация...";
+  }
+
+  // Сжатие изображений
+  let compressedImages = [];
+  if (rawImages.length) {
+    showNotification("Сжатие изображений... (WebP)", "info");
+    try {
+      compressedImages = await Promise.all(rawImages.map(compressProfileImage));
+    } catch (err) {
+      console.error("Ошибка сжатия:", err);
+      showNotification("Сжатие не удалось, используются оригиналы", "error");
+      compressedImages = rawImages;
+    }
+  }
+
+  const formData = new FormData();
+  const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+  if (csrfToken) formData.append("_csrf", csrfToken);
+  formData.append("content", content);
+  compressedImages.forEach((img) => formData.append("images[]", img));
+
+  if (pollQuestion && pollOptions.length >= 2) {
+    formData.append("poll_question", pollQuestion);
+    formData.append("poll_multiple", pollMultiple);
+    pollOptions.forEach((opt) => formData.append("poll_options[]", opt));
+  }
+
+  try {
+    const response = await fetch("/api/post/create", {
+      method: "POST",
+      body: formData,
+    });
+    const data = await response.json();
+
+    if (data.success) {
+      document.getElementById("post-content").value = "";
+      const charCount = document.getElementById("char-count");
+      if (charCount) charCount.textContent = "0/2000";
+
+      if (imageInput) imageInput.value = "";
+      if (typeof window.removeSelectedImages === "function")
+        window.removeSelectedImages();
+      if (typeof window.removePoll === "function") window.removePoll();
+
+      showNotification("Пост опубликован!", "success");
+
+      if (typeof window.loadMoreProfilePosts === "function") {
+        window.profilePostsOffset = 0;
+        window.profileHasMorePosts = true;
+        await window.loadMoreProfilePosts();
+      } else if (typeof window.loadInitialProfilePosts === "function") {
+        await window.loadInitialProfilePosts();
+      }
+    } else {
+      showNotification(data.error || "Ошибка публикации", "error");
+    }
+  } catch (error) {
+    console.error("Publish error:", error);
+    showNotification("Ошибка публикации", "error");
+  } finally {
+    if (btnPublish) {
+      btnPublish.disabled = false;
+      btnPublish.textContent = "📤 Опубликовать";
+    }
+  }
+}
+
+// ==================== Comments ====================
+async function submitModalComment(postId) {
+  const input = document.getElementById("modal-comment-input");
+  const content = input?.value.trim();
+  if (!content) {
+    showNotification("Напишите комментарий", "error");
+    return;
+  }
+  if (!window.currentUserId) {
+    showNotification("Войдите, чтобы оставить комментарий", "error");
+    return;
+  }
+  try {
+    const response = await postWithCsrf("/api/comment/create", {
+      post_id: postId,
+      content,
+    });
+    const result = await response.json();
+    if (result.success) {
+      input.value = "";
+      await loadComments(postId, "modal-comments-list");
+      const postEl = document.querySelector(`[data-post-id="${postId}"]`);
+      if (postEl) {
+        const commentsCount = postEl.querySelector(".comments-count");
+        if (commentsCount) {
+          const match = commentsCount.textContent.match(/(\d+)/);
+          if (match)
+            commentsCount.textContent = `${parseInt(match[1]) + 1} комментариев`;
+        }
+      }
+    } else {
+      showNotification(result.error || "Ошибка отправки комментария", "error");
+    }
+  } catch (error) {
+    showNotification("Ошибка отправки комментария", "error");
+  }
+}
+
+// ==================== Avatar Cropper (с сжатием) ====================
 let cropImage = null;
 let cropScale = 1;
 let cropOffsetX = 0;
 let cropOffsetY = 0;
 let isDragging = false;
-let dragStartX = 0;
-let dragStartY = 0;
+let dragStartX = 0,
+  dragStartY = 0;
 
-function openAvatarCropper(input) {
-    if (!input.files || !input.files[0]) return;
-    
-    const file = input.files[0];
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        cropImage = new Image();
-        cropImage.onload = function() {
-            cropScale = 1;
-            cropOffsetX = 0;
-            cropOffsetY = 0;
-            renderCropCanvas();
-            
-            const modal = document.getElementById('avatar-crop-modal');
-            if (modal) modal.classList.remove('hidden');
-        };
-        cropImage.src = e.target.result;
+async function openAvatarCropper(input) {
+  console.log("openAvatarCropper called", input);
+  if (!input.files || !input.files[0]) {
+    console.log("No file selected");
+    return;
+  }
+
+  const rawFile = input.files[0];
+  console.log("Raw file:", rawFile.name, rawFile.size);
+
+  // Сжимаем выбранный файл перед кропом
+  let compressedFile;
+  try {
+    showNotification("Сжатие аватара...", "info");
+    compressedFile = await compressAvatar(rawFile);
+  } catch (err) {
+    console.error("Avatar compression failed:", err);
+    showNotification("Сжатие не удалось, используется оригинал", "error");
+    compressedFile = rawFile;
+  }
+
+  const reader = new FileReader();
+  reader.onload = function (e) {
+    cropImage = new Image();
+    cropImage.onload = function () {
+      console.log("Image loaded for crop:", cropImage.width, cropImage.height);
+      cropScale = 1;
+      cropOffsetX = 0;
+      cropOffsetY = 0;
+      renderCropCanvas();
+      const modal = document.getElementById("avatar-crop-modal");
+      if (modal) {
+        modal.classList.add("show");
+      } else {
+        console.error("Crop modal not found");
+      }
+      setupCropEvents();
     };
-    reader.readAsDataURL(file);
+    cropImage.onerror = function () {
+      console.error("Image failed to load");
+      showNotification("Ошибка загрузки изображения", "error");
+    };
+    cropImage.src = e.target.result;
+  };
+  reader.onerror = function () {
+    console.error("FileReader error");
+    showNotification("Ошибка чтения файла", "error");
+  };
+  reader.readAsDataURL(compressedFile);
 }
-    
-function closeAvatarCropper() {
-    const modal = document.getElementById('avatar-crop-modal');
-    if (modal) modal.classList.add('hidden');
-    cropImage = null;
 
-    const input = document.getElementById('avatar-input');
-    if (input) input.value = '';
+function closeAvatarCropper() {
+  const modal = document.getElementById("avatar-crop-modal");
+  if (modal) modal.classList.remove("show");
+  cropImage = null;
+  const input = document.getElementById("avatar-input");
+  if (input) input.value = "";
 }
 
 function renderCropCanvas() {
-    const canvas = document.getElementById('crop-canvas');
-    if (!canvas || !cropImage) return;
-    
-    const ctx = canvas.getContext('2d');
-    const size = 320;
+  const canvas = document.getElementById("crop-canvas");
+  if (!canvas || !cropImage) return;
+  const ctx = canvas.getContext("2d");
+  const size = 320;
+  ctx.clearRect(0, 0, size, size);
+  ctx.fillStyle = "#1a1a2e";
+  ctx.fillRect(0, 0, size, size);
+  const imgAspect = cropImage.width / cropImage.height;
+  let drawWidth, drawHeight;
+  if (imgAspect > 1) {
+    drawHeight = size / cropScale;
+    drawWidth = drawHeight * imgAspect;
+  } else {
+    drawWidth = size / cropScale;
+    drawHeight = drawWidth / imgAspect;
+  }
+  const centerX = size / 2;
+  const centerY = size / 2;
+  ctx.drawImage(
+    cropImage,
+    centerX - drawWidth / 2 + cropOffsetX,
+    centerY - drawHeight / 2 + cropOffsetY,
+    drawWidth,
+    drawHeight,
+  );
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, size / 2 - 2, 0, Math.PI * 2);
+  ctx.strokeStyle = "rgba(59, 130, 246, 0.8)";
+  ctx.lineWidth = 3;
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.rect(0, 0, size, size);
+  ctx.arc(centerX, centerY, size / 2 - 2, 0, Math.PI * 2, true);
+  ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+  ctx.fill();
+}
 
-    ctx.clearRect(0, 0, size, size);
-
-    ctx.fillStyle = '#1a1a2e';
-    ctx.fillRect(0, 0, size, size);
-
-    const imgAspect = cropImage.width / cropImage.height;
-    const canvasAspect = 1;
-    
-    let drawWidth, drawHeight;
-    if (imgAspect > canvasAspect) {
-        drawHeight = size / cropScale;
-        drawWidth = drawHeight * imgAspect;
-    } else {
-        drawWidth = size / cropScale;
-        drawHeight = drawWidth / imgAspect;
-    }
-    
-    const centerX = size / 2;
-    const centerY = size / 2;
-
-    ctx.drawImage(
-        cropImage,
-        centerX - drawWidth / 2 + cropOffsetX,
-        centerY - drawHeight / 2 + cropOffsetY,
-        drawWidth,
-        drawHeight
-    );
-
-    ctx.beginPath();
-    ctx.arc(centerX, centerY, size / 2 - 2, 0, Math.PI * 2);
-    ctx.strokeStyle = 'rgba(59, 130, 246, 0.8)';
-    ctx.lineWidth = 3;
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.rect(0, 0, size, size);
-    ctx.arc(centerX, centerY, size / 2 - 2, 0, Math.PI * 2, true);
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-    ctx.fill();
+function setupCropEvents() {
+  const canvas = document.getElementById("crop-canvas");
+  const scaleSlider = document.getElementById("crop-scale");
+  if (!canvas || !scaleSlider) return;
+  scaleSlider.addEventListener("input", function () {
+    cropScale = parseFloat(this.value);
+    renderCropCanvas();
+  });
+  const startDrag = (clientX, clientY) => {
+    isDragging = true;
+    dragStartX = clientX - cropOffsetX;
+    dragStartY = clientY - cropOffsetY;
+  };
+  const onDrag = (clientX, clientY) => {
+    if (!isDragging) return;
+    cropOffsetX = clientX - dragStartX;
+    cropOffsetY = clientY - dragStartY;
+    renderCropCanvas();
+  };
+  canvas.addEventListener("mousedown", (e) => startDrag(e.clientX, e.clientY));
+  canvas.addEventListener("touchstart", (e) => {
+    if (e.touches.length === 1)
+      startDrag(e.touches[0].clientX, e.touches[0].clientY);
+  });
+  window.addEventListener("mousemove", (e) => onDrag(e.clientX, e.clientY));
+  window.addEventListener("touchmove", (e) => {
+    if (e.touches.length === 1)
+      onDrag(e.touches[0].clientX, e.touches[0].clientY);
+  });
+  window.addEventListener("mouseup", () => (isDragging = false));
+  window.addEventListener("touchend", () => (isDragging = false));
 }
 
 function applyAvatarCrop() {
-    const canvas = document.getElementById('crop-canvas');
-    if (!canvas || !cropImage) return;
+  const canvas = document.getElementById("crop-canvas");
+  if (!canvas || !cropImage) return;
+  const finalCanvas = document.createElement("canvas");
+  finalCanvas.width = AVATAR_SIZE;
+  finalCanvas.height = AVATAR_SIZE;
+  const ctx = finalCanvas.getContext("2d");
+  const size = AVATAR_SIZE;
+  const imgAspect = cropImage.width / cropImage.height;
+  let drawWidth, drawHeight;
+  if (imgAspect > 1) {
+    drawHeight = size / cropScale;
+    drawWidth = drawHeight * imgAspect;
+  } else {
+    drawWidth = size / cropScale;
+    drawHeight = drawWidth / imgAspect;
+  }
+  ctx.drawImage(
+    cropImage,
+    size / 2 - drawWidth / 2 + cropOffsetX * (size / 320),
+    size / 2 - drawHeight / 2 + cropOffsetY * (size / 320),
+    drawWidth,
+    drawHeight,
+  );
+  ctx.globalCompositeOperation = "destination-in";
+  ctx.beginPath();
+  ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalCompositeOperation = "source-over";
 
-    const finalCanvas = document.createElement('canvas');
-    finalCanvas.width = 400;
-    finalCanvas.height = 400;
-    const ctx = finalCanvas.getContext('2d');
-    
-    const size = 400;
-    const imgAspect = cropImage.width / cropImage.height;
-    const canvasAspect = 1;
-    
-    let drawWidth, drawHeight;
-    if (imgAspect > canvasAspect) {
-        drawHeight = size / cropScale;
-        drawWidth = drawHeight * imgAspect;
-    } else {
-        drawWidth = size / cropScale;
-        drawHeight = drawWidth / imgAspect;
-    }
-    
-    ctx.drawImage(
-        cropImage,
-        size / 2 - drawWidth / 2 + cropOffsetX * (size / 320),
-        size / 2 - drawHeight / 2 + cropOffsetY * (size / 320),
-        drawWidth,
-        drawHeight
-    );
-
-    ctx.globalCompositeOperation = 'destination-in';
-    ctx.beginPath();
-    ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.globalCompositeOperation = 'source-over';
-
-    const preview = document.getElementById('avatar-preview');
-    if (preview) {
-        preview.src = finalCanvas.toDataURL('image/png');
-        preview.style.border = '2px solid var(--primary-500)';
-    }
-
-    const hiddenInput = document.getElementById('cropped-avatar-input');
-    if (hiddenInput) {
-        hiddenInput.value = finalCanvas.toDataURL('image/png');
-    }
-    
-    closeAvatarCropper();
+  // Итоговый аватар – сжатый PNG (или WebP)
+  const finalDataURL = finalCanvas.toDataURL("image/png");
+  const preview = document.getElementById("avatar-preview");
+  if (preview) {
+    preview.src = finalDataURL;
+    preview.style.border = "2px solid var(--primary-500)";
+  }
+  const hiddenInput = document.getElementById("cropped-avatar-input");
+  if (hiddenInput) hiddenInput.value = finalDataURL;
+  closeAvatarCropper();
 }
 
-async function likePost(postId, button) {
-    if (!window.currentUserId) {
-        showNotification('Войдите, чтобы поставить лайк', 'error');
-        return;
-    }
-    
-    try {
-        const response = await postWithCsrf('/api/post/like', { post_id: postId });
-        const result = await response.json();
-        
-        if (result.success) {
-            if (!button) {
-                button = document.querySelector(`[data-post-id="${postId}"] .btn-like`);
-                if (!button) {
-                    button = document.querySelector(`#post-modal .btn-like`);
-                }
-            }
-            
-            if (button) {
-                const isLiked = button.classList.contains('liked');
-                button.classList.toggle('liked', !isLiked);
-                
-                const likeSpan = button.querySelector('span:last-child');
-                if (likeSpan) likeSpan.textContent = result.likes_count;
-                
-                const heartSpan = button.querySelector('span:first-child');
-                if (heartSpan) heartSpan.textContent = result.liked ? '❤️' : '🤍';
-            }
-
-            const postEl = document.querySelector(`[data-post-id="${postId}"]`);
-            if (postEl) {
-                const likesCountEl = postEl.querySelector('.likes-count');
-                if (likesCountEl) {
-                    likesCountEl.textContent = `${result.likes_count} лайков`;
-                }
-            }
-        }
-    } catch (error) {
-        console.error('Like error:', error);
-    }
-}
-
-async function toggleComments(postId) {
-    const modal = document.getElementById('post-modal');
-    const body = document.getElementById('post-modal-body');
-    const commentsList = document.getElementById('modal-comments-list');
-    
-    modal.classList.remove('hidden');
-    modal.classList.add('show');
-    body.innerHTML = '<div class="post-modal-loading"><div class="spinner"><div class="spinner-ring"></div><div class="spinner-ring"></div><div class="spinner-ring"></div></div></div>';
-    commentsList.innerHTML = '';
-    
-    try {
-        const response = await fetch(`/post/modal?id=${postId}`);
-        const html = await response.text();
-        body.innerHTML = html;
-
-        await loadComments(postId, 'modal-comments-list');
-
-        setTimeout(() => document.getElementById('modal-comment-input')?.focus(), 100);
-    } catch (error) {
-        showNotification('Ошибка загрузки поста', 'error');
-        closePostModal();
-    }
-}
-
-function closePostModal() {
-    const modal = document.getElementById('post-modal');
-    if (modal) modal.classList.add('hidden');
-}
-
-function closeProfilePostModal() {
-    const modal = document.getElementById('post-modal');
-    if (modal) modal.classList.add('hidden');
-}
-
-async function loadComments(postId, listId = 'modal-comments-list') {
-    try {
-        const response = await fetch(`/post/comments?id=${postId}`);
-        const html = await response.text();
-        
-        const commentsList = document.getElementById(listId);
-        if (!commentsList) return;
-        
-        commentsList.innerHTML = html;
-
-        commentsList.querySelectorAll('.btn-delete-comment').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const commentId = btn.dataset.commentId;
-                const postId = btn.dataset.postId;
-                if (typeof window.deleteComment === 'function') {
-                    window.deleteComment(commentId, postId);
-                }
-            });
-        });
-        
-        commentsList.querySelectorAll('.btn-edit-comment').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const commentId = btn.dataset.commentId;
-                const postId = btn.dataset.postId;
-                if (typeof window.editComment === 'function') {
-                    window.editComment(commentId, postId);
-                }
-            });
-        });
-    } catch (error) {
-        const commentsList = document.getElementById(listId);
-        if (commentsList) commentsList.innerHTML = '<p>Ошибка загрузки комментариев</p>';
-    }
-}
-
-function updateModalLike(button, postId) {
-    const isLiked = button.classList.contains('liked');
-    button.classList.toggle('liked', !isLiked);
-}
-
-function updateModalSave(button, postId) {
-    const isSaved = button.classList.contains('saved');
-    button.classList.toggle('saved', !isSaved);
-}
-
-function updateModalRepost(button, postId) {
-    const isReposted = button.classList.contains('reposted');
-    button.classList.toggle('reposted', !isReposted);
-}
-
-async function submitModalComment(postId) {
-    const input = document.getElementById('modal-comment-input');
-    const content = input.value.trim();
-    
-    if (!content) {
-        showNotification('Напишите комментарий', 'error');
-        return;
-    }
-    
-    if (!window.currentUserId) {
-        showNotification('Войдите, чтобы оставить комментарий', 'error');
-        return;
-    }
-    
-    try {
-        const response = await postWithCsrf('/api/comment/create', {
-            post_id: postId,
-            content: content
-        });
-        
-        const result = await response.json();
-        
-if (result.success) {
-            input.value = '';
-            await loadComments(postId, 'modal-comments-list');
-            // Обновляем счётчик комментариев
-            const postEl = document.querySelector('[data-post-id="'+postId+'"]');
-            if (postEl) {
-                const commentsCount = postEl.querySelector('.comments-count');
-                if (commentsCount) {
-                    const match = commentsCount.textContent.match(/(\d+)/);
-                    if (match) {
-                        const count = parseInt(match[1]) + 1;
-                        commentsCount.textContent = count + ' комментариев';
-                    }
-                }
-            }
-        } else {
-            showNotification(result.error || 'Ошибка отправки комментария', 'error');
-        }
-    } catch (error) {
-        showNotification('Ошибка отправки комментария', 'error');
-    }
-}
-
-async function editComment(commentId, postId) {
-    const commentEl = document.querySelector(`[data-comment-id="${commentId}"]`);
-    if (!commentEl) return;
-    
-    const textEl = commentEl.querySelector('.comment-text');
-    if (!textEl) return;
-    
-    const currentText = textEl.textContent.trim();
-    
-    const editForm = document.createElement('div');
-    editForm.className = 'comment-edit-form';
-    editForm.innerHTML = `
-        <input type="text" class="comment-edit-input" value="${currentText.replace(/"/g, '&quot;')}" maxlength="1000">
-        <div class="comment-edit-actions">
-            <button class="btn-save-edit">Сохранить</button>
-            <button class="btn-cancel-edit">Отмена</button>
-        </div>
-    `;
-    
-    textEl.style.display = 'none';
-    textEl.parentNode.insertBefore(editForm, textEl.nextSibling);
-    
-    const input = editForm.querySelector('.comment-edit-input');
-    input.focus();
-    
-    editForm.querySelector('.btn-save-edit').addEventListener('click', async () => {
-        const newText = input.value.trim();
-        if (!newText) {
-            showNotification('Комментарий не может быть пустым', 'error');
-            return;
-        }
-        
-        try {
-            const response = await postWithCsrf('/api/comment/edit', {
-                comment_id: commentId,
-                content: newText
-            });
-            
-            const result = await response.json();
-            
-            if (result.success) {
-                textEl.textContent = newText + ' <span class="edited-mark">(ред.)</span>';
-                textEl.style.display = 'block';
-                editForm.remove();
-            } else {
-                showNotification(result.error || 'Ошибка редактирования комментария', 'error');
-            }
-        } catch (error) {
-            showNotification('Ошибка редактирования комментария', 'error');
-        }
-    });
-    
-    editForm.querySelector('.btn-cancel-edit').addEventListener('click', () => {
-        textEl.style.display = 'block';
-        editForm.remove();
-    });
-
-    input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            editForm.querySelector('.btn-save-edit').click();
-        } else if (e.key === 'Escape') {
-            editForm.querySelector('.btn-cancel-edit').click();
-        }
-});
-}
-
-async function loadSavedPosts() {
-    if (window.savedLoading) return;
-    const container = document.getElementById('user-saved');
-    if (!container) return;
-    
-    window.savedLoading = true;
-    const sentinel = document.getElementById('load-more-sentinel-saved');
-    const spinner = document.getElementById('load-more-spinner-saved');
-    
-    try {
-        const response = await fetch(`/profile/${window.profileUserId}/saved?offset=0`);
-        const result = await response.json();
-        
-        if (result.html !== undefined) {
-            if (result.count === 0) {
-                container.innerHTML = '<div class="empty-profile"><div class="empty-icon">🔖</div><p>Нет сохранённых постов</p></div>';
-            } else {
-                container.innerHTML = result.html;
-            }
-if (sentinel) sentinel.dataset.offset = result.count;
-        }
-        initializePosts();
-    } catch (error) {
-        console.error('Error loading saved posts:', error);
-    } finally {
-        window.savedLoading = false;
-        window.savedLoaded = true;
-        if (spinner) spinner.classList.add('hidden');
-    }
-}
-
-// Экспортируем сразу после определения
-window.loadSavedPosts = loadSavedPosts;
-
-async function loadRepostsPosts() {
-    if (window.repostsLoading) return;
-    const container = document.getElementById('user-reposts');
-    if (!container) return;
-    
-    window.repostsLoading = true;
-    const sentinel = document.getElementById('load-more-sentinel-reposts');
-    const spinner = document.getElementById('load-more-spinner-reposts');
-    
-    try {
-        const response = await fetch(`/profile/${window.profileUserId}/reposts?offset=0`);
-        const result = await response.json();
-        
-        if (result.html !== undefined) {
-            if (result.count === 0) {
-                container.innerHTML = '<div class="empty-profile"><div class="empty-icon">🔄</div><p>Нет репостов</p></div>';
-            } else {
-                container.innerHTML = result.html;
-            }
-            if (sentinel) sentinel.dataset.offset = result.count;
-        }
-        initializePosts();
-    } catch (error) {
-        console.error('Error loading reposts:', error);
-    } finally {
-        window.repostsLoading = false;
-        window.repostsLoaded = true;
-        if (spinner) spinner.classList.add('hidden');
-    }
-}
-
-// Экспортируем сразу после определения
-window.loadRepostsPosts = loadRepostsPosts;
-
-const loadMoreSentinel = document.getElementById('load-more-sentinel');
-const loadMoreSpinner = document.getElementById('load-more-spinner');
-let initialProfileLoadComplete = false;
+// ==================== Profile Posts Loading with Infinite Scroll ====================
+let profilePostsOffset = 0;
+let profileHasMorePosts = true;
+let profileIsLoading = false;
+let profileObserver = null;
 
 async function loadInitialProfilePosts() {
-    const userId = window.profileUserId;
-    
-    if (!userId) {
-        initialProfileLoadComplete = true;
-        return;
-    }
-    
-    const grid = document.getElementById('user-posts');
-    
-    if (!grid) {
-        initialProfileLoadComplete = true;
-        return;
-    }
-    
-    try {
-        const response = await fetch(`/profile/${userId}/posts?offset=0`);
-        const result = await response.json();
-        
-        if (result.html !== undefined) {
-            if (result.count === 0) {
-                grid.innerHTML = '<div class="empty-profile"><div class="empty-icon">📝</div><p>Пока нет постов</p></div>';
-            } else {
-                grid.innerHTML = result.html;
-            }
-            
-            if (loadMoreSentinel) {
-                loadMoreSentinel.dataset.offset = result.count;
-            }
-        } else {
-            if (result.length === 0) {
-                grid.innerHTML = '<div class="empty-profile"><div class="empty-icon">📝</div><p>Пока нет постов</p></div>';
-            } else {
-                grid.innerHTML = '';
-                result.forEach(post => {
-                    const card = document.createElement('div');
-                    card.className = 'post-card';
-                    card.dataset.postId = post.id;
-                    card.innerHTML = `
-                        <div class="post-header">
-                            <div class="post-author">
-                                <img src="${post.user.avatar_url || 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + post.user.username}" alt="avatar" class="author-avatar">
-                                <div class="author-info">
-                                    <span class="author-name">${escapeHtml(post.user.username)}</span>
-                                    <span class="post-time">${post.time_ago || 'Только что'}</span>
-                                </div>
-                            </div>
-                            ${post.is_owner ? `<button class="btn-delete-post" onclick="deletePost(${post.id})">🗑️</button>` : ''}
-                        </div>
-                        <div class="post-content">${escapeHtml(post.content)}</div>
-                        ${post.image_url ? `<img src="${post.image_url}" alt="post image" class="post-image">` : ''}
-                        <div class="post-actions">
-                            <button class="btn-action ${post.is_liked ? 'liked' : ''}" onclick="likePost(${post.id}, this)">
-                                <span>${post.is_liked ? '❤️' : '🤍'}</span>
-                                <span>${post.likes_count || 0}</span>
-                            </button>
-                            <button class="btn-action" onclick="toggleComments(${post.id})">
-                                <span>💬</span>
-                                <span>${post.comments_count || 0}</span>
-                            </button>
-                            <button class="btn-action" onclick="toggleRepost(${post.id})">
-                                <span>🔄</span>
-                                <span>${post.reposts_count || 0}</span>
-                            </button>
-                        </div>
-                    `;
-                    grid.appendChild(card);
-                });
-            }
-            
-            if (loadMoreSentinel) {
-                loadMoreSentinel.dataset.offset = result.length;
-            }
-        }
-
-        initializePosts();
-        initialProfileLoadComplete = true;
-        
-    } catch (error) {
-        console.error('Error loading profile posts:', error);
-        initialProfileLoadComplete = true;
-    }
+  const userId = window.profileUserId;
+  const grid = document.getElementById("user-posts");
+  if (!userId || !grid) {
+    console.error("loadInitialProfilePosts: missing userId or grid");
+    return;
+  }
+  profilePostsOffset = 0;
+  profileHasMorePosts = true;
+  profileIsLoading = false;
+  await loadMoreProfilePosts();
 }
 
-if (loadMoreSentinel && 'IntersectionObserver' in window) {
-    let isLoading = false;
-    
-    const observer = new IntersectionObserver(async (entries) => {
-        const entry = entries[0];
-        if (!entry.isIntersecting || isLoading) return;
-        if (!initialProfileLoadComplete) return;
-        
-        const offset = loadMoreSentinel.dataset.offset;
-        const userId = window.profileUserId;
-        if (!userId) return;
-        
-        isLoading = true;
-        if (loadMoreSpinner) loadMoreSpinner.classList.remove('hidden');
-        
-        try {
-            const response = await fetch(`/profile/${userId}/posts?offset=${offset}`);
-            const result = await response.json();
+async function loadMoreProfilePosts() {
+  if (profileIsLoading || !profileHasMorePosts) return;
+  profileIsLoading = true;
+  const spinner = document.getElementById("load-more-spinner");
+  const sentinel = document.getElementById("load-more-sentinel");
+  if (spinner) spinner.classList.remove("hidden");
 
-            if (result.html !== undefined) {
-                if (result.count === 0) {
-                    observer.disconnect();
-                    if (loadMoreSpinner) loadMoreSpinner.classList.add('hidden');
-                    return;
-                } else {
-                    const grid = document.getElementById('user-posts');
-                    if (grid) {
-                        grid.innerHTML += result.html;
-                        const newOffset = parseInt(offset) + result.count;
-                        loadMoreSentinel.dataset.offset = newOffset;
-                    }
-                }
-            } else {
-                if (result.length === 0) {
-                    observer.disconnect();
-                    if (loadMoreSpinner) loadMoreSpinner.classList.add('hidden');
-                    return;
-                }
-                
-                const grid = document.getElementById('user-posts');
-                if (grid) {
-                    result.forEach(post => {
-                        const card = document.createElement('div');
-                        card.className = 'profile-post-card';
-                        card.dataset.postId = post.id;
-                        const isLiked = post.is_liked;
-                        card.innerHTML = `
-                            <div class="post-header-small">
-                                <div class="post-author-small">
-                                    <img src="${post.author?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${post.author?.id || 1}`}" alt="avatar" class="author-avatar-small">
-                                    <div class="author-info-small">
-                                        <span class="author-name-small">${escapeHtml(post.author?.username || 'Аноним')}</span>
-                                        <span class="post-time-small">${post.timeAgo || ''}</span>
-                                    </div>
-                                </div>
-                                ${window.currentUserId == post.user_id ? `<button class="btn-delete-post" onclick="deletePost(${post.id})" title="Удалить">🗑️</button>` : ''}
-                            </div>
-                            <a href="/post/view?id=${post.id}" class="post-content-link">
-                                <p class="post-content-preview">${escapeHtml(post.content || '')}</p>
-                            </a>
-                            <div class="post-actions-small">
-                                <button class="btn-action-small ${isLiked ? 'liked' : ''}" onclick="likePost(${post.id}, this)">
-                                    <span>${isLiked ? '❤️' : '🤍'}</span>
-                                    <span>${post.likes_count || 0}</span>
-                                </button>
-                                <a href="/post/view?id=${post.id}" class="btn-action-small">
-                                    <span>💬</span>
-                                    <span>${post.comments_count || 0}</span>
-                                </a>
-                            </div>
-                        `;
-                        grid.appendChild(card);
-                    });
+  const userId = window.profileUserId;
+  const offset = profilePostsOffset;
 
-                    const newOffset = parseInt(offset) + result.length;
-                    loadMoreSentinel.dataset.offset = newOffset;
-                }
-            }
+  try {
+    const url = `/profile/${userId}/posts?offset=${offset}`;
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const result = await response.json();
 
-            initializePosts();
-        } catch (error) {
-            console.error('Error loading more posts:', error);
-        } finally {
-            isLoading = false;
-            if (loadMoreSpinner) loadMoreSpinner.classList.add('hidden');
-        }
-    }, { rootMargin: '100px' });
-    
-observer.observe(loadMoreSentinel);
-}
+    const container = document.getElementById("user-posts");
+    if (!container) return;
 
-// Infinite scroll for saved posts
-if (document.getElementById('load-more-sentinel-saved') && 'IntersectionObserver' in window) {
-    let savedLoadingMore = false;
-    const savedObserver = new IntersectionObserver(async (entries) => {
-        const entry = entries[0];
-        if (!entry.isIntersecting || savedLoadingMore) return;
-        
-        const offset = document.getElementById('load-more-sentinel-saved')?.dataset.offset || 0;
-        const container = document.getElementById('user-saved');
-        const spinner = document.getElementById('load-more-spinner-saved');
-        
-        savedLoadingMore = true;
-        if (spinner) spinner.classList.remove('hidden');
-        
-        try {
-            const response = await fetch(`/profile/${window.profileUserId}/saved?offset=${offset}`);
-            const result = await response.json();
-            
-            if (result.html !== undefined && result.count > 0 && container) {
-                container.innerHTML += result.html;
-                document.getElementById('load-more-sentinel-saved').dataset.offset = parseInt(offset) + result.count;
-            } else {
-                savedObserver.disconnect();
-            }
-            initializePosts();
-        } catch (error) {
-            console.error('Error loading more saved:', error);
-        } finally {
-            savedLoadingMore = false;
-            if (spinner) spinner.classList.add('hidden');
-        }
-    }, { rootMargin: '100px' });
-    
-    savedObserver.observe(document.getElementById('load-more-sentinel-saved'));
-}
+    if (result.html && result.count > 0) {
+      if (offset === 0) {
+        container.innerHTML = result.html;
+      } else {
+        container.insertAdjacentHTML("beforeend", result.html);
+      }
+      profilePostsOffset = offset + result.count;
+      profileHasMorePosts = result.count === 3;
 
-// Infinite scroll for reposts
-if (document.getElementById('load-more-sentinel-reposts') && 'IntersectionObserver' in window) {
-    let repostsLoadingMore = false;
-    const repostsObserver = new IntersectionObserver(async (entries) => {
-        const entry = entries[0];
-        if (!entry.isIntersecting || repostsLoadingMore) return;
-        
-        const offset = document.getElementById('load-more-sentinel-reposts')?.dataset.offset || 0;
-        const container = document.getElementById('user-reposts');
-        const spinner = document.getElementById('load-more-spinner-reposts');
-        
-        repostsLoadingMore = true;
-        if (spinner) spinner.classList.remove('hidden');
-        
-        try {
-            const response = await fetch(`/profile/${window.profileUserId}/reposts?offset=${offset}`);
-            const result = await response.json();
-            
-            if (result.html !== undefined && result.count > 0 && container) {
-                container.innerHTML += result.html;
-                document.getElementById('load-more-sentinel-reposts').dataset.offset = parseInt(offset) + result.count;
-            } else {
-                repostsObserver.disconnect();
-            }
-            initializePosts();
-        } catch (error) {
-            console.error('Error loading more reposts:', error);
-        } finally {
-            repostsLoadingMore = false;
-            if (spinner) spinner.classList.add('hidden');
-        }
-    }, { rootMargin: '100px' });
-    
-    repostsObserver.observe(document.getElementById('load-more-sentinel-reposts'));
-}
-
-async function toggleFollow(userId) {
-    const btn = document.getElementById('follow-btn');
-    if (!btn) return;
-    
-    const isFollowing = btn.classList.contains('following');
-    const action = isFollowing ? 'unfollow' : 'follow';
-    
-    try {
-        const response = await fetch(`/profile/${userId}/${action}`);
-        const result = await response.json();
-        
-        if (result.success) {
-            btn.classList.toggle('following');
-            btn.textContent = result.following ? 'Отписаться' : 'Подписаться';
-
-            const followersCount = document.getElementById('followers-count');
-            if (followersCount) {
-                followersCount.textContent = result.followers_count;
-            }
-        } else {
-            showNotification(result.error || 'Ошибка', 'error');
-        }
-    } catch (error) {
-        console.error('Error toggling follow:', error);
-    }
-}
-
-async function toggleFollowUser(btn, userId) {
-    const isFollowing = btn.classList.contains('following');
-    const action = isFollowing ? 'unfollow' : 'follow';
-    
-    try {
-        const response = await fetch(`/profile/${userId}/${action}`);
-        const result = await response.json();
-        
-        if (result.success) {
-            btn.classList.toggle('following');
-            btn.textContent = result.following ? 'Отписаться' : 'Подписаться';
-        } else {
-            showNotification(result.error || 'Ошибка', 'error');
-        }
-    } catch (error) {
-        console.error('Error toggling follow:', error);
-    }
-}
-
-function confirmDelete() {
-    if (typeof window.showDeleteModal === 'function') {
-        window.showDeleteModal('Вы уверены, что хотите удалить аккаунт? Это действие нельзя отменить!', async () => {
-            showNotification('Функция удаления в разработке', 'info');
-        });
+      initProfilePostHandlers();
+    } else if (offset === 0) {
+      container.innerHTML =
+        '<div class="empty-profile"><div class="empty-icon">📝</div><p>Пока нет постов</p></div>';
+      profileHasMorePosts = false;
     } else {
-        showNotification('Ошибка: функция модального окна не доступна', 'error');
+      profileHasMorePosts = false;
     }
+
+    if (!profileHasMorePosts && sentinel) sentinel.style.display = "none";
+  } catch (error) {
+    console.error("Error loading profile posts:", error);
+    if (offset === 0) {
+      const container = document.getElementById("user-posts");
+      if (container) {
+        container.innerHTML =
+          '<div class="empty-profile"><div class="empty-icon">⚠️</div><p>Ошибка загрузки постов</p></div>';
+      }
+    }
+  } finally {
+    profileIsLoading = false;
+    if (spinner) spinner.classList.add("hidden");
+  }
 }
+
+function initProfilePostHandlers() {
+  const containers = ["#user-posts", "#user-reposts", "#user-saved"];
+  containers.forEach((selector) => {
+    document.querySelectorAll(`${selector} .post-card`).forEach((card) => {
+      if (card.dataset.handlersInitialized === "true") return;
+      card.dataset.handlersInitialized = "true";
+
+      const postId = card.dataset.postId;
+      if (!postId) return;
+
+      const likeBtn = card.querySelector(".btn-like, .post-action.btn-like");
+      if (likeBtn) {
+        const newLikeBtn = likeBtn.cloneNode(true);
+        likeBtn.parentNode.replaceChild(newLikeBtn, likeBtn);
+        newLikeBtn.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (typeof window.handleLike === "function")
+            window.handleLike(postId, newLikeBtn);
+        });
+      }
+
+      const saveBtn = card.querySelector(".btn-save, .post-action.btn-save");
+      if (saveBtn) {
+        const newSaveBtn = saveBtn.cloneNode(true);
+        saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
+        newSaveBtn.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (typeof window.handleSave === "function")
+            window.handleSave(postId);
+        });
+      }
+
+      const repostBtn = card.querySelector(
+        ".btn-repost, .post-action.btn-repost",
+      );
+      if (repostBtn) {
+        const newRepostBtn = repostBtn.cloneNode(true);
+        repostBtn.parentNode.replaceChild(newRepostBtn, repostBtn);
+        newRepostBtn.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (typeof window.toggleRepost === "function")
+            window.toggleRepost(postId);
+        });
+      }
+
+      const voteBtn = card.querySelector(".poll-widget-vote-btn, .btn-vote");
+      if (voteBtn && !voteBtn.dataset.handlerAdded) {
+        voteBtn.dataset.handlerAdded = "true";
+        const pollId = voteBtn.closest(".poll-widget")?.dataset.pollId;
+        if (pollId) {
+          const newVoteBtn = voteBtn.cloneNode(true);
+          voteBtn.parentNode.replaceChild(newVoteBtn, voteBtn);
+          newVoteBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (typeof window.submitPollVote === "function")
+              window.submitPollVote(pollId, postId);
+          });
+        }
+      }
+
+      const cancelBtn = card.querySelector(
+        ".poll-widget-cancel-btn, .btn-cancel-vote",
+      );
+      if (cancelBtn && !cancelBtn.dataset.handlerAdded) {
+        cancelBtn.dataset.handlerAdded = "true";
+        const pollId = cancelBtn.closest(".poll-widget")?.dataset.pollId;
+        if (pollId) {
+          const newCancelBtn = cancelBtn.cloneNode(true);
+          cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+          newCancelBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (typeof window.cancelPollVote === "function")
+              window.cancelPollVote(pollId);
+          });
+        }
+      }
+    });
+  });
+}
+
+// ==================== Follow Functions ====================
+async function handleFollowClick(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  const btn = e.currentTarget;
+  const userId = btn.dataset.userId;
+  const username = btn.dataset.username;
+  const isFollowing = btn.classList.contains("following");
+
+  btn.disabled = true;
+  btn.style.opacity = "0.6";
+
+  try {
+    const response = await fetch(
+      `/profile/${userId}/${isFollowing ? "unfollow" : "follow"}`,
+    );
+    const result = await response.json();
+
+    if (result.success) {
+      btn.classList.toggle("following");
+      const iconSpan = btn.querySelector(".btn-icon");
+      const textSpan = btn.querySelector(".btn-text");
+      if (iconSpan) iconSpan.textContent = result.following ? "🔓" : "🔔";
+      if (textSpan)
+        textSpan.textContent = result.following ? "Отписаться" : "Подписаться";
+
+      const followersCount = document.getElementById("followers-count");
+      if (followersCount) followersCount.textContent = result.followers_count;
+
+      showNotification(
+        result.following
+          ? `Вы подписались на ${username}`
+          : `Вы отписались от ${username}`,
+        "success",
+      );
+    } else {
+      showNotification(result.error || "Ошибка", "error");
+    }
+  } catch (error) {
+    console.error("Follow error:", error);
+    showNotification("Ошибка сети", "error");
+  } finally {
+    btn.disabled = false;
+    btn.style.opacity = "";
+  }
+}
+
+// ==================== Block Functions ====================
+async function handleBlockClick(e) {
+  e.preventDefault();
+  e.stopPropagation();
+
+  const btn = e.currentTarget;
+  const userId = btn.dataset.userId;
+  const username = btn.dataset.username;
+  const isBlocked = btn.textContent.includes("Разблокировать");
+
+  const action = isBlocked ? "unblock" : "block";
+  const confirmMessage = isBlocked
+    ? `Разблокировать пользователя ${username}?`
+    : `Заблокировать пользователя ${username}?`;
+  const successMessage = isBlocked
+    ? `Пользователь ${username} разблокирован`
+    : `Пользователь ${username} заблокирован`;
+
+  showDeleteModal(confirmMessage, async () => {
+    try {
+      const csrfToken = document.querySelector(
+        'meta[name="csrf-token"]',
+      )?.content;
+      const headers = csrfToken
+        ? { "X-CSRF-Token": csrfToken, "Content-Type": "application/json" }
+        : { "Content-Type": "application/json" };
+      const response = await fetch(`/api/profile/${action}`, {
+        method: "POST",
+        headers: headers,
+        body: JSON.stringify({ user_id: userId }),
+      });
+      const result = await response.json();
+
+      if (result.success) {
+        if (action === "block") {
+          btn.textContent = "✅ Разблокировать";
+          btn.classList.add("unblock");
+        } else {
+          btn.textContent = "🚫 Заблокировать";
+          btn.classList.remove("unblock");
+        }
+        showNotification(successMessage, "success");
+      } else {
+        showNotification(result.error || "Ошибка", "error");
+      }
+    } catch (error) {
+      console.error("Block error:", error);
+      showNotification("Ошибка сети", "error");
+    }
+  });
+}
+
+let blockTargetUserId = null;
 
 function showBlockModal(userId, username) {
-    blockTargetUserId = userId;
-    const modal = document.getElementById('block-modal');
-    const nameEl = document.getElementById('block-modal-username');
-    const confirmBtn = document.getElementById('block-confirm-btn');
-
-    if (nameEl) {
-        nameEl.textContent = username;
-    }
-    if (modal) {
-        modal.classList.remove('hidden');
-        modal.classList.add('show');
-    }
-    
-    if (confirmBtn) {
-        confirmBtn.onclick = () => {
-            if (blockTargetUserId) {
-                doBlockUser(blockTargetUserId);
-            }
-        };
-    }
+  blockTargetUserId = userId;
+  const modal = document.getElementById("block-modal");
+  const nameEl = document.getElementById("block-modal-username");
+  if (nameEl) nameEl.textContent = username;
+  if (modal) {
+    modal.classList.remove("hidden");
+    modal.classList.add("show");
+  }
+  const confirmBtn = document.getElementById("block-confirm-btn");
+  if (confirmBtn)
+    confirmBtn.onclick = () =>
+      blockTargetUserId && doBlockUser(blockTargetUserId);
 }
 
 function hideBlockModal() {
-    const modal = document.getElementById('block-modal');
-    if (modal) {
-        modal.classList.add('hidden');
-        modal.classList.remove('show');
-    }
-    blockTargetUserId = null;
+  const modal = document.getElementById("block-modal");
+  if (modal) {
+    modal.classList.add("hidden");
+    modal.classList.remove("show");
+  }
+  blockTargetUserId = null;
 }
 
-document.addEventListener('click', (e) => {
-    const modal = document.getElementById('block-modal');
-    if (modal && e.target === modal) {
-        hideBlockModal();
-    }
-});
-
-document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-        hideBlockModal();
-    }
-});
-
 async function doBlockUser(userId) {
-    hideBlockModal();
-    
-    try {
-        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
-        const headers = { 'Content-Type': 'application/json' };
-        if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
-        
-        const response = await fetch('/api/profile/block', {
-            method: 'POST',
-            headers: headers,
-            body: JSON.stringify({ user_id: userId })
-        });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            showNotification('Пользователь заблокирован', 'success');
-            updateBlockButton(userId, true);
-        } else {
-            showNotification(result.error || 'Ошибка блокировки', 'error');
-        }
-    } catch (error) {
-        console.error('Error blocking user:', error);
-        showNotification('Ошибка блокировки', 'error');
+  hideBlockModal();
+  try {
+    const csrfToken = document.querySelector(
+      'meta[name="csrf-token"]',
+    )?.content;
+    const headers = csrfToken ? { "X-CSRF-Token": csrfToken } : {};
+    const formData = new FormData();
+    formData.append("user_id", userId);
+    const response = await fetch("/api/profile/block", {
+      method: "POST",
+      headers,
+      body: formData,
+    });
+    const result = await response.json();
+    if (result.success) {
+      showNotification("Пользователь заблокирован", "success");
+      updateBlockButton(userId, true);
+    } else {
+      showNotification(result.error || "Ошибка блокировки", "error");
     }
+  } catch (error) {
+    console.error("Error blocking user:", error);
+    showNotification("Ошибка блокировки", "error");
+  }
 }
 
 async function unblockUser(userId) {
-    try {
-        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
-        const headers = { 'Content-Type': 'application/json' };
-        if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
-        
-        const response = await fetch('/api/profile/unblock', {
-            method: 'POST',
-            headers: headers,
-            body: JSON.stringify({ user_id: userId })
-        });
-        
-        const result = await response.json();
-        if (result.success) {
-            showNotification('Пользователь разблокирован', 'success');
-            updateBlockButton(userId, false);
-        } else {
-            showNotification(result.error || 'Ошибка разблокировки', 'error');
-        }
-    } catch (error) {
-        console.error('Error unblocking user:', error);
-        showNotification('Ошибка разблокировки', 'error');
+  try {
+    const csrfToken = document.querySelector(
+      'meta[name="csrf-token"]',
+    )?.content;
+    const headers = csrfToken ? { "X-CSRF-Token": csrfToken } : {};
+    const formData = new FormData();
+    formData.append("user_id", userId);
+    const response = await fetch("/api/profile/unblock", {
+      method: "POST",
+      headers,
+      body: formData,
+    });
+    const result = await response.json();
+    if (result.success) {
+      showNotification("Пользователь разблокирован", "success");
+      updateBlockButton(userId, false);
+    } else {
+      showNotification(result.error || "Ошибка разблокировки", "error");
     }
+  } catch (error) {
+    console.error("Error unblocking user:", error);
+    showNotification("Ошибка разблокировки", "error");
+  }
 }
 
 function updateBlockButton(userId, isBlocked) {
-    const btn = document.getElementById('block-btn');
-    if (!btn) return;
-    
-    const username = btn.dataset.username || '';
-    
-    if (isBlocked) {
-        btn.textContent = '✅ Разблокировать';
-        btn.onclick = () => unblockUser(userId);
-    } else {
-        btn.textContent = '🚫 Заблокировать';
-        btn.onclick = () => showBlockModal(userId, username);
-    }
+  const btn = document.getElementById("block-btn");
+  if (!btn) return;
+  const username = btn.dataset.username || "";
+  if (isBlocked) {
+    btn.textContent = "✅ Разблокировать";
+    btn.onclick = () => unblockUser(userId);
+  } else {
+    btn.textContent = "🚫 Заблокировать";
+    btn.onclick = () => showBlockModal(userId, username);
+  }
 }
 
-window.likePost = likePost;
-window.toggleComments = toggleComments;
-window.deletePost = typeof deletePost !== 'undefined' ? deletePost : null;
+// ==================== Tab Content Loaders ====================
+async function loadRepostsPosts() {
+  const container = document.getElementById("user-reposts");
+  const sentinel = document.getElementById("load-more-sentinel-reposts");
+  if (!container) return;
+  const offset = parseInt(sentinel?.dataset.offset || "0");
+  try {
+    const response = await fetch(`/profile/reposts?offset=${offset}`);
+    const result = await response.json();
+    if (result.html) {
+      if (offset === 0) container.innerHTML = result.html;
+      else container.insertAdjacentHTML("beforeend", result.html);
+      if (sentinel) sentinel.dataset.offset = offset + result.count;
+      if (typeof window.initProfilePostHandlers === "function")
+        window.initProfilePostHandlers();
+    } else if (offset === 0) {
+      container.innerHTML =
+        '<div class="empty-profile"><div class="empty-icon">🔄</div><p>Нет репостов</p></div>';
+    }
+  } catch (error) {
+    console.error("Error loading reposts:", error);
+  }
+}
 
+async function loadSavedPosts() {
+  const container = document.getElementById("user-saved");
+  const sentinel = document.getElementById("load-more-sentinel-saved");
+  if (!container) return;
+  const offset = parseInt(sentinel?.dataset.offset || "0");
+  try {
+    const response = await fetch(`/profile/saved?offset=${offset}`);
+    const result = await response.json();
+    if (result.html) {
+      if (offset === 0) container.innerHTML = result.html;
+      else container.insertAdjacentHTML("beforeend", result.html);
+      if (sentinel) sentinel.dataset.offset = offset + result.count;
+      if (typeof window.initProfilePostHandlers === "function")
+        window.initProfilePostHandlers();
+      else if (typeof initProfilePostHandlers === "function")
+        initProfilePostHandlers();
+    } else if (offset === 0) {
+      container.innerHTML =
+        '<div class="empty-profile"><div class="empty-icon">🔖</div><p>Нет сохранённых постов</p></div>';
+    }
+  } catch (error) {
+    console.error("Error loading saved posts:", error);
+  }
+}
+
+function initFollowSmallButtons() {
+  document.querySelectorAll(".btn-follow-small").forEach((btn) => {
+    if (btn.dataset.listenerAdded === "true") return;
+    btn.dataset.listenerAdded = "true";
+    btn.removeEventListener("click", handleFollowSmallClick);
+    btn.addEventListener("click", handleFollowSmallClick);
+  });
+}
+
+async function handleFollowSmallClick(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  const btn = e.currentTarget;
+  const userId = btn.dataset.userId;
+  const username = btn.dataset.username;
+  const isFollowing = btn.classList.contains("following");
+
+  btn.disabled = true;
+  btn.style.opacity = "0.6";
+
+  try {
+    const response = await fetch(
+      `/profile/${userId}/${isFollowing ? "unfollow" : "follow"}`,
+    );
+    const result = await response.json();
+    if (result.success) {
+      btn.classList.toggle("following");
+      const iconSpan = btn.querySelector(".btn-icon");
+      const textSpan = btn.querySelector(".btn-text");
+      if (iconSpan) iconSpan.textContent = result.following ? "🔓" : "🔔";
+      if (textSpan)
+        textSpan.textContent = result.following ? "Отписаться" : "Подписаться";
+
+      const followersCount = document.getElementById("followers-count");
+      if (
+        followersCount &&
+        window.profileUserId &&
+        userId == window.profileUserId
+      ) {
+        const countResponse = await fetch(`/profile/${userId}/followers-count`);
+        const countResult = await countResponse.json();
+        if (countResult.success) followersCount.textContent = countResult.count;
+      }
+      if (typeof showNotification === "function") {
+        showNotification(
+          result.following
+            ? `Вы подписались на ${username}`
+            : `Вы отписались от ${username}`,
+          "success",
+        );
+      }
+    } else {
+      if (typeof showNotification === "function")
+        showNotification(result.error || "Ошибка", "error");
+    }
+  } catch (error) {
+    console.error("Follow error:", error);
+    if (typeof showNotification === "function")
+      showNotification("Ошибка сети", "error");
+  } finally {
+    btn.disabled = false;
+    btn.style.opacity = "";
+  }
+}
+
+async function loadFollowers() {
+  const container = document.getElementById("user-followers");
+  if (!container) return;
+  const spinner = document.getElementById("load-more-spinner-followers");
+  if (spinner) spinner.classList.remove("hidden");
+  try {
+    const response = await fetch(
+      `/profile/followers?id=${window.profileUserId}`,
+    );
+    const result = await response.json();
+    if (result.success && result.html) {
+      container.innerHTML = result.html;
+      initFollowSmallButtons();
+    } else {
+      container.innerHTML =
+        '<div class="empty-profile"><div class="empty-icon">👥</div><p>Нет подписчиков</p></div>';
+    }
+  } catch (error) {
+    console.error("Error loading followers:", error);
+    container.innerHTML =
+      '<div class="empty-profile"><div class="empty-icon">⚠️</div><p>Ошибка загрузки</p></div>';
+  } finally {
+    if (spinner) spinner.classList.add("hidden");
+  }
+}
+
+async function loadFollowing() {
+  const container = document.getElementById("user-following");
+  if (!container) return;
+  const spinner = document.getElementById("load-more-spinner-following");
+  if (spinner) spinner.classList.remove("hidden");
+  try {
+    const response = await fetch(
+      `/profile/following?id=${window.profileUserId}`,
+    );
+    const result = await response.json();
+    if (result.success && result.html) {
+      container.innerHTML = result.html;
+      initFollowSmallButtons();
+    } else {
+      container.innerHTML =
+        '<div class="empty-profile"><div class="empty-icon">📋</div><p>Нет подписок</p></div>';
+    }
+  } catch (error) {
+    console.error("Error loading following:", error);
+    container.innerHTML =
+      '<div class="empty-profile"><div class="empty-icon">⚠️</div><p>Ошибка загрузки</p></div>';
+  } finally {
+    if (spinner) spinner.classList.add("hidden");
+  }
+}
+
+function initPostModalHandlers() {
+  const modal = document.getElementById("post-modal");
+  if (!modal) return;
+  const voteBtn = modal.querySelector(".poll-widget-vote-btn");
+  if (voteBtn && !voteBtn.dataset.modalHandlerAdded) {
+    voteBtn.dataset.modalHandlerAdded = "true";
+    const pollId = voteBtn.closest(".poll-widget")?.dataset.pollId;
+    const postId =
+      voteBtn.closest(".post-modal__content")?.dataset.postId ||
+      window.currentModalPostId;
+    if (pollId) {
+      voteBtn.onclick = (e) => {
+        e.preventDefault();
+        if (typeof window.submitPollVote === "function")
+          window.submitPollVote(pollId, postId);
+      };
+    }
+  }
+  const cancelBtn = modal.querySelector(".poll-widget-cancel-btn");
+  if (cancelBtn && !cancelBtn.dataset.modalHandlerAdded) {
+    cancelBtn.dataset.modalHandlerAdded = "true";
+    const pollId = cancelBtn.closest(".poll-widget")?.dataset.pollId;
+    if (pollId) {
+      cancelBtn.onclick = (e) => {
+        e.preventDefault();
+        if (typeof window.cancelPollVote === "function")
+          window.cancelPollVote(pollId);
+      };
+    }
+  }
+}
+
+function initModalPollHandlers() {
+  const modal = document.getElementById("post-modal");
+  if (!modal || !modal.classList.contains("show")) return;
+  const voteBtn = modal.querySelector(".poll-widget-vote-btn");
+  if (voteBtn && !voteBtn.dataset.modalHandler) {
+    voteBtn.dataset.modalHandler = "true";
+    const pollId = voteBtn.closest(".poll-widget")?.dataset.pollId;
+    const postId =
+      modal.querySelector(".post-modal__body")?.dataset.postId ||
+      window.currentModalPostId;
+    if (pollId) {
+      voteBtn.onclick = (e) => {
+        e.preventDefault();
+        if (typeof window.submitPollVote === "function")
+          window.submitPollVote(pollId, postId);
+      };
+    }
+  }
+  const cancelBtn = modal.querySelector(".poll-widget-cancel-btn");
+  if (cancelBtn && !cancelBtn.dataset.modalHandler) {
+    cancelBtn.dataset.modalHandler = "true";
+    const pollId = cancelBtn.closest(".poll-widget")?.dataset.pollId;
+    if (pollId) {
+      cancelBtn.onclick = (e) => {
+        e.preventDefault();
+        if (typeof window.cancelPollVote === "function")
+          window.cancelPollVote(pollId);
+      };
+    }
+  }
+}
+
+setInterval(() => {
+  const modal = document.getElementById("post-modal");
+  if (modal && modal.classList.contains("show")) initModalPollHandlers();
+}, 500);
+
+// ==================== DOM Ready ====================
+document.addEventListener("DOMContentLoaded", () => {
+  initProfilePostForm();
+
+  if (document.getElementById("user-posts") && window.profileUserId) {
+    setTimeout(() => loadInitialProfilePosts(), 50);
+  }
+
+  const followBtn = document.getElementById("follow-btn");
+  if (followBtn) {
+    followBtn.removeEventListener("click", handleFollowClick);
+    followBtn.addEventListener("click", handleFollowClick);
+  }
+
+  const blockBtn = document.getElementById("block-btn");
+  if (blockBtn) {
+    blockBtn.removeEventListener("click", handleBlockClick);
+    blockBtn.addEventListener("click", handleBlockClick);
+  }
+
+  const modalObserver = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+      if (mutation.attributeName === "class") {
+        const modal = document.getElementById("post-modal");
+        if (modal && modal.classList.contains("show"))
+          setTimeout(initPostModalHandlers, 100);
+      }
+    });
+  });
+  const modalEl = document.getElementById("post-modal");
+  if (modalEl) modalObserver.observe(modalEl, { attributes: true });
+
+  document
+    .querySelectorAll(".profile-tabs .tab-btn[data-tab]")
+    .forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const tab = btn.dataset.tab;
+        document
+          .querySelectorAll(".profile-tabs .tab-btn")
+          .forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        document
+          .querySelectorAll(".tab-content")
+          .forEach((c) => (c.style.display = "none"));
+        const tabContent = document.getElementById(`${tab}-tab`);
+        if (tabContent) tabContent.style.display = "block";
+        if (tab === "saved") loadSavedPosts();
+        else if (tab === "reposts") loadRepostsPosts();
+        else if (tab === "followers") loadFollowers();
+        else if (tab === "following") loadFollowing();
+      });
+    });
+
+  document.addEventListener("click", (e) => {
+    const modal = document.getElementById("block-modal");
+    if (modal && e.target === modal) hideBlockModal();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") hideBlockModal();
+  });
+});
+
+// ==================== Exports ====================
+window.submitModalComment = submitModalComment;
+window.openAvatarCropper = openAvatarCropper;
+window.closeAvatarCropper = closeAvatarCropper;
+window.applyAvatarCrop = applyAvatarCrop;
+window.loadInitialProfilePosts = loadInitialProfilePosts;
+window.loadMoreProfilePosts = loadMoreProfilePosts;
+window.handleFollowClick = handleFollowClick;
+window.handleBlockClick = handleBlockClick;
+window.showBlockModal = showBlockModal;
+window.hideBlockModal = hideBlockModal;
+window.doBlockUser = doBlockUser;
+window.unblockUser = unblockUser;
+window.initFollowSmallButtons = initFollowSmallButtons;
+window.handleFollowSmallClick = handleFollowSmallClick;
+window.initProfilePostHandlers = initProfilePostHandlers;
+window.toggleFollow = handleFollowClick;

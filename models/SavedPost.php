@@ -1,66 +1,99 @@
 <?php
+
 namespace app\models;
+
+use Yii;
 use yii\db\ActiveRecord;
+use yii\behaviors\TimestampBehavior;
 
-
+/**
+ * SavedPost model
+ *
+ * @property int $id
+ * @property int $user_id
+ * @property int $post_id
+ * @property int $created_at
+ */
 class SavedPost extends ActiveRecord
 {
-    public static function tableName() { return '{{%saved_post}}'; }
-    
-    public function behaviors() {
-        return [];
+    public static function tableName()
+    {
+        return '{{%saved_post}}';
     }
-    
-    public function beforeSave($insert) {
-        if (!parent::beforeSave($insert)) {
-            return false;
-        }
-        if ($insert) {
-            $this->created_at = time();
-        }
-        return true;
+
+    public function behaviors()
+    {
+        return [
+            [
+                'class' => TimestampBehavior::class,
+                'updatedAtAttribute' => false,
+                'createdAtAttribute' => 'created_at',
+            ],
+        ];
     }
-    
-    public function rules() {
+
+    public function rules()
+    {
         return [
             [['user_id', 'post_id'], 'required'],
-            [['user_id', 'post_id'], 'integer'],
+            [['user_id', 'post_id', 'created_at'], 'integer'],
             [['user_id', 'post_id'], 'unique', 'targetAttribute' => ['user_id', 'post_id']],
         ];
     }
-    
-    public function getUser() {
+
+    public function attributeLabels()
+    {
+        return [
+            'id' => 'ID',
+            'user_id' => 'Пользователь',
+            'post_id' => 'Пост',
+            'created_at' => 'Дата сохранения',
+        ];
+    }
+
+    public function getUser()
+    {
         return $this->hasOne(User::class, ['id' => 'user_id']);
     }
-    
-    public function getPost() {
+
+    public function getPost()
+    {
         return $this->hasOne(Post::class, ['id' => 'post_id']);
     }
-    
-public static function toggle($userId, $postId) {
+
+    public static function toggle($userId, $postId)
+    {
         $existing = self::findOne(['user_id' => $userId, 'post_id' => $postId]);
+
         if ($existing) {
             $existing->delete();
-            $newCount = self::getSavedCount($postId);
-            return ['saved' => false, 'count' => $newCount];
+        } else {
+            $model = new self(['user_id' => $userId, 'post_id' => $postId]);
+            $model->save();
         }
-        $model = new self(['user_id' => $userId, 'post_id' => $postId]);
-        if ($model->save()) {
-            $newCount = self::getSavedCount($postId);
-            return ['saved' => true, 'count' => $newCount];
-        }
-        return ['saved' => false, 'error' => 'Ошибка сохранения'];
+
+        return [
+            'saved' => !$existing,
+            'count' => self::getSavedCount($postId),
+        ];
     }
-    
-    public static function isSaved($userId, $postId) {
-        return self::find()->where(['user_id' => $userId, 'post_id' => $postId])->exists();
+
+    public static function isSaved($userId, $postId): bool
+    {
+        return self::find()
+            ->where(['user_id' => $userId, 'post_id' => $postId])
+            ->exists();
     }
-    
-    public static function getSavedCount($postId) {
-        return self::find()->where(['post_id' => $postId])->count();
+
+    public static function getSavedCount($postId): int
+    {
+        return self::find()
+            ->where(['post_id' => $postId])
+            ->count();
     }
-    
-    public static function getUserSavedPosts($userId, $limit = 20, $offset = 0) {
+
+    public static function getUserSavedPosts($userId, $limit = 20, $offset = 0)
+    {
         return Post::find()
             ->joinWith('savedPosts')
             ->where(['saved_post.user_id' => $userId])
@@ -68,5 +101,15 @@ public static function toggle($userId, $postId) {
             ->limit($limit)
             ->offset($offset)
             ->all();
+    }
+
+    public function fields()
+    {
+        return [
+            'id',
+            'user_id',
+            'post_id',
+            'created_at',
+        ];
     }
 }

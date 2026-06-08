@@ -1,44 +1,68 @@
 <?php
+
 use yii\helpers\Html;
 use yii\helpers\Url;
 
-$hasVoted = !Yii::$app->user->isGuest && $poll->hasUserVoted(Yii::$app->user->id);
-$userVotes = $hasVoted ? $poll->getUserVotes(Yii::$app->user->id) : [];
+$userId = Yii::$app->user->id;
+$isGuest = Yii::$app->user->isGuest;
+$hasVoted = !$isGuest && $poll->hasUserVoted($userId);
+$userVotes = $hasVoted ? $poll->getUserVotes($userId) : [];
 $totalVotes = $poll->getTotalVotes();
-$allowMultiple = isset($poll->multiple_votes) ? $poll->multiple_votes : false;
+$allowMultiple = (int)($poll->multiple_votes ?? 0) === 1;  // ← исправлено
 $inputType = $allowMultiple ? 'checkbox' : 'radio';
+$postIdValue = (int)($postId ?? 0);
 ?>
 
-<div class="poll-container <?= $hasVoted ? 'voted' : '' ?>" data-poll-id="<?= $poll->id ?>">
-    <div class="poll-question"><?= Html::encode($poll->question) ?></div>
-    <div class="poll-options">
-        <?php foreach ($poll->options as $option): ?>
-            <?php 
-            $votesCount = $option->getVotesCount();
+<div class="poll-widget <?= $hasVoted ? 'voted' : '' ?>" data-poll-id="<?= $poll->id ?>">
+    <div class="poll-widget-question"><?= Html::encode($poll->question) ?></div>
+    
+    <div class="poll-widget-options">
+        <?php foreach ($poll->options as $option): 
+            $votesCount = $option->votes_count ?? $option->getVotesCount();
             $percentage = $totalVotes > 0 ? round(($votesCount / $totalVotes) * 100, 1) : 0;
             $isChecked = in_array($option->id, $userVotes);
-            ?>
-            <div class="poll-option" data-option-id="<?= $option->id ?>">
-                <label class="poll-option-label">
+        ?>
+            <div class="poll-widget-option <?= $isChecked ? 'is-selected' : '' ?>" data-option-id="<?= $option->id ?>">
+                <label class="poll-widget-label">
                     <input type="<?= $inputType ?>" 
-                           name="poll_<?= $poll->id ?><?= $allowMultiple ? '[]' : '' ?>" 
-                           value="<?= $option->id ?>" 
-                           <?= $isChecked ? 'checked' : '' ?>
-                           <?= $hasVoted ? 'disabled' : '' ?>>
-                    <span class="poll-option-text"><?= Html::encode($option->text) ?></span>
+                        name="poll_<?= $poll->id ?><?= $allowMultiple ? '[]' : '' ?>" 
+                        value="<?= $option->id ?>" 
+                        <?= $isChecked ? 'checked' : '' ?>
+                        <?= $hasVoted ? 'disabled' : '' ?>>
+                    <span class="poll-widget-text"><?= Html::encode($option->text) ?></span>
                 </label>
-                <div class="poll-results" <?= !$hasVoted ? 'style="display: none;"' : '' ?>>
-                    <div class="poll-bar" style="width: <?= $percentage ?>%"></div>
-                    <span class="poll-percentage"><?= $percentage ?>%</span>
-                    <span class="poll-votes"><?= $votesCount ?> голосов</span>
-                </div>
+                
+                <?php if ($hasVoted): ?>
+                    <div class="poll-widget-results">
+                        <div class="poll-widget-bar" style="width: <?= $percentage ?>%"></div>
+                        <span class="poll-widget-percentage"><?= $percentage ?>%</span>
+                        <span class="poll-widget-votes"><?= number_format($votesCount) ?> гол.</span>
+                        <?php if ($isChecked): ?>
+                            <span class="poll-widget-checked">✓ Ваш голос</span>
+                        <?php endif; ?>
+                    </div>
+                <?php endif; ?>
             </div>
         <?php endforeach; ?>
     </div>
-    <div class="poll-footer">
-        <span class="poll-total-votes">Всего голосов: <?= $totalVotes ?></span>
-        <?php if (!$hasVoted && !Yii::$app->user->isGuest): ?>
-            <button class="btn-vote" onclick="submitPollVote(<?= $poll->id ?>, <?= $postId ?? 0 ?>)">Голосовать</button>
+    
+    <div class="poll-widget-footer">
+        <span class="poll-widget-total">📊 <?= number_format($totalVotes) ?> гол.</span>
+        
+        <?php if (!$isGuest): ?>
+            <?php if (!$hasVoted): ?>
+                <button class="poll-widget-vote-btn" onclick="submitPollVote(<?= $poll->id ?>, <?= $postIdValue ?>)">
+                    🗳️ Голосовать
+                </button>
+            <?php else: ?>
+                <button class="poll-widget-cancel-btn" onclick="cancelPollVote(<?= $poll->id ?>, <?= $postIdValue ?>)">
+                    🔄 Отменить
+                </button>
+            <?php endif; ?>
+        <?php else: ?>
+            <div class="poll-widget-login">
+                <a href="<?= Url::to(['site/login']) ?>">Войдите</a>, чтобы голосовать
+            </div>
         <?php endif; ?>
     </div>
 </div>

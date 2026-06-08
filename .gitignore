@@ -34,3 +34,11 @@ tests/_support/_generated
 
 #vagrant folder
 /.vagrant
+
+./web/assets/*
+# ignore all files in web/assets except .gitignore
+!/web/assets/.gitignore
+
+/web/uploads/*
+# ignore all files in web/uploads except .gitignore
+!/web/uploads/.gitignore

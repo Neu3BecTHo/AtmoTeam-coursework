@@ -2,8 +2,17 @@
 
 namespace app\models;
 
+use Yii;
 use yii\db\ActiveRecord;
 
+/**
+ * Block model for user blocks
+ *
+ * @property int $id
+ * @property int $blocker_id
+ * @property int $blocked_id
+ * @property int $created_at
+ */
 class Block extends ActiveRecord
 {
     public static function tableName()
@@ -11,12 +20,34 @@ class Block extends ActiveRecord
         return '{{%block}}';
     }
 
+    public function behaviors()
+    {
+        return [
+            [
+                'class' => \yii\behaviors\TimestampBehavior::class,
+                'createdAtAttribute' => 'created_at',
+                'updatedAtAttribute' => false,
+            ],
+        ];
+    }
+
     public function rules()
     {
         return [
             [['blocker_id', 'blocked_id'], 'required'],
-            [['blocker_id', 'blocked_id'], 'integer'],
+            [['blocker_id', 'blocked_id', 'created_at'], 'integer'],
             [['blocker_id', 'blocked_id'], 'unique', 'targetAttribute' => ['blocker_id', 'blocked_id']],
+            ['blocked_id', 'compare', 'compareAttribute' => 'blocker_id', 'operator' => '!=', 'message' => 'Нельзя заблокировать себя'],
+        ];
+    }
+
+    public function attributeLabels()
+    {
+        return [
+            'id' => 'ID',
+            'blocker_id' => 'Кто заблокировал',
+            'blocked_id' => 'Кто заблокирован',
+            'created_at' => 'Дата блокировки',
         ];
     }
 
@@ -27,34 +58,27 @@ class Block extends ActiveRecord
 
     public function getBlockedUser()
     {
-        return $this->hasOne(User::class, ['id' => 'blocked_user_id']);
+        return $this->hasOne(User::class, ['id' => 'blocked_id']);
     }
 
-    
     public static function block($blockerId, $blockedUserId)
     {
-        if ($blockerId === $blockedUserId) {
+        if ($blockerId == $blockedUserId) {
             return false;
         }
 
-        $existing = self::find()
-            ->where(['blocker_id' => $blockerId, 'blocked_id' => $blockedUserId])
-            ->one();
-
-        if ($existing) {
-            return false; // Уже заблокирован
+        if (self::isBlocked($blockerId, $blockedUserId)) {
+            return false;
         }
 
         $block = new self([
             'blocker_id' => $blockerId,
             'blocked_id' => $blockedUserId,
-            'created_at' => time(),
         ]);
 
         return $block->save();
     }
 
-    
     public static function unblock($blockerId, $blockedUserId)
     {
         return self::deleteAll([
@@ -63,7 +87,6 @@ class Block extends ActiveRecord
         ]);
     }
 
-    
     public static function isBlocked($blockerId, $blockedUserId)
     {
         return self::find()
@@ -71,11 +94,10 @@ class Block extends ActiveRecord
             ->exists();
     }
 
-    
     public static function getBlockedUsers($blockerId, $limit = 20, $offset = 0)
     {
         return self::find()
-            ->with(['blockedUser'])
+            ->with('blockedUser')
             ->where(['blocker_id' => $blockerId])
             ->orderBy(['created_at' => SORT_DESC])
             ->limit($limit)
@@ -83,16 +105,14 @@ class Block extends ActiveRecord
             ->all();
     }
 
-    
     public static function getBlockedIds($blockerId)
     {
         return self::find()
             ->where(['blocker_id' => $blockerId])
-            ->select(['blocked_id'])
+            ->select('blocked_id')
             ->column();
     }
 
-    
     public static function getBlockedCount($blockerId)
     {
         return self::find()

@@ -23,12 +23,7 @@ class StoryController extends Controller
                 'class' => AccessControl::class,
                 'rules' => [
                     [
-                        'actions' => ['index', 'create', 'upload', 'delete'],
-                        'allow' => true,
-                        'roles' => ['@'],
-                    ],
-                    [
-                        'actions' => ['view'],
+                        'actions' => ['index', 'create', 'upload', 'delete', 'view', 'get-stories', 'get'],
                         'allow' => true,
                         'roles' => ['@'],
                     ],
@@ -37,22 +32,8 @@ class StoryController extends Controller
         ];
     }
 
-    public function beforeAction($action)
-    {
-
-        if (in_array($action->id, ['upload', 'delete'])) {
-            Yii::$app->request->enableCsrfValidation = false;
-        }
-        return parent::beforeAction($action);
-    }
-
-    
     public function actionIndex()
     {
-        if (Yii::$app->user->isGuest) {
-            return $this->redirect(['/site/login']);
-        }
-
         $userId = Yii::$app->user->id;
         $stories = Story::getFollowingStories($userId);
 
@@ -66,13 +47,8 @@ class StoryController extends Controller
         ]);
     }
 
-    
     public function actionView($id)
     {
-        if (Yii::$app->user->isGuest) {
-            return $this->redirect(['/site/login']);
-        }
-
         $story = Story::find()
             ->with('user')
             ->where(['id' => $id])
@@ -88,18 +64,11 @@ class StoryController extends Controller
             throw new NotFoundHttpException('Доступ запрещен');
         }
 
-        return $this->renderPartial('view', [
-            'story' => $story,
-        ]);
+        return $this->renderPartial('view', ['story' => $story]);
     }
 
-    
     public function actionCreate()
     {
-        if (Yii::$app->user->isGuest) {
-            return $this->redirect(['/site/login']);
-        }
-
         $model = new Story();
         $model->user_id = Yii::$app->user->id;
 
@@ -107,52 +76,33 @@ class StoryController extends Controller
             $model->imageFile = UploadedFile::getInstance($model, 'imageFile');
             $model->caption = Yii::$app->request->post('caption');
 
-            if ($model->validate()) {
+            if ($model->validate() && $model->imageFile) {
+                $filename = time() . '_' . uniqid() . '.' . $model->imageFile->extension;
+                $uploadPath = Yii::getAlias('@webroot/uploads/stories');
 
-                if ($model->imageFile) {
-                    $filename = time() . '_' . uniqid() . '.' . $model->imageFile->extension;
-                    $uploadPath = Yii::getAlias('@webroot/uploads/stories');
-                    
-                    if (!is_dir($uploadPath)) {
-                        mkdir($uploadPath, 0777, true);
-                    }
-                    
-                    if ($model->imageFile->saveAs($uploadPath . '/' . $filename)) {
-                        $model->image = $filename;
-                        
-                        if ($model->save()) {
-                            return $this->redirect(['/story/index']);
-                        }
+                if (!is_dir($uploadPath)) {
+                    mkdir($uploadPath, 0777, true);
+                }
+
+                if ($model->imageFile->saveAs($uploadPath . '/' . $filename)) {
+                    $model->image = $filename;
+
+                    if ($model->save()) {
+                        return $this->redirect(['/story/index']);
                     }
                 }
             }
         }
 
-        return $this->render('create', [
-            'model' => $model,
-        ]);
+        return $this->render('create', ['model' => $model]);
     }
 
-    
     public function actionUpload()
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
 
-        error_log('Story upload attempt - User ID: ' . (Yii::$app->user->id ?? 'null'));
-        error_log('Is guest: ' . (Yii::$app->user->isGuest ? 'true' : 'false'));
-
-        if (Yii::$app->user->isGuest) {
-            error_log('User is guest, returning 401 error');
-            return [
-                'success' => false,
-                'error' => 'Требуется авторизация',
-                'code' => 401
-            ];
-        }
-        
         $authCheck = ApiValidator::requireAuth();
         if ($authCheck !== true) {
-            error_log('Auth check failed: ' . json_encode($authCheck));
             return $authCheck;
         }
 
@@ -166,26 +116,18 @@ class StoryController extends Controller
         $model->imageFile = UploadedFile::getInstanceByName('image');
         $model->caption = Yii::$app->request->post('caption');
 
-        if ($model->validate()) {
-            if ($model->save()) {
-                return ['success' => true, 'story' => $model->toArray()];
-            } else {
-                $errors = [];
-                foreach ($model->getErrors() as $fieldErrors) {
-                    $errors = array_merge($errors, (array)$fieldErrors);
-                }
-                return ['success' => false, 'error' => 'Ошибка сохранения: ' . implode(', ', $errors)];
-            }
-        } else {
-            $errors = [];
-            foreach ($model->getErrors() as $fieldErrors) {
-                $errors = array_merge($errors, (array)$fieldErrors);
-            }
-            return ['success' => false, 'error' => 'Ошибка валидации: ' . implode(', ', $errors)];
+        if ($model->validate() && $model->save()) {
+            return ['success' => true, 'story' => $model->toArray()];
         }
+
+        $errors = [];
+        foreach ($model->getErrors() as $fieldErrors) {
+            $errors = array_merge($errors, (array) $fieldErrors);
+        }
+
+        return ['success' => false, 'error' => implode(', ', $errors)];
     }
 
-    
     public function actionDelete()
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
@@ -200,22 +142,13 @@ class StoryController extends Controller
             return $rateLimitCheck;
         }
 
-        $rawBody = Yii::$app->request->getRawBody();
-        $storyId = null;
-        
-        if ($rawBody) {
-            $data = json_decode($rawBody, true);
-            $storyId = $data['story_id'] ?? null;
-        }
+        $data = ApiValidator::getRequestData();
+        $storyId = $data['story_id'] ?? Yii::$app->request->get('id');
 
-        if (!$storyId) {
-            $storyId = Yii::$app->request->get('id');
-        }
-        
         if (!$storyId) {
             return ApiValidator::error('ID истории не указан');
         }
-        
+
         $story = Story::findOne(['id' => $storyId, 'user_id' => Yii::$app->user->id]);
 
         if (!$story) {
@@ -234,22 +167,55 @@ class StoryController extends Controller
         return ['success' => false, 'error' => 'Ошибка удаления'];
     }
 
-    
     public function actionGetStories()
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
-        
-        if (Yii::$app->user->isGuest) {
-            return ['success' => false, 'error' => 'Не авторизован'];
+
+        $authCheck = ApiValidator::requireAuth();
+        if ($authCheck !== true) {
+            return $authCheck;
         }
 
         $stories = Story::getFollowingStories(Yii::$app->user->id);
-        
+
         return [
             'success' => true,
-            'stories' => array_map(function($story) {
-                return $story->toArray();
-            }, $stories),
+            'stories' => array_map(fn($story) => $story->toArray(), $stories),
+        ];
+    }
+
+    /**
+     * API: получить все активные истории конкретного пользователя
+     */
+    public function actionGet()
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        $authCheck = ApiValidator::requireAuth();
+        if ($authCheck !== true) {
+            return $authCheck;
+        }
+
+        $userId = Yii::$app->request->get('user_id');
+        if (!$userId) {
+            return ['success' => false, 'error' => 'Не указан пользователь'];
+        }
+
+        $currentUserId = Yii::$app->user->id;
+        if ($currentUserId != $userId && !Follow::isFollowing($currentUserId, $userId)) {
+            return ['success' => false, 'error' => 'Доступ запрещён'];
+        }
+
+        $stories = Story::find()
+            ->with('user')
+            ->where(['user_id' => $userId])
+            ->andWhere(['>', 'expires_at', time()])
+            ->orderBy(['created_at' => SORT_DESC])
+            ->all();
+
+        return [
+            'success' => true,
+            'stories' => array_map(fn($story) => $story->toArray(), $stories),
         ];
     }
 }

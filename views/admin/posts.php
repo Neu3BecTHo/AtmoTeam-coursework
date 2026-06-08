@@ -1,23 +1,33 @@
 <?php
+
+use yii\helpers\Html;
+use yii\helpers\Url;
+
 $this->title = 'Посты - Админ-панель';
+
+$todayCount = count(array_filter($posts, fn($p) => $p->created_at > time() - 86400));
+$pollCount = count(array_filter($posts, fn($p) => $p->poll));
+$imageCount = count(array_filter($posts, fn($p) => $p->image));
+$totalLikes = array_sum(array_map(fn($p) => $p->likes_count, $posts));
+
 ?>
 
 <div class="admin-container">
     <div class="admin-header">
         <h1 class="admin-title">📝 Управление постами</h1>
-        <p class="admin-subtitle">Всего постов: <?= count($posts) ?></p>
-        <a href="<?= \yii\helpers\Url::to(['/admin/index']) ?>" class="btn-back">← Назад</a>
+        <p class="admin-subtitle">Всего постов: <?= number_format(count($posts)) ?></p>
+        <?= Html::a('← Назад', ['/admin/index'], ['class' => 'btn-back']) ?>
     </div>
 
     <div class="admin-content">
         <!-- Фильтры -->
         <div class="admin-section">
             <div class="section-header">
-                <h2 class="section-title">Фильтры</h2>
+                <h3 class="section-title">🔍 Фильтры</h3>
             </div>
             <div class="filters-container">
                 <div class="filter-group">
-                    <label class="filter-label">Период:</label>
+                    <label class="filter-label">📅 Период:</label>
                     <select class="filter-select" id="periodFilter">
                         <option value="all">Все время</option>
                         <option value="today">Сегодня</option>
@@ -26,7 +36,7 @@ $this->title = 'Посты - Админ-панель';
                     </select>
                 </div>
                 <div class="filter-group">
-                    <label class="filter-label">Сортировка:</label>
+                    <label class="filter-label">📊 Сортировка:</label>
                     <select class="filter-select" id="sortFilter">
                         <option value="newest">Новые</option>
                         <option value="popular">Популярные</option>
@@ -35,7 +45,7 @@ $this->title = 'Посты - Админ-панель';
                     </select>
                 </div>
                 <div class="filter-group">
-                    <label class="filter-label">Тип:</label>
+                    <label class="filter-label">🏷️ Тип:</label>
                     <select class="filter-select" id="typeFilter">
                         <option value="all">Все</option>
                         <option value="text">Текст</option>
@@ -49,124 +59,111 @@ $this->title = 'Посты - Админ-панель';
         <!-- Таблица постов -->
         <div class="admin-section">
             <div class="section-header">
-                <h2 class="section-title">Список постов</h2>
+                <h3 class="section-title">📋 Список постов</h3>
                 <div class="section-actions">
-                    <button class="btn-action btn-refresh" onclick="location.reload()">
-                        🔄 Обновить
-                    </button>
+                    <button class="btn-refresh" onclick="location.reload()">🔄 Обновить</button>
                 </div>
             </div>
 
-            <div class="posts-table">
-                <table class="admin-table">
+            <div class="table-responsive">
+                <table class="admin-table" id="posts-table">
                     <thead>
                         <tr>
-                            <th>Автор</th>
-                            <th>Содержание</th>
-                            <th>Дата</th>
-                            <th>Статистика</th>
-                            <th>Тип</th>
-                            <th>Действия</th>
+                            <th>👤 Автор</th>
+                            <th>💬 Содержание</th>
+                            <th>📅 Дата</th>
+                            <th>📊 Статистика</th>
+                            <th>🏷️ Тип</th>
+                            <th>⚙️ Действия</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody id="posts-tbody">
                         <?php foreach ($posts as $post): ?>
-                            <tr class="post-row" data-post-id="<?= $post->id ?>">
-                                <td data-label="Автор">
+                            <tr class="post-row" 
+                                data-post-id="<?= $post->id ?>"
+                                data-created-at="<?= $post->created_at ?>"
+                                data-likes="<?= $post->likes_count ?>"
+                                data-comments="<?= $post->comments_count ?>"
+                                data-type="<?= $post->image ? ($post->poll ? 'combined' : 'image') : ($post->poll ? 'poll' : 'text') ?>">
+                                
+                                <!-- Автор -->
+                                <td>
                                     <div class="author-cell">
-                                        <img class="author-avatar-small" 
-                                             src="<?= $post->user->avatar ?: 'https://api.dicebear.com/7.x/avataaars/svg?seed=' . $post->user->id ?>" 
-                                             alt="<?= \yii\helpers\Html::encode($post->user->username) ?>">
+                                        <a href="<?= Url::to(['/profile/view', 'id' => $post->user_id]) ?>" target="_blank">
+                                            <img class="author-avatar-small"
+                                                 src="<?= $post->user->avatar ?: 'https://api.dicebear.com/7.x/avataaars/svg?seed=' . $post->user_id ?>"
+                                                 alt="<?= Html::encode($post->user->username) ?>">
+                                        </a>
                                         <div class="author-info">
-                                            <div class="author-name"><?= \yii\helpers\Html::encode($post->user->username) ?></div>
-                                            <div class="author-id">ID: <?= $post->user->id ?></div>
+                                            <div class="author-name"><?= Html::encode($post->user->username) ?></div>
+                                            <div class="author-id">ID: <?= $post->user_id ?></div>
                                         </div>
                                     </div>
                                 </td>
-                                <td data-label="Содержание">
+                                
+                                <!-- Содержание -->
+                                <td>
                                     <div class="content-cell">
-                                        <div class="post-preview">
-                                            <?= \yii\helpers\Html::encode(mb_substr($post->content, 0, 150)) ?>
-                                            <?php if (strlen($post->content) > 150): ?>...<?php endif; ?>
+                                        <div class="post-preview" title="<?= Html::encode($post->content) ?>">
+                                            <?= Html::encode(mb_substr($post->content, 0, 100)) ?>
+                                            <?= mb_strlen($post->content) > 100 ? '...' : '' ?>
                                         </div>
                                         <?php if ($post->image): ?>
                                             <div class="post-image-preview">
-                                                <img src="<?= '/' . $post->image ?>" alt="Изображение поста">
+                                                <img src="<?= $post->image ?>" alt="Изображение поста">
                                             </div>
                                         <?php endif; ?>
                                         <?php if ($post->poll): ?>
                                             <div class="post-poll-preview">
-                                                📊 Опрос: <?= \yii\helpers\Html::encode($post->poll->question) ?>
+                                                📊 <?= Html::encode($post->poll->question) ?>
                                             </div>
                                         <?php endif; ?>
                                     </div>
                                 </td>
-                                <td data-label="Дата">
+                                
+                                <!-- Дата -->
+                                <td>
                                     <div class="date-cell">
                                         <div class="post-date"><?= date('d.m.Y H:i', $post->created_at) ?></div>
                                         <?php if ($post->updated_at > $post->created_at): ?>
-                                            <div class="post-updated">Изменен: <?= date('d.m.Y H:i', $post->updated_at) ?></div>
+                                            <div class="post-updated">✏️ <?= date('d.m.Y H:i', $post->updated_at) ?></div>
                                         <?php endif; ?>
                                     </div>
                                 </td>
-                                <td data-label="Статистика">
+                                
+                                <!-- Статистика -->
+                                <td>
                                     <div class="stats-cell">
-                                        <div class="stat-row">
-                                            <span class="stat-icon">❤️</span>
-                                            <span class="stat-value"><?= $post->likes_count ?></span>
-                                        </div>
-                                        <div class="stat-row">
-                                            <span class="stat-icon">💬</span>
-                                            <span class="stat-value"><?= $post->comments_count ?></span>
-                                        </div>
-                                        <div class="stat-row">
-                                            <span class="stat-icon">🔄</span>
-                                            <span class="stat-value"><?= $post->getRepostsCount() ?></span>
-                                        </div>
+                                        <div class="stat-row">❤️ <span class="likes-count"><?= $post->likes_count ?></span></div>
+                                        <div class="stat-row">💬 <span class="comments-count"><?= $post->comments_count ?></span></div>
+                                        <div class="stat-row">🔄 <span class="reposts-count"><?= $post->getRepostsCount() ?></span></div>
                                     </div>
                                 </td>
-                                <td data-label="Тип">
+                                
+                                <!-- Тип -->
+                                <td>
                                     <div class="type-cell">
                                         <?php if ($post->image && $post->poll): ?>
                                             <span class="type-badge combined">🖼️📊</span>
                                         <?php elseif ($post->image): ?>
-                                            <span class="type-badge image">🖼️</span>
+                                            <span class="type-badge image">🖼️ Изображение</span>
                                         <?php elseif ($post->poll): ?>
-                                            <span class="type-badge poll">📊</span>
+                                            <span class="type-badge poll">📊 Опрос</span>
                                         <?php else: ?>
-                                            <span class="type-badge text">📝</span>
+                                            <span class="type-badge text">📝 Текст</span>
                                         <?php endif; ?>
                                     </div>
+                                </div>
                                 </td>
-                                <td data-label="Действия">
+                                
+                                <!-- Действия -->
+                                <td>
                                     <div class="actions-cell">
-                                        <button class="btn-action btn-view" 
-                                                onclick="window.open('/feed#post-<?= $post->id ?>', '_blank')"
-                                                title="Посмотреть пост">
-                                            👁️
-                                        </button>
-                                        
-                                        <button class="btn-action btn-edit" 
-                                                onclick="editPost(<?= $post->id ?>)"
-                                                title="Редактировать">
-                                            ✏️
-                                        </button>
-                                        
-                                        <button type="button" class="btn-action btn-delete-post" 
-                                                data-post-id="<?= $post->id ?>"
-                                                onclick="event.stopPropagation()"
-                                                title="Удалить пост">
-                                            🗑️
-                                        </button>
-                                        
-                                        <?php if ($post->is_reported): ?>
-                                            <button class="btn-action btn-report" 
-                                                    title="Есть жалобы">
-                                                ⚠️
-                                            </button>
-                                        <?php endif; ?>
+                                        <button class="action-btn view" onclick="viewPost(<?= $post->id ?>)" title="Посмотреть пост">👁️</button>
+                                        <button class="action-btn edit" onclick="editPost(<?= $post->id ?>)" title="Редактировать">✏️</button>
+                                        <button class="action-btn delete" data-post-id="<?= $post->id ?>" data-post-title="<?= Html::encode(mb_substr($post->content, 0, 50)) ?>" title="Удалить пост">🗑️</button>
                                     </div>
-                                </td>
+                                </div>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
@@ -175,34 +172,34 @@ $this->title = 'Посты - Админ-панель';
         </div>
 
         <!-- Статистика -->
-        <div class="admin-section">
-            <h2 class="section-title">Статистика постов</h2>
+        <div class="stats-section">
+            <h3 class="section-title">📊 Статистика постов</h3>
             <div class="stats-grid">
                 <div class="stat-card">
                     <div class="stat-icon">📈</div>
                     <div class="stat-info">
-                        <div class="stat-value"><?= count(array_filter($posts, fn($p) => $p->created_at > time() - 86400)) ?></div>
+                        <div class="stat-value" id="stats-today"><?= $todayCount ?></div>
                         <div class="stat-label">За сегодня</div>
                     </div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-icon">📊</div>
                     <div class="stat-info">
-                        <div class="stat-value"><?= count(array_filter($posts, fn($p) => $p->poll)) ?></div>
+                        <div class="stat-value" id="stats-poll"><?= $pollCount ?></div>
                         <div class="stat-label">С опросами</div>
                     </div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-icon">🖼️</div>
                     <div class="stat-info">
-                        <div class="stat-value"><?= count(array_filter($posts, fn($p) => $p->image)) ?></div>
+                        <div class="stat-value" id="stats-image"><?= $imageCount ?></div>
                         <div class="stat-label">С изображениями</div>
                     </div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-icon">🔥</div>
                     <div class="stat-info">
-                        <div class="stat-value"><?= array_sum(array_map(fn($p) => $p->likes_count, $posts)) ?></div>
+                        <div class="stat-value" id="stats-likes"><?= number_format($totalLikes) ?></div>
                         <div class="stat-label">Всего лайков</div>
                     </div>
                 </div>
@@ -211,178 +208,139 @@ $this->title = 'Посты - Админ-панель';
     </div>
 </div>
 
-<script>
+<?php
+$deletePostUrl = Url::to(['/api/admin/delete-post']);
+
+$script = <<<JS
+// ==================== Filter Functions ====================
+function filterPosts() {
+    const period = document.getElementById('periodFilter')?.value || 'all';
+    const sort = document.getElementById('sortFilter')?.value || 'newest';
+    const type = document.getElementById('typeFilter')?.value || 'all';
+    const now = Math.floor(Date.now() / 1000);
+    const dayAgo = now - 86400;
+    const weekAgo = now - 604800;
+    const monthAgo = now - 2592000;
+    
+    let posts = Array.from(document.querySelectorAll('.post-row'));
+    let visibleCount = 0;
+    let pollCount = 0;
+    let imageCount = 0;
+    let totalLikes = 0;
+    
+    // Filter by period
+    posts.forEach(row => {
+        const createdAt = parseInt(row.dataset.createdAt);
+        let show = true;
+        
+        if (period === 'today' && createdAt < dayAgo) show = false;
+        else if (period === 'week' && createdAt < weekAgo) show = false;
+        else if (period === 'month' && createdAt < monthAgo) show = false;
+        
+        // Filter by type
+        if (show && type !== 'all') {
+            const postType = row.dataset.type;
+            if (type === 'image' && !['image', 'combined'].includes(postType)) show = false;
+            else if (type === 'poll' && !['poll', 'combined'].includes(postType)) show = false;
+            else if (type === 'text' && postType !== 'text') show = false;
+        }
+        
+        row.style.display = show ? '' : 'none';
+        
+        if (show) {
+            visibleCount++;
+            const postType = row.dataset.type;
+            if (postType === 'poll' || postType === 'combined') pollCount++;
+            if (postType === 'image' || postType === 'combined') imageCount++;
+            totalLikes += parseInt(row.dataset.likes) || 0;
+        }
+    });
+    
+    // Sort
+    const tbody = document.getElementById('posts-tbody');
+    const visibleRows = Array.from(tbody.children).filter(row => row.style.display !== 'none');
+    
+    visibleRows.sort((a, b) => {
+        if (sort === 'newest') return parseInt(b.dataset.createdAt) - parseInt(a.dataset.createdAt);
+        if (sort === 'popular') return (parseInt(b.dataset.likes) + parseInt(b.dataset.comments)) - (parseInt(a.dataset.likes) + parseInt(a.dataset.comments));
+        if (sort === 'comments') return parseInt(b.dataset.comments) - parseInt(a.dataset.comments);
+        if (sort === 'likes') return parseInt(b.dataset.likes) - parseInt(a.dataset.likes);
+        return 0;
+    });
+    
+    visibleRows.forEach(row => tbody.appendChild(row));
+    
+    // Update stats
+    document.getElementById('stats-today').textContent = visibleCount;
+    document.getElementById('stats-poll').textContent = pollCount;
+    document.getElementById('stats-image').textContent = imageCount;
+    document.getElementById('stats-likes').textContent = totalLikes.toLocaleString();
+}
+
+// ==================== Actions ====================
+async function deletePost(postId, postTitle) {
+    if (typeof showDeleteModal !== 'function') return;
+    
+    showDeleteModal(`Удалить пост "${postTitle}"?`, async () => {
+        try {
+            const response = await postWithCsrf('$deletePostUrl', { post_id: postId });
+            const result = await response.json();
+            if (result.success) {
+                showNotification('Пост удалён', 'success');
+                const row = document.querySelector(`.post-row[data-post-id="${postId}"]`);
+                if (row) row.remove();
+                filterPosts();
+            } else {
+                showNotification(result.error || 'Ошибка удаления', 'error');
+            }
+        } catch (error) {
+            showNotification('Ошибка удаления', 'error');
+        }
+    });
+}
 
 function editPost(postId) {
     showNotification('Функция редактирования постов будет добавлена позже', 'info');
 }
 
-async function filterPosts() {
-    const periodFilter = document.getElementById('periodFilter');
-    const sortFilter = document.getElementById('sortFilter');
-    const typeFilter = document.getElementById('typeFilter');
-    
-    const params = new URLSearchParams();
-    if (periodFilter && periodFilter.value !== 'all') {
-        params.append('period', periodFilter.value);
-    }
-    if (sortFilter && sortFilter.value !== 'newest') {
-        params.append('sort', sortFilter.value);
-    }
-    if (typeFilter && typeFilter.value !== 'all') {
-        params.append('type', typeFilter.value);
-    }
-    
-    try {
-        const response = await fetchWithLoading(`/admin/api/posts?${params.toString()}`, {
-            loadingMessage: 'Применяем фильтрацию...'
-        });
-        const data = await response.json();
-        
-        if (data.success) {
-            updatePostsTable(data.posts);
-            showNotification('Фильтрация применена', 'success');
-        } else {
-            showNotification(data.error || 'Ошибка фильтрации', 'error');
-        }
-    } catch (error) {
-
-    }
+function viewPost(postId) {
+    window.open('/post/view?id=' + postId, '_blank');
 }
 
-function updatePostsTable(posts) {
-    const tbody = document.querySelector('.admin-table tbody');
-    if (!tbody) return;
-    
-    tbody.innerHTML = '';
-    
-    posts.forEach(post => {
-        const row = document.createElement('tr');
-        row.className = 'post-row';
-        row.dataset.postId = post.id;
-        
-        row.innerHTML = `
-            <td>
-                <div class="author-cell">
-                    <img class="author-avatar-small" 
-                         src="${post.user.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + post.user.id}" 
-                         alt="${post.user.username}">
-                    <div class="author-info">
-                        <div class="author-name">${post.user.username}</div>
-                        <div class="author-id">ID: ${post.user.id}</div>
-                    </div>
-                </div>
-            </td>
-            <td>
-                <div class="content-cell">
-                    <div class="post-preview">
-                        ${post.content.substring(0, 150)}${post.content.length > 150 ? '...' : ''}
-                    </div>
-                    ${post.image ? `
-                        <div class="post-image-preview">
-                            <img src="/${post.image}" alt="Изображение поста">
-                        </div>
-                    ` : ''}
-                    ${post.poll ? `
-                        <div class="post-poll-preview">
-                            📊 Опрос: ${post.poll.question}
-                        </div>
-                    ` : ''}
-                </div>
-            </td>
-            <td>
-                <div class="date-cell">
-                    <div class="post-date">${new Date(post.created_at * 1000).toLocaleString('ru-RU')}</div>
-                    ${post.updated_at > post.created_at ? `
-                        <div class="post-updated">Изменен: ${new Date(post.updated_at * 1000).toLocaleString('ru-RU')}</div>
-                    ` : ''}
-                </div>
-            </td>
-            <td>
-                <div class="stats-cell">
-                    <div class="stat-row">
-                        <span class="stat-icon">❤️</span>
-                        <span class="stat-value">${post.likes_count}</span>
-                    </div>
-                    <div class="stat-row">
-                        <span class="stat-icon">💬</span>
-                        <span class="stat-value">${post.comments_count}</span>
-                    </div>
-                    <div class="stat-row">
-                        <span class="stat-icon">🔄</span>
-                        <span class="stat-value">${post.reposts_count || 0}</span>
-                    </div>
-                </div>
-            </td>
-            <td>
-                <div class="type-cell">
-                    ${post.image && post.poll ? '<span class="type-badge combined">🖼️📊</span>' : 
-                      post.image ? '<span class="type-badge image">🖼️</span>' : 
-                      post.poll ? '<span class="type-badge poll">📊</span>' : 
-                      '<span class="type-badge text">📝</span>'}
-                </div>
-            </td>
-            <td>
-                <div class="actions-cell">
-                    <button class="btn-action btn-view" 
-                            onclick="window.open('/feed#post-${post.id}', '_blank')"
-                            title="Посмотреть пост">
-                        👁️
-                    </button>
-                    
-                    <button class="btn-action btn-edit" 
-                            onclick="editPost(${post.id})"
-                            title="Редактировать">
-                        ✏️
-                    </button>
-                    
-                    <button type="button" class="btn-action btn-delete-post" 
-                            data-post-id="${post.id}"
-                            title="Удалить пост">
-                        🗑️
-                    </button>
-                    
-                    ${post.is_reported ? `
-                        <button class="btn-action btn-report" 
-                                title="Есть жалобы">
-                            ⚠️
-                        </button>
-                    ` : ''}
-                </div>
-            </td>
-        `;
-        
-        tbody.appendChild(row);
-    });
-}
-
-function showLoadingIndicator() {
-    const tbody = document.querySelector('.admin-table tbody');
-    if (tbody) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">Загрузка...</td></tr>';
-    }
-}
-
-function hideLoadingIndicator() {
-
-}
-
+// ==================== Event Listeners ====================
 document.addEventListener('DOMContentLoaded', function() {
     const periodFilter = document.getElementById('periodFilter');
     const sortFilter = document.getElementById('sortFilter');
     const typeFilter = document.getElementById('typeFilter');
     
-    if (periodFilter) {
-        periodFilter.addEventListener('change', filterPosts);
-    }
+    let filterTimeout;
+    const applyFilters = () => {
+        clearTimeout(filterTimeout);
+        filterTimeout = setTimeout(filterPosts, 100);
+    };
     
-    if (sortFilter) {
-        sortFilter.addEventListener('change', filterPosts);
-    }
+    periodFilter?.addEventListener('change', applyFilters);
+    sortFilter?.addEventListener('change', applyFilters);
+    typeFilter?.addEventListener('change', applyFilters);
     
-    if (typeFilter) {
-        typeFilter.addEventListener('change', filterPosts);
+    filterPosts();
+});
+
+// ==================== Event Delegation for Delete ====================
+document.addEventListener('click', function(e) {
+    const deleteBtn = e.target.closest('.action-btn.delete[data-post-id]');
+    if (deleteBtn) {
+        const postId = deleteBtn.dataset.postId;
+        const postTitle = deleteBtn.dataset.postTitle;
+        if (postId) deletePost(postId, postTitle || postId);
     }
 });
-</script>
 
+// ==================== Exports ====================
+window.deletePost = deletePost;
+window.editPost = editPost;
+window.viewPost = viewPost;
+window.filterPosts = filterPosts;
+JS;
+$this->registerJs($script);
+?>

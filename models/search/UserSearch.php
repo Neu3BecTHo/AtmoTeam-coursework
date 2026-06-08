@@ -6,13 +6,11 @@ use yii\base\Model;
 use yii\data\ActiveDataProvider;
 use app\models\User;
 
-
 class UserSearch extends User
 {
     public $created_at_from;
     public $created_at_to;
 
-    
     public function rules()
     {
         return [
@@ -22,31 +20,18 @@ class UserSearch extends User
         ];
     }
 
-    
-    public function scenarios()
-    {
-
-        return Model::scenarios();
-    }
-
-    
     public function search($params)
     {
         $query = User::find()->orderBy(['created_at' => SORT_DESC]);
 
-
         $dataProvider = new ActiveDataProvider([
             'query' => $query,
-            'pagination' => [
-                'pageSize' => 20,
-            ],
+            'pagination' => ['pageSize' => 20],
         ]);
 
         $this->load($params);
 
         if (!$this->validate()) {
-
-
             return $dataProvider;
         }
 
@@ -58,8 +43,8 @@ class UserSearch extends User
         ]);
 
         $query->andFilterWhere(['like', 'username', $this->username])
-            ->andFilterWhere(['like', 'email', $this->email])
-            ->andFilterWhere(['like', 'avatar', $this->avatar]);
+              ->andFilterWhere(['like', 'email', $this->email])
+              ->andFilterWhere(['like', 'avatar', $this->avatar]);
 
         if ($this->created_at_from) {
             $query->andFilterWhere(['>=', 'created_at', strtotime($this->created_at_from)]);

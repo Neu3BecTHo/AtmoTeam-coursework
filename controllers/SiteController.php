@@ -12,7 +12,6 @@ use app\models\User;
 
 class SiteController extends Controller
 {
-    
     public function behaviors()
     {
         return [
@@ -36,7 +35,6 @@ class SiteController extends Controller
         ];
     }
 
-    
     public function actions()
     {
         return [
@@ -50,13 +48,11 @@ class SiteController extends Controller
         ];
     }
 
-    
     public function actionIndex()
     {
         return $this->redirect(['/feed/index']);
     }
 
-    
     public function actionRegister()
     {
         if (!Yii::$app->user->isGuest) {
@@ -65,38 +61,25 @@ class SiteController extends Controller
 
         $model = new User();
         $model->scenario = 'register';
-
         if ($model->load(Yii::$app->request->post())) {
-            $password = $model->password;
+            $password = $model->password; // теперь password будет загружен
             if ($password) {
                 $model->setPassword($password);
             }
             
             if ($model->save()) {
-
-                foreach (Yii::$app->session->getAllFlashes() as $key => $value) {
-                    Yii::$app->session->removeFlash($key);
-                }
+                Yii::$app->session->removeAllFlashes();
                 Yii::$app->user->login($model, 3600 * 24 * 30);
                 return $this->redirect(['/feed/index']);
-            } else {
-
-                if (Yii::$app->request->isAjax) {
-                    Yii::$app->response->format = Response::FORMAT_JSON;
-                    return [
-                        'success' => false,
-                        'errors' => $model->getErrors()
-                    ];
-                }
+            } elseif (Yii::$app->request->isAjax) {
+                Yii::$app->response->format = Response::FORMAT_JSON;
+                return ['success' => false, 'errors' => $model->getErrors()];
             }
         }
 
-        return $this->render('register', [
-            'model' => $model,
-        ]);
+        return $this->render('register', ['model' => $model]);
     }
 
-    
     public function actionLogin()
     {
         if (!Yii::$app->user->isGuest) {
@@ -105,25 +88,17 @@ class SiteController extends Controller
 
         $model = new LoginForm();
         if ($model->load(Yii::$app->request->post()) && $model->login()) {
-
-            foreach (Yii::$app->session->getAllFlashes() as $key => $value) {
-                Yii::$app->session->removeFlash($key);
-            }
+            Yii::$app->session->removeAllFlashes();
             return $this->goBack();
         }
 
         $model->password = '';
-        return $this->render('login', [
-            'model' => $model,
-        ]);
+        return $this->render('login', ['model' => $model]);
     }
 
-    
     public function actionLogout()
     {
         Yii::$app->user->logout();
-
         return $this->goHome();
     }
-
 }

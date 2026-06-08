@@ -16,7 +16,6 @@ class SearchController extends Controller
         $posts = [];
 
         if (!empty($q)) {
-
             $users = User::find()
                 ->where(['like', 'username', $q])
                 ->orWhere(['like', 'email', $q])
@@ -61,12 +60,13 @@ class SearchController extends Controller
             ->all();
 
         $userId = Yii::$app->user->id;
+        $isGuest = Yii::$app->user->isGuest;
         
         return [
             'users' => $users,
-            'posts' => array_map(function($post) use ($userId) {
+            'posts' => array_map(function($post) use ($userId, $isGuest) {
                 $data = $post->toArray();
-                $data['is_liked'] = $userId ? $post->isLikedBy($userId) : false;
+                $data['is_liked'] = !$isGuest && $post->isLikedBy($userId);
                 return $data;
             }, $posts),
         ];

@@ -1,1307 +1,875 @@
-
-
+// ==================== Feed State ====================
 let posts = [];
-let currentFeedType = 'following';
+let currentFeedType = "following";
 let pollInterval = null;
 let feedOffset = 0;
+let feedLimit = 10;
 let isLoadingFeed = false;
 let hasMorePosts = true;
+let currentModalPostId = null;
+let lastCheck = 0;
+let selectedImages = [];
 
+// === Настройки сжатия изображений ===
+const MAX_IMAGE_WIDTH = 1200;
+const MAX_IMAGE_HEIGHT = 1200;
+const WEBP_QUALITY = 0.8;
+const JPEG_QUALITY = 0.85;
+
+// ==================== Lazy Loading ====================
 function setupLazyLoading() {
-    const imageObserver = new IntersectionObserver((entries, observer) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                const img = entry.target;
-                const src = img.dataset.src;
-                
-                if (src && !img.src) {
-                    img.src = src;
-                    img.classList.add('loaded');
-                    observer.unobserve(img);
-                }
-            }
-        });
-    }, {
-        rootMargin: '50px 0px',
-        threshold: 0.01
-    });
-
-    document.querySelectorAll('img[data-src]').forEach(img => {
-        imageObserver.observe(img);
-    });
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          const img = entry.target;
+          const src = img.dataset.src;
+          if (src && !img.src) {
+            img.src = src;
+            img.classList.add("loaded");
+            observer.unobserve(img);
+          }
+        }
+      });
+    },
+    { rootMargin: "50px 0px", threshold: 0.01 },
+  );
+  document
+    .querySelectorAll("img[data-src]")
+    .forEach((img) => observer.observe(img));
 }
 
-function createLazyImage(src, alt, className = '') {
-    const img = document.createElement('img');
-    img.dataset.src = src;
-    img.alt = alt || '';
-    img.className = `lazy-image ${className}`;
-
-    img.style.cssText = `
-        background: #f3f4f6;
-        border: 1px solid #e5e7eb;
-        border-radius: 8px;
-        min-height: 200px;
-        transition: opacity 0.3s ease;
-    `;
-    
-    return img;
-}
-
-function createOptimizedLazyImage(src, alt, className = '') {
-    const img = document.createElement('img');
-
-    if (typeof getOptimizedImageUrl === 'function') {
-        img.dataset.src = getOptimizedImageUrl(src);
-    } else {
-        img.dataset.src = src;
-    }
-    
-    img.alt = alt || '';
-    img.className = `lazy-image optimized-image ${className}`;
-
-    img.style.cssText = `
-        background: #f3f4f6;
-        border: 1px solid #e5e7eb;
-        border-radius: 8px;
-        min-height: 200px;
-        transition: opacity 0.3s ease;
-    `;
-    
-    return img;
-}
-
+// ==================== Polling ====================
 function startPolling() {
-    if (pollInterval) return;
-
-    const isMobile = window.innerWidth < 768;
-    const pollIntervalMs = isMobile ? 10000 : 3000; // 10с на мобильных, 3с на десктопе
-    
-    pollInterval = setInterval(async () => {
-        if (document.visibilityState === 'hidden') return;
-        
-        try {
-            const response = await fetch(`/api/poll?last_check=${lastCheck}`);
-            const data = await response.json();
-            
-            lastCheck = data.timestamp;
-
-            if (data.success && data.posts && data.posts.length > 0) {
-                data.posts.forEach(post => {
-                    if (!posts.find(p => p.id === post.id)) {
-                        addPostToFeed(post, true);
-                        posts.unshift(post);
-                    }
-                });
-            }
-
-            if (data.likes) {
-                data.likes.forEach(like => updatePostLikes(like));
-            }
-
-            if (data.comments && data.comments.length > 0) {
-                data.comments.forEach(comment => addCommentToPost(comment));
-            }
-        } catch (error) {
-            
-        }
-    }, pollIntervalMs);
-
-    document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') {
-            lastCheck = 0;
-        }
-    });
-}
-
-function switchFeed(type) {
-    currentFeedType = type;
-    feedOffset = 0;
-    hasMorePosts = true;
-    
-    document.querySelectorAll('.feed-tab').forEach(tab => {
-        tab.classList.toggle('active', tab.dataset.type === type);
-    });
-    
-    posts = [];
-    document.getElementById('posts-container').innerHTML = '';
-    loadPosts();
-}
-
-async function loadPosts(append = false) {
-    if (isLoadingFeed || !hasMorePosts) {
-        return;
-    }
-    
+  if (pollInterval || !window.currentUserId) return;
+  const isMobile = window.innerWidth < 768;
+  const interval = isMobile ? 10000 : 3000;
+  pollInterval = setInterval(async () => {
+    if (document.visibilityState === "hidden") return;
     try {
-        isLoadingFeed = true;
-        const spinner = document.getElementById('feed-spinner');
-        if (spinner) spinner.classList.remove('hidden');
-
-        if (!currentUserId) {
-            showEmptyStateForGuest();
-            return;
-        }
-        
-        const response = await fetch(`/feed/get-posts?type=${currentFeedType}&offset=${feedOffset}&limit=3`);
-        if (!response.ok) {
-            throw new Error('Network response was not ok');
-        }
-        
-        const result = await response.json();
-
-        if (result.html !== undefined) {
-            if (result.count === 0) {
-                hasMorePosts = false;
-
-                const existingPosts = document.querySelectorAll('.post-card');
-                if (posts.length === 0 && existingPosts.length === 0) showEmptyState();
-            } else {
-                if (append) {
-
-                    const container = document.getElementById('posts-container');
-                    const tempDiv = document.createElement('div');
-                    tempDiv.innerHTML = result.html;
-                    
-                    while (tempDiv.firstChild) {
-                        container.appendChild(tempDiv.firstChild);
-                    }
-                    
-                    initializePosts();
-
-                    feedOffset += result.count;
-                } else {
-
-                    posts = [result.html]; // Сохраняем HTML для совместимости
-                    renderPosts();
-
-                    feedOffset = result.count;
-                }
-            }
-        } 
-
-        else if (Array.isArray(result)) {
-            if (result.length === 0) {
-                hasMorePosts = false;
-
-                const existingPosts = document.querySelectorAll('.post-card');
-                if (posts.length === 0 && existingPosts.length === 0) showEmptyState();
-            } else {
-                if (append) {
-                    posts.push(...result);
-
-                    feedOffset += result.length;
-                } else {
-                    posts = result;
-
-                    feedOffset = result.length;
-                }
-                renderPosts();
-            }
-        } else {
-            
-            if (!append) showEmptyState();
-        }
-    } catch (error) {
-        
-        if (!append) showEmptyState();
-    } finally {
-        isLoadingFeed = false;
-        const spinner = document.getElementById('feed-spinner');
-        if (spinner) spinner.classList.add('hidden');
-    }
-}
-
-function renderPosts() {
-    const container = document.getElementById('posts-container');
-
-    const existingPosts = container.querySelectorAll('.post-card');
-    if (existingPosts.length === 0) {
-        container.innerHTML = '';
-    }
-    
-    if (posts.length === 0 && existingPosts.length === 0) {
-        showEmptyState();
-        return;
-    }
-
-    if (typeof posts[0] === 'string') {
-        container.innerHTML = posts.join('');
-        initializePosts();
-    } else {
-
-        posts.forEach(post => {
-            appendPostToContainer(post, false);
+      const response = await fetch(`/api/poll?last_check=${lastCheck}`);
+      const data = await response.json();
+      lastCheck = data.timestamp;
+      if (data.success && data.posts?.length) {
+        data.posts.forEach((post) => {
+          if (!posts.find((p) => p.id === post.id)) {
+            addPostToFeed(post, true);
+            posts.unshift(post);
+          }
         });
+      }
+      if (data.likes) data.likes.forEach((like) => updatePostLikes(like));
+      if (data.comments?.length)
+        data.comments.forEach((comment) => addCommentToPost(comment));
+    } catch (e) {}
+  }, interval);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") lastCheck = 0;
+  });
+}
+
+// ==================== Feed Switching ====================
+function switchFeed(type) {
+  console.log("Switching feed to:", type);
+  currentFeedType = type;
+  feedOffset = 0;
+  hasMorePosts = true;
+
+  document.querySelectorAll(".feed-filter").forEach((btn) => {
+    if (btn.dataset.type === type) {
+      btn.classList.add("active");
+    } else {
+      btn.classList.remove("active");
     }
+  });
+
+  posts = [];
+  const container = document.getElementById("posts-container");
+  if (container) {
+    container.innerHTML = "";
+    console.log("Container cleared");
+  }
+  loadPosts();
 }
 
-function showEmptyState() {
-    const container = document.getElementById('posts-container');
+// ==================== Load Posts ====================
+async function loadPosts(append = false) {
+  if (isLoadingFeed || !hasMorePosts) return;
+  try {
+    isLoadingFeed = true;
+    const spinner = document.getElementById("feed-spinner");
+    if (spinner) spinner.classList.remove("hidden");
 
-    const existingPosts = container.querySelectorAll('.post-card');
-    if (existingPosts.length > 0) {
-        return; // Не перезаписываем существующие посты
+    if (!window.currentUserId) {
+      showEmptyStateForGuest();
+      return;
     }
-    container.innerHTML = `
-        <div class="empty-state">
-            <div class="empty-icon">📝</div>
-            <p>Нет постов</p>
-        </div>
-    `;
+
+    const response = await fetch(
+      `/feed/get-posts?type=${currentFeedType}&offset=${feedOffset}&limit=${feedLimit}`,
+    );
+    if (!response.ok) throw new Error("Network error");
+
+    const result = await response.json();
+    console.log("Posts loaded:", result.count);
+
+    const container = document.getElementById("posts-container");
+    if (!container) {
+      console.warn("Posts container not found");
+      return;
+    }
+
+    if (result.html !== undefined) {
+      if (result.count === 0) {
+        hasMorePosts = false;
+        const hasPosts = container.querySelectorAll(".post-card").length > 0;
+        if (!hasPosts && !append) showEmptyState();
+      } else {
+        if (append) {
+          container.insertAdjacentHTML("beforeend", result.html);
+          feedOffset += result.count;
+        } else {
+          container.innerHTML = result.html;
+          feedOffset = result.count;
+        }
+        initializePosts();
+      }
+    }
+  } catch (error) {
+    console.error("Load posts error:", error);
+    if (!append) showEmptyState();
+  } finally {
+    isLoadingFeed = false;
+    const spinner = document.getElementById("feed-spinner");
+    if (spinner) spinner.classList.add("hidden");
+  }
 }
 
-function initializePostHandlers() {
-
-    document.querySelectorAll('.post-card').forEach(postCard => {
-        const postId = postCard.dataset.postId;
-
-        const likeBtn = postCard.querySelector('.btn-like');
-        if (likeBtn) {
-            likeBtn.addEventListener('click', () => handleLike(postId));
-        }
-
-
-        const saveBtn = postCard.querySelector('.btn-save');
-        if (saveBtn) {
-            saveBtn.addEventListener('click', () => handleSave(postId));
-        }
-
-        const repostBtn = postCard.querySelector('.btn-repost');
-        if (repostBtn) {
-            repostBtn.addEventListener('click', () => toggleRepost(postId));
-        }
-
-        const pollContainer = postCard.querySelector('.poll-container');
-        if (pollContainer) {
-            const pollId = pollContainer.dataset.pollId;
-            const voteBtn = pollContainer.querySelector('.btn-vote');
-            if (voteBtn) {
-                voteBtn.addEventListener('click', () => submitPollVote(pollId, postId));
-            }
-        }
-
-        const deleteBtn = postCard.querySelector('.btn-delete-post');
-        if (deleteBtn) {
-            deleteBtn.addEventListener('click', () => {
-                if (typeof window.deletePost === 'function') {
-                    window.deletePost(postId);
-                }
-            });
-        }
-    });
-}
-    
 function showEmptyStateForGuest() {
-    const container = document.getElementById('posts-container');
-    container.innerHTML = `
-        <div class="empty-state">
-            <div class="empty-icon">🔒</div>
-            <h3>Добро пожаловать в Social!</h3>
-            <p>Войдите или зарегистрируйтесь, чтобы увидеть посты</p>
-            <div class="auth-buttons">
+  const container = document.getElementById("posts-container");
+  if (!container) return;
+  const existingGuestNotice = document.querySelector(".guest-notice");
+  if (existingGuestNotice) {
+    container.innerHTML = "";
+    return;
+  }
+  container.innerHTML = `
+        <div class="guest-notice" style="text-align: center; padding: var(--space-10);">
+            <div class="guest-notice-icon" style="font-size: 48px; margin-bottom: var(--space-4);">🔒</div>
+            <p style="font-size: var(--text-lg); color: var(--text-primary); margin-bottom: var(--space-4);">Войдите, чтобы увидеть ленту</p>
+            <p style="color: var(--text-secondary); margin-bottom: var(--space-6);">Публикуйте посты, ставьте лайки и общайтесь с друзьями</p>
+            <div class="guest-notice-actions" style="display: flex; gap: var(--space-3); justify-content: center;">
                 <a href="/login" class="btn btn-primary">Войти</a>
                 <a href="/register" class="btn btn-secondary">Регистрация</a>
             </div>
         </div>
     `;
+  const spinner = document.getElementById("feed-spinner");
+  if (spinner) spinner.classList.add("hidden");
+  const sentinel = document.getElementById("feed-sentinel");
+  if (sentinel) sentinel.style.display = "none";
 }
 
-function createPostHTML(post) {
-    const template = document.getElementById('post-template');
-    const clone = template.content.cloneNode(true);
-    
-    const postCard = clone.querySelector('.post-card');
-    const authorAvatar = clone.querySelector('.author-avatar');
-    const authorName = clone.querySelector('.author-name');
-    const postTime = clone.querySelector('.post-time');
-    const postContent = clone.querySelector('.post-content');
-    const postImage = clone.querySelector('.post-image img');
-    const likesBtn = clone.querySelector('.post-action.btn-like');
-    const commentBtn = clone.querySelector('.post-action.btn-comment-toggle');
-    const saveBtn = clone.querySelector('.post-action.btn-save');
-    const repostBtn = clone.querySelector('.post-action.btn-repost');
-    const likesCount = clone.querySelector('.likes-count');
-    const commentsCount = clone.querySelector('.comments-count');
-    const repostsCount = clone.querySelector('.reposts-count');
-    const deleteBtn = clone.querySelector('.btn-delete-post');
-    const postImageImg = postImage.querySelector('img');
-    if (post.image || post.image_url) {
-        postImageImg.src = post.image_url || post.image;
-        postImage.style.display = 'block';
-    } else {
-        postImage.style.display = 'none';
-    }
+function showEmptyState() {
+  const container = document.getElementById("posts-container");
+  if (!container) return;
+  if (container.querySelectorAll(".post-card").length > 0) return;
+  container.innerHTML =
+    '<div class="empty-state"><div class="empty-icon">📝</div><p>Нет постов</p></div>';
+}
 
-    const postPoll = clone.querySelector('.post-poll');
-    if (post.poll) {
-        const pollHTML = renderPoll(post.poll);
-        postPoll.innerHTML = pollHTML;
-        postPoll.style.display = 'block';
-
-        const voteBtn = postPoll.querySelector('.btn-vote');
-        if (voteBtn) {
-            voteBtn.addEventListener('click', () => submitPollVote(post.poll.id, post.id));
-        }
-    }
-    const likeBtn = clone.querySelector('.post-action.btn-like');
-    likeBtn.dataset.postId = post.id;
-    if (post.is_liked) {
-        likeBtn.classList.add('liked');
-    }
-    likeBtn.addEventListener('click', () => handleLike(post.id));
-
-    
-    const saveActionBtn = clone.querySelector('.post-action.btn-save');
-    saveActionBtn.dataset.postId = post.id;
-    if (post.is_saved) {
-        saveActionBtn.classList.add('saved');
-    }
-    saveActionBtn.addEventListener('click', () => handleSave(post.id));
-    
-    const repostActionBtn = clone.querySelector('.post-action.btn-repost');
-    repostActionBtn.dataset.postId = post.id;
-    if (post.is_reposted) {
-        repostActionBtn.classList.add('reposted');
-    }
-    repostActionBtn.addEventListener('click', () => toggleRepost(post.id));
-    
+// ==================== Add Post to Feed ====================
+async function addPostToFeed(post, prepend = false) {
+  try {
+    const response = await fetch(`/post/get-html?id=${post.id}`);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const html = await response.text();
+    const container = document.getElementById("posts-container");
+    const emptyState = container.querySelector(".empty-state");
+    if (emptyState) emptyState.remove();
     if (prepend) {
-        const emptyState = container.querySelector('.empty-state');
-        if (emptyState) emptyState.remove();
-        container.insertBefore(clone, container.firstChild);
-        
-        const postEl = container.firstChild;
-        postEl.style.animation = 'slideDown 0.3s ease';
+      container.insertAdjacentHTML("afterbegin", html);
     } else {
-        container.appendChild(clone);
+      container.insertAdjacentHTML("beforeend", html);
     }
+    const newCards = container.querySelectorAll(
+      ".post-card:not([data-handlers-initialized])",
+    );
+    newCards.forEach((card) => initializeSinglePost(card));
+  } catch (error) {
+    location.reload();
+  }
 }
 
-async function appendPostToContainer(post, prepend = false) {
-    try {
-
-        const response = await fetch(`/post/get-html?id=${post.id}`);
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-        const html = await response.text();
-        
-        const container = document.getElementById('posts-container');
-        if (prepend) {
-            container.insertAdjacentHTML('afterbegin', html);
-        } else {
-            container.insertAdjacentHTML('beforeend', html);
-        }
-
-        initializePosts();
-        
-    } catch (error) {
-
-        window.location.reload();
-    }
-}
-
-function updatePostStats(postEl, post) {
-    const likesEl = postEl.querySelector('.likes-count');
-    const commentsEl = postEl.querySelector('.comments-count');
-    const repostsEl = postEl.querySelector('.reposts-count');
-    
-    likesEl.textContent = `${post.likes_count || 0} лайков`;
-    commentsEl.textContent = `${post.comments_count || 0} комментариев`;
-    if (repostsEl) {
-        repostsEl.textContent = `${post.reposts_count || 0} репостов`;
-    }
-}
-
-function updatePostLikes(data) {
-    const postEl = document.querySelector(`[data-post-id="${data.post_id}"]`);
-    if (!postEl) return;
-    
-    const likeBtn = postEl.querySelector('.btn-like');
-    if (!likeBtn) return;
-    const isLiked = likeBtn.classList.contains('liked');
-    
-    if (data.user_id === currentUserId) {
-        if (data.action === 'like' && !isLiked) {
-            likeBtn.classList.add('liked');
-        } else if (data.action === 'unlike' && isLiked) {
-            likeBtn.classList.remove('liked');
-        }
-    }
-    
-    fetch(`/feed/get-posts`).then(r => r.json()).then(result => {
-        const posts = result.html ? [] : result; // Handle HTML format
-        const post = posts.find(p => p.id == data.post_id);
-        if (post) {
-            const likesEl = postEl.querySelector('.likes-count');
-            if (likesEl) likesEl.textContent = `${post.likes_count} лайков`;
-        }
+// ==================== Single Post Initialization ====================
+function initializeSinglePost(card) {
+  if (card.dataset.handlersInitialized === "true") return;
+  card.dataset.handlersInitialized = "true";
+  const postId = card.dataset.postId;
+  if (!postId) return;
+  const likeBtn = card.querySelector(".btn-like");
+  if (likeBtn) {
+    likeBtn.removeEventListener("click", () => handleLike(postId));
+    likeBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      handleLike(postId);
     });
-}
-
-function toggleComments(postId) {
-    openPostModal(postId);
-}
-
-let currentModalPostId = null;
-
-async function openPostModal(postId) {
-    currentModalPostId = postId;
-    const modal = document.getElementById('post-modal');
-    const body = document.getElementById('post-modal-body');
-    const commentsList = document.getElementById('modal-comments-list');
-    
-    modal.classList.remove('hidden');
-    modal.classList.add('show');
-    body.innerHTML = '<div class="post-modal-loading"><div class="spinner"><div class="spinner-ring"></div><div class="spinner-ring"></div><div class="spinner-ring"></div></div></div>';
-    commentsList.innerHTML = '';
-    
-    try {
-
-        const postEl = document.querySelector(`[data-post-id="${postId}"]`);
-        if (!postEl) {
-            body.innerHTML = '<p>Пост не найден</p>';
-            return;
-        }
-
-        const authorEl = postEl.querySelector('.author-name');
-        const authorName = authorEl ? authorEl.textContent.trim() : 'Аноним';
-        const contentEl = postEl.querySelector('.post-content');
-        const content = contentEl ? contentEl.textContent.trim() : '';
-        const avatarEl = postEl.querySelector('.author-avatar');
-        const avatarSrc = avatarEl ? avatarEl.src : '';
-
-        const post = {
-            id: postId,
-            author: {
-                username: authorName,
-                avatar: avatarSrc
-            },
-            content: content
-        };
-        
-        body.innerHTML = `
-            <div class="post-modal-header">
-                <img src="${post.author?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${post.author?.id||1}`}" class="post-modal-avatar" alt="avatar">
-                <div>
-                    <div class="post-modal-author">${post.author?.username || 'Аноним'}</div>
-                    <div class="post-modal-time">${post.timeAgo || ''}</div>
-                </div>
-            </div>
-            <div class="post-modal-text">${escapeHtml(post.content || '')}</div>
-            ${post.image_url ? `<img src="${post.image_url}" class="post-modal-image" alt="Post image">` : ''}
-            <div class="post-modal-comments">
-                <div class="post-modal-comments-header">Комментарии</div>
-                <div id="modal-comments-list"></div>
-                <div class="post-modal-comment-form">
-                    <textarea id="modal-comment-input" placeholder="Написать комментарий..." rows="2"></textarea>
-                    <button onclick="submitModalComment(${post.id})">Отправить</button>
-                </div>
-            </div>
-        `;
-
-        await loadModalComments(postId);
-
-        setTimeout(() => document.getElementById('modal-comment-input')?.focus(), 100);
-        
-    } catch (error) {
-        
-        body.innerHTML = '<p>Ошибка загрузки</p>';
+  }
+  const saveBtn = card.querySelector(".btn-save");
+  if (saveBtn) {
+    saveBtn.removeEventListener("click", () => handleSave(postId));
+    saveBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      handleSave(postId);
+    });
+  }
+  const repostBtn = card.querySelector(".btn-repost");
+  if (repostBtn) {
+    repostBtn.removeEventListener("click", () => toggleRepost(postId));
+    repostBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      toggleRepost(postId);
+    });
+  }
+  const deleteBtn = card.querySelector(".btn-delete-post");
+  if (deleteBtn) {
+    deleteBtn.removeEventListener("click", () => window.deletePost?.(postId));
+    deleteBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      window.deletePost?.(postId);
+    });
+  }
+  const voteBtn = card.querySelector(".btn-vote");
+  if (voteBtn) {
+    const pollId = card.querySelector(".poll-container")?.dataset.pollId;
+    if (pollId) {
+      voteBtn.removeEventListener("click", () =>
+        submitPollVote(pollId, postId),
+      );
+      voteBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        submitPollVote(pollId, postId);
+      });
     }
+  }
+  const cancelBtn = card.querySelector(".btn-cancel-vote");
+  if (cancelBtn) {
+    const pollId = card.querySelector(".poll-container")?.dataset.pollId;
+    if (pollId) {
+      cancelBtn.removeEventListener("click", () => cancelPollVote(pollId));
+      cancelBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        cancelPollVote(pollId);
+      });
+    }
+  }
+}
+
+function initializePosts() {
+  document
+    .querySelectorAll(".post-card")
+    .forEach((card) => initializeSinglePost(card));
+  setupLazyLoading();
+}
+
+// ==================== Infinite Scroll ====================
+function setupInfiniteScroll() {
+  const sentinel = document.getElementById("feed-sentinel");
+  if (sentinel && "IntersectionObserver" in window) {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !isLoadingFeed && hasMorePosts)
+          loadPosts(true);
+      },
+      { rootMargin: "200px" },
+    );
+    observer.observe(sentinel);
+  }
+}
+
+// ==================== Post Modal ====================
+async function openPostModal(postId) {
+  const modal = document.getElementById("post-modal");
+  const body = document.getElementById("post-modal-body");
+  if (!modal || !body) return;
+  modal.classList.remove("hidden");
+  modal.classList.add("show");
+  body.innerHTML = '<div class="loading-spinner">Загрузка...</div>';
+  try {
+    const response = await fetch(`/post/modal-content?id=${postId}`);
+    body.innerHTML = await response.text();
+    initModalHandlers(postId);
+    await loadComments(postId, "modal-comments-list");
+    initCommentHandlers(postId);
+    initCommentForm(postId);
+  } catch (error) {
+    console.error("Error loading post:", error);
+    body.innerHTML = '<p class="error-message">Ошибка загрузки поста</p>';
+  }
+}
+
+function initCommentCounter() {
+  const textarea = document.querySelector(
+    "#post-modal .comment-form__input, #modal-comment-input",
+  );
+  const counter = document.querySelector(
+    "#post-modal .comment-form__counter, #comment-char-count",
+  );
+  if (!textarea || !counter) return;
+  const updateCounter = () => {
+    const len = textarea.value.length;
+    counter.textContent = len;
+    counter.style.color =
+      len > 900 ? "#ef4444" : len > 800 ? "#f59e0b" : "inherit";
+    textarea.style.height = "auto";
+    textarea.style.height = Math.min(textarea.scrollHeight, 120) + "px";
+  };
+  textarea.removeEventListener("input", updateCounter);
+  textarea.addEventListener("input", updateCounter);
+  updateCounter();
 }
 
 function closePostModal() {
-    const modal = document.getElementById('post-modal');
-    modal.classList.remove('show');
-    modal.classList.add('hidden');
+  const modal = document.getElementById("post-modal");
+  if (modal) {
+    modal.classList.remove("show");
+    modal.classList.add("hidden");
     currentModalPostId = null;
+  }
 }
 
-async function loadModalComments(postId) {
-    try {
-        const response = await fetch(`/post/comments?id=${postId}`);
-        const html = await response.text();
-        
-        const commentsList = document.getElementById('modal-comments-list');
-        if (commentsList) {
-            commentsList.innerHTML = html;
-
-            commentsList.querySelectorAll('.btn-delete-comment, .btn-edit-comment').forEach(btn => {
-                btn.replaceWith(btn.cloneNode(true));
-            });
-
-            commentsList.querySelectorAll('.btn-delete-comment').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const commentId = btn.dataset.commentId;
-                    const postId = btn.dataset.postId;
-                    if (typeof window.deleteComment === 'function') {
-                        window.deleteComment(commentId, postId);
-                    }
-                });
-            });
-            
-            commentsList.querySelectorAll('.btn-edit-comment').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const commentId = btn.dataset.commentId;
-                    const postId = btn.dataset.postId;
-                    if (typeof window.editComment === 'function') {
-                        window.editComment(commentId, postId);
-                    }
-                });
-            });
-        }
-    } catch (error) {
-        
-    }
+function toggleComments(postId) {
+  openPostModal(postId);
 }
 
-async function submitModalComment(postId) {
-    const input = document.getElementById('modal-comment-input');
-    const content = input.value.trim();
-    
-    if (!content) {
-        showNotification('Напишите комментарий', 'error');
-        return;
+// ==================== Modal Handlers ====================
+function initModalHandlers(postId) {
+  const likeBtn = document.querySelector("#post-modal .action-btn--like");
+  if (likeBtn && !likeBtn.hasAttribute("data-handler-inited")) {
+    likeBtn.setAttribute("data-handler-inited", "true");
+    likeBtn.onclick = (e) => {
+      e.preventDefault();
+      handleLike(postId, likeBtn);
+    };
+  }
+  const saveBtn = document.querySelector("#post-modal .action-btn--save");
+  if (saveBtn && !saveBtn.hasAttribute("data-handler-inited")) {
+    saveBtn.setAttribute("data-handler-inited", "true");
+    saveBtn.onclick = (e) => {
+      e.preventDefault();
+      handleSave(postId);
+    };
+  }
+  const repostBtn = document.querySelector("#post-modal .action-btn--repost");
+  if (repostBtn && !repostBtn.hasAttribute("data-handler-inited")) {
+    repostBtn.setAttribute("data-handler-inited", "true");
+    repostBtn.onclick = (e) => {
+      e.preventDefault();
+      toggleRepost(postId);
+    };
+  }
+  const deleteBtn = document.querySelector("#post-modal .btn-delete-post");
+  if (deleteBtn && !deleteBtn.hasAttribute("data-handler-inited")) {
+    deleteBtn.setAttribute("data-handler-inited", "true");
+    deleteBtn.onclick = (e) => {
+      e.preventDefault();
+      if (typeof window.deletePost === "function") window.deletePost(postId);
+    };
+  }
+  const voteBtn = document.querySelector(
+    "#post-modal .poll-widget-vote-btn, #post-modal .btn-vote",
+  );
+  if (voteBtn && !voteBtn.hasAttribute("data-handler-inited")) {
+    voteBtn.setAttribute("data-handler-inited", "true");
+    const pollId = voteBtn.closest(".poll-widget")?.dataset.pollId;
+    if (pollId) {
+      voteBtn.onclick = (e) => {
+        e.preventDefault();
+        submitPollVote(pollId, postId);
+      };
     }
-    
-    if (!currentUserId) {
-        showNotification('Войдите, чтобы оставить комментарий', 'error');
-        return;
+  }
+  const cancelBtn = document.querySelector(
+    "#post-modal .poll-widget-cancel-btn, #post-modal .btn-cancel-vote",
+  );
+  if (cancelBtn && !cancelBtn.hasAttribute("data-handler-inited")) {
+    cancelBtn.setAttribute("data-handler-inited", "true");
+    const pollId = cancelBtn.closest(".poll-widget")?.dataset.pollId;
+    if (pollId) {
+      cancelBtn.onclick = (e) => {
+        e.preventDefault();
+        cancelPollVote(pollId);
+      };
     }
-    
-    try {
-        const response = await postWithCsrf('/api/comment/create', {
-            post_id: postId,
-            content: content
-        });
-        
-        const result = await response.json();
-        if (result.success) {
-            input.value = '';
-            await loadModalComments(postId);
-
-            const postEl = document.querySelector(`[data-post-id="${postId}"]`);
-            if (postEl) {
-                const commentsEl = postEl.querySelector('.comments-count');
-                if (commentsEl) {
-                    const currentCount = parseInt(commentsEl.textContent) || 0;
-                    commentsEl.textContent = `${currentCount + 1} комментариев`;
-                }
-            }
-        } else {
-            showNotification(result.error || 'Ошибка отправки комментария', 'error');
-        }
-    } catch (error) {
-        
-        showNotification('Ошибка сети', 'error');
-    }
+  }
 }
 
-async function sendModalComment() {
-    const input = document.getElementById('modal-comment-input');
-    const content = input.value.trim();
-    if (!content || !currentModalPostId) return;
-    
-    try {
-        const response = await postWithCsrf('/api/comment/create', { post_id: currentModalPostId, content });
-        const result = await response.json();
-        
-        if (result.success) {
-            input.value = '';
-            await loadModalComments(currentModalPostId);
-
-            const postEl = document.querySelector(`[data-post-id="${currentModalPostId}"]`);
-            if (postEl) {
-                const countEl = postEl.querySelector('.comments-count');
-                if (countEl) {
-                    const current = parseInt(countEl.textContent) || 0;
-                    countEl.textContent = `${current + 1} комментариев`;
-                }
-            }
-        } else {
-            alert(result.error || 'Ошибка');
-        }
-    } catch (error) {
-        
+// ==================== Update Functions ====================
+function updatePostLikes(data) {
+  const postEl = document.querySelector(`[data-post-id="${data.post_id}"]`);
+  if (!postEl) return;
+  const likeBtn = postEl.querySelector(".btn-like");
+  const countSpan = likeBtn?.querySelector(".action-count");
+  const iconSpan = likeBtn?.querySelector(".action-icon");
+  if (data.user_id === window.currentUserId) {
+    if (data.action === "like" && !likeBtn?.classList.contains("liked")) {
+      likeBtn?.classList.add("liked");
+      if (iconSpan) iconSpan.textContent = "❤️";
+    } else if (
+      data.action === "unlike" &&
+      likeBtn?.classList.contains("liked")
+    ) {
+      likeBtn?.classList.remove("liked");
+      if (iconSpan) iconSpan.textContent = "🤍";
     }
-}
-
-function updateModalLike(btn, postId) {
-    btn.classList.toggle('liked');
-    const postEl = document.querySelector(`[data-post-id="${postId}"]`);
-    if (postEl) {
-        const likeBtn = postEl.querySelector('.btn-like');
-        if (likeBtn) likeBtn.classList.toggle('liked');
-    }
-}
-
-function updateModalSave(btn, postId) {
-    btn.classList.toggle('saved');
-    const postEl = document.querySelector(`[data-post-id="${postId}"]`);
-    if (postEl) {
-        const saveBtn = postEl.querySelector('.btn-save');
-        if (saveBtn) saveBtn.classList.toggle('saved');
-    }
-}
-
-function updateModalRepost(btn, postId) {
-    btn.classList.toggle('reposted');
-    const postEl = document.querySelector(`[data-post-id="${postId}"]`);
-    if (postEl) {
-        const repostBtn = postEl.querySelector('.btn-repost');
-        if (repostBtn) repostBtn.classList.toggle('reposted');
-    }
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-    const modalInput = document.getElementById('modal-comment-input');
-    if (modalInput) {
-        modalInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                sendModalComment();
-            }
-        });
-    }
-});
-
-
-function renderComment(container, comment, postId) {
-    const div = document.createElement('div');
-    div.className = 'comment';
-    div.dataset.commentId = comment.id;
-
-    const isAuthor = window.currentUserId && comment.user_id == window.currentUserId;
-    const editedMark = comment.updated_at && comment.updated_at !== comment.created_at ? ' <span class="edited-mark">(ред.)</span>' : '';
-    
-    div.innerHTML = `
-        <img class="comment-avatar" src="${comment.author?.avatar || 
-            `https://api.dicebear.com/7.x/avataaars/svg?seed=${comment.author?.id || 1}`}" alt="avatar">
-        <div class="comment-content">
-            <div class="comment-header">
-                <div class="comment-author">${comment.author?.username || 'Аноним'}</div>
-                ${isAuthor ? `
-                    <div class="comment-actions">
-                        <button class="btn-edit-comment" title="Редактировать">✏️</button>
-                        <button class="btn-delete-comment" title="Удалить">🗑️</button>
-                    </div>
-                ` : ''}
-            </div>
-            <div class="comment-text">${comment.content}</div>${editedMark}
-            <div class="comment-time">${comment.timeAgo || 'только что'}</div>
-        </div>
-    `;
-
-    if (isAuthor) {
-        div.querySelector('.btn-edit-comment').addEventListener('click', () => editComment(comment.id, postId));
-        div.querySelector('.btn-delete-comment').addEventListener('click', () => {
-            if (typeof window.deleteComment === 'function') {
-                window.deleteComment(comment.id, postId);
-            }
-        });
-    }
-    
-    container.appendChild(div);
+  }
+  if (countSpan && data.likes_count !== undefined)
+    countSpan.textContent = data.likes_count;
 }
 
 function addCommentToPost(data) {
-    const postEl = document.querySelector(`[data-post-id="${data.post_id}"]`);
-    if (!postEl) return;
-    
-    const section = postEl.querySelector('.comments-section');
-    const list = postEl.querySelector('.comments-list');
-    
-    if (section && list && section.style.display !== 'none') {
-
-        const emptyState = list.querySelector('.empty-comments');
-        if (emptyState) {
-            emptyState.remove();
-        }
-        renderComment(list, data, data.post_id);
-    }
-    
-    const countEl = postEl.querySelector('.comments-count');
-    if (countEl) {
-        const currentCount = parseInt(countEl.textContent) || 0;
-        countEl.textContent = `${currentCount + 1} комментариев`;
-    }
+  const postEl = document.querySelector(`[data-post-id="${data.post_id}"]`);
+  if (!postEl) return;
+  const countEl = postEl.querySelector(".comments-count");
+  if (countEl) {
+    const current = parseInt(countEl.textContent) || 0;
+    countEl.textContent = `${current + 1} комментариев`;
+  }
 }
 
-async function sendComment(postId) {
-    const postEl = document.querySelector(`[data-post-id="${postId}"]`);
-    if (!postEl) return;
-    const input = postEl.querySelector('.comment-input');
-    if (!input) return;
-    const content = input.value.trim();
-    
-    if (!content) return;
-    
-    try {
-        const response = await fetch('/api/comment/create', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ post_id: postId, content })
-        });
-        
-        const result = await response.json();
-        if (result.success) {
-            input.value = '';
-            const list = postEl.querySelector('.comments-list');
-            if (list) {
+// ==================== Сжатие изображений в WebP ====================
+/**
+ * Сжимает одно изображение, масштабирует и конвертирует в WebP (или JPEG)
+ * @param {File} file
+ * @returns {Promise<File>}
+ */
+async function compressImage(file) {
+  // Для GIF и очень маленьких картинок пропускаем сжатие
+  if (file.type === "image/gif" || file.size < 100 * 1024) return file;
 
-                const emptyState = list.querySelector('.empty-comments');
-                if (emptyState) {
-                    emptyState.remove();
-                }
-                renderComment(list, result.comment);
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (e) => {
+      const img = new Image();
+      img.src = e.target.result;
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+
+        // Масштабируем, если превышает лимиты
+        if (width > MAX_IMAGE_WIDTH || height > MAX_IMAGE_HEIGHT) {
+          const ratio = Math.min(
+            MAX_IMAGE_WIDTH / width,
+            MAX_IMAGE_HEIGHT / height,
+          );
+          width = Math.floor(width * ratio);
+          height = Math.floor(height * ratio);
+        }
+
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Пробуем сохранить как WebP (если браузер поддерживает)
+        let mime = "image/webp";
+        let quality = WEBP_QUALITY;
+        // Fallback для старых браузеров
+        if (!canvas.toBlob || !canvas.toBlob.bind(canvas)) {
+          mime = "image/jpeg";
+          quality = JPEG_QUALITY;
+        }
+
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              reject(new Error("Не удалось создать Blob"));
+              return;
             }
-            
-            const countEl = postEl.querySelector('.comments-count');
-            if (countEl) {
-                const currentCount = parseInt(countEl.textContent) || 0;
-                countEl.textContent = `${currentCount + 1} комментариев`;
+            // Сохраняем исходное имя, но меняем расширение на .webp (если надо)
+            let newName = file.name;
+            if (mime === "image/webp" && !newName.endsWith(".webp")) {
+              newName = newName.replace(/\.(jpe?g|png)$/i, ".webp");
             }
-        }
-    } catch (error) {
-        
-    }
-}
-
-async function voteInPoll(pollId, optionIds) {
-    try {
-        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
-        const response = await fetch('/api/vote', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-Token': csrfToken
-            },
-            body: JSON.stringify({
-                poll_id: pollId,
-                option_ids: optionIds
-            })
-        });
-        
-        const result = await response.json();
-        if (result.success) {
-
-            const pollEl = document.querySelector(`[data-poll-id="${pollId}"]`);
-            if (pollEl) {
-                pollEl.outerHTML = renderPoll(result.poll);
-            }
-        } else {
-            showNotification(result.error || 'Ошибка голосования', 'error');
-        }
-    } catch (error) {
-        
-        showNotification('Ошибка голосования', 'error');
-    }
-}
-
-function renderPoll(poll) {
-    const inputType = (poll.allow_multiple || poll.multiple_votes) ? 'checkbox' : 'radio';
-    const name = `poll_${poll.id}`;
-    
-    let html = `
-        <div class="poll-container ${poll.has_user_voted ? 'voted' : ''}" data-poll-id="${poll.id}">
-            <div class="poll-question">${poll.question}</div>
-            <div class="poll-options">
-    `;
-    
-    poll.options.forEach(option => {
-        const isChecked = poll.user_votes.includes(option.id);
-        html += `
-            <div class="poll-option" data-option-id="${option.id}">
-                <label class="poll-option-label">
-                    <input type="${inputType}" 
-                           name="${name}" 
-                           value="${option.id}" 
-                           ${isChecked ? 'checked' : ''}
-                           ${poll.has_user_voted ? 'disabled' : ''}>
-                    <span class="poll-option-text">${option.text}</span>
-                </label>
-                <div class="poll-results">
-                    <div class="poll-bar" style="width: ${option.percentage}%"></div>
-                    <span class="poll-percentage">${option.percentage}%</span>
-                    <span class="poll-votes">${option.votes_count} голосов</span>
-                </div>
-            </div>
-        `;
-    });
-    
-    html += `
-            </div>
-            <div class="poll-footer">
-                <span class="poll-total-votes">Всего голосов: ${poll.total_votes}</span>
-                ${!poll.has_user_voted ? `<button class="btn-vote">Голосовать</button>` : ''}
-            </div>
-        </div>
-    `;
-    
-    return html;
-}
-
-function handlePollVote(pollId) {
-    const pollEl = document.querySelector(`[data-poll-id="${pollId}"]`);
-    if (!pollEl) return;
-    
-    const selectedOptions = Array.from(pollEl.querySelectorAll('input:checked'))
-        .map(input => parseInt(input.value));
-    
-    if (selectedOptions.length === 0) {
-        showNotification('Выберите хотя бы один вариант', 'error');
-        return;
-    }
-    
-    voteInPoll(pollId, selectedOptions);
-}
-
-function updatePollDisplay(poll) {
-    const pollEl = document.querySelector(`[data-poll-id="${poll.id}"]`);
-    if (!pollEl) return;
-
-    poll.options.forEach(option => {
-        const optionEl = pollEl.querySelector(`[data-option-id="${option.id}"]`);
-        if (optionEl) {
-            const percentageEl = optionEl.querySelector('.poll-percentage');
-            const votesEl = optionEl.querySelector('.poll-votes');
-            const barEl = optionEl.querySelector('.poll-bar');
-            
-            if (percentageEl) percentageEl.textContent = `${option.percentage}%`;
-            if (votesEl) votesEl.textContent = `${option.votes_count} голосов`;
-            if (barEl) barEl.style.width = `${option.percentage}%`;
-        }
-    });
-
-    const totalVotesEl = pollEl.querySelector('.poll-total-votes');
-    if (totalVotesEl) {
-        totalVotesEl.textContent = `Всего голосов: ${poll.total_votes}`;
-    }
-
-    if (poll.has_user_voted) {
-        const checkboxes = pollEl.querySelectorAll('input[type="checkbox"], input[type="radio"]');
-        checkboxes.forEach(cb => cb.disabled = true);
-        
-        const voteBtn = pollEl.querySelector('.btn-vote');
-        if (voteBtn) voteBtn.style.display = 'none';
-    }
-}
-
-async function editComment(commentId, postId) {
-    const commentEl = document.querySelector(`[data-comment-id="${commentId}"]`);
-    if (!commentEl) return;
-    const textEl = commentEl.querySelector('.comment-text');
-    if (!textEl) return;
-    const currentText = textEl.textContent;
-
-    const editForm = document.createElement('div');
-    editForm.className = 'comment-edit-form';
-    editForm.innerHTML = `
-        <input type="text" class="comment-edit-input" value="${currentText.replace(/"/g, '&quot;')}" maxlength="1000">
-        <div class="comment-edit-actions">
-            <button class="btn-save-edit">Сохранить</button>
-            <button class="btn-cancel-edit">Отмена</button>
-        </div>
-    `;
-    
-    textEl.style.display = 'none';
-    textEl.parentNode.insertBefore(editForm, textEl.nextSibling);
-    
-    const input = editForm.querySelector('.comment-edit-input');
-    input.focus();
-    
-    editForm.querySelector('.btn-save-edit').addEventListener('click', async () => {
-        const newContent = input.value.trim();
-        if (!newContent || newContent === currentText) {
-            cancelEdit(commentEl);
-            return;
-        }
-        
-        try {
-            const response = await fetch('/api/comment/update', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ comment_id: commentId, content: newContent })
+            const compressedFile = new File([blob], newName, {
+              type: mime,
+              lastModified: Date.now(),
             });
-            
-            const result = await response.json();
-            if (result.success) {
-                textEl.textContent = newContent;
-                textEl.insertAdjacentHTML('afterend', ' <span class="edited-mark">(ред.)</span>');
-                cancelEdit(commentEl);
-            } else {
-                showNotification(result.error || 'Ошибка редактирования', 'error');
-            }
-        } catch (error) {
-            
-            showNotification('Ошибка редактирования', 'error');
-        }
-    });
-    
-    editForm.querySelector('.btn-cancel-edit').addEventListener('click', () => cancelEdit(commentEl));
+            console.log(
+              `Сжатие: ${(file.size / 1024).toFixed(1)} KB → ${(compressedFile.size / 1024).toFixed(1)} KB`,
+            );
+            resolve(compressedFile);
+          },
+          mime,
+          quality,
+        );
+      };
+      img.onerror = () => reject(new Error("Ошибка загрузки изображения"));
+    };
+    reader.onerror = () => reject(new Error("Ошибка чтения файла"));
+  });
 }
 
-function cancelEdit(commentEl) {
-    const editForm = commentEl.querySelector('.comment-edit-form');
-    if (editForm) editForm.remove();
-    commentEl.querySelector('.comment-text').style.display = 'block';
+/**
+ * Сжимает массив файлов, обновляет selectedImages и превью
+ */
+async function compressAndSetImages(files) {
+  if (!files.length) return;
+
+  showNotification("Сжатие изображений... (WebP)", "info");
+  try {
+    const compressed = await Promise.all(files.map(compressImage));
+    selectedImages = compressed;
+    updateImagePreviews(selectedImages);
+    showNotification(`Готово: ${compressed.length} изображений`, "success");
+  } catch (err) {
+    console.error("Ошибка сжатия:", err);
+    showNotification("Сжатие не удалось, используются оригиналы", "error");
+    selectedImages = files;
+    updateImagePreviews(selectedImages);
+  }
+  updateTotalSizeWarning();
+  updatePublishButton();
 }
 
-
-
-
-function updatePublishButton() {
-    const textarea = document.getElementById('post-content');
-    const btnPublish = document.getElementById('btn-publish');
-    const hasContent = textarea.value.trim().length > 0;
-    const hasImage = selectedImage !== null;
-    const pollData = getPollData();
-    const hasValidPoll = pollData !== null;
-    
-    btnPublish.disabled = !hasContent && !hasImage && !hasValidPoll;
-}
-
-function initPostForm() {
-    const textarea = document.getElementById('post-content');
-    const charCount = document.getElementById('char-count');
-    const btnPublish = document.getElementById('btn-publish');
-    const imageInput = document.getElementById('post-image');
-
-    if (!textarea) return;
-    
-    textarea.addEventListener('input', () => {
-        const len = textarea.value.length;
-        charCount.textContent = `${len}/2000`;
-        btnPublish.disabled = len === 0 && !selectedImage;
-        charCount.style.color = len > 1900 ? '#ef4444' : '#6b7280';
-    });
-    
-    if (imageInput) {
-        imageInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (file) {
-                selectedImage = file;
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    document.getElementById('image-preview').src = e.target.result;
-                    document.getElementById('image-preview-container').style.display = 'block';
-                };
-                reader.readAsDataURL(file);
-                btnPublish.disabled = false;
-            }
-        });
-    }
-    
-    btnPublish.addEventListener('click', async () => {
-        const content = textarea.value.trim();
-        if (!content && !selectedImage) return;
-
-        if (!validatePoll()) {
-            return;
-        }
-        
-        try {
-
-            if (!validatePoll()) {
-                return;
-            }
-            
-            const formData = new FormData();
-            formData.append('content', content);
-            if (selectedImage) {
-                formData.append('image', selectedImage);
-            }
-
-            const pollData = getPollData();
-            if (pollData) {
-                formData.append('poll_question', pollData.question);
-                formData.append('poll_multiple', pollData.multiple_votes ? '1' : '0');
-
-                formData.append('poll_options', pollData.options.join(','));
-            }
-
-            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
-            if (csrfToken) {
-                formData.append('_csrf', csrfToken);
-            }
-            
-            const response = await fetch('/api/post/create', {
-                method: 'POST',
-                body: formData
-            });
-            
-            const result = await response.json();
-            if (result.success) {
-                textarea.value = '';
-                charCount.textContent = '0/2000';
-                removeSelectedImage();
-                removePoll(); // Очищаем опрос
-                btnPublish.disabled = true;
-                appendPostToContainer(result.post, true);
-                showNotification('Пост опубликован!', 'success');
-            } else {
-                showNotification(result.error || 'Ошибка публикации', 'error');
-            }
-        } catch (error) {
-            
-            showNotification('Ошибка сети', 'error');
-        }
-    });
-}
-
-function removeSelectedImage() {
-    selectedImage = null;
-    document.getElementById('image-preview').src = '';
-    document.getElementById('image-preview-container').style.display = 'none';
-    document.getElementById('post-image').value = '';
-    const textarea = document.getElementById('post-content');
-    document.getElementById('btn-publish').disabled = textarea.value.trim().length === 0;
-}
-
-
-async function submitPollVote(pollId, postId) {
-    const pollContainer = document.querySelector(`[data-poll-id="${pollId}"]`);
-    const selectedOptions = pollContainer.querySelectorAll('input:checked');
-    
-    if (selectedOptions.length === 0) {
-        showNotification('Выберите вариант ответа', 'error');
-        return;
-    }
-    
-    const optionIds = Array.from(selectedOptions).map(input => parseInt(input.value));
-    
-    try {
-        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
-        
-        const response = await fetch('/api/vote', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-Token': csrfToken
-            },
-            body: JSON.stringify({
-                poll_id: pollId,
-                option_ids: optionIds
-            })
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-
-            const pollContainer = document.querySelector(`[data-poll-id="${pollId}"]`);
-            if (pollContainer) {
-                pollContainer.outerHTML = renderPoll(data.poll);
-            }
-
-            const postCard = document.querySelector(`[data-post-id="${postId}"]`);
-            if (postCard) {
-                updatePostStats(postCard, data.post || {});
-            }
-            
-            showNotification('Ваш голос учтен!', 'success');
-        } else {
-            showNotification(data.error || 'Ошибка голосования', 'error');
-        }
-    } catch (error) {
-        
-        showNotification('Ошибка сети', 'error');
-    }
-}
-
-function addPoll() {
-    const pollContainer = document.getElementById('poll-container');
-    const addPollBtn = document.querySelector('.btn-add-poll');
-    
-    if (pollContainer.style.display === 'none') {
-        pollContainer.style.display = 'block';
-        addPollBtn.classList.add('active');
-        addPollBtn.textContent = '📊';
+// ==================== Image Preview & Size Checking ====================
+function updateTotalSizeWarning() {
+  const totalSize = selectedImages.reduce((sum, file) => sum + file.size, 0);
+  const totalSizeMB = (totalSize / (1024 * 1024)).toFixed(2);
+  const MAX_TOTAL_SIZE = 7 * 1024 * 1024; // 7 MB – после сжатия обычно укладывается
+  let warningEl = document.getElementById("total-size-warning");
+  if (!warningEl) {
+    const container = document.getElementById("image-preview-container");
+    if (container) {
+      warningEl = document.createElement("div");
+      warningEl.id = "total-size-warning";
+      warningEl.style.fontSize = "12px";
+      warningEl.style.marginTop = "8px";
+      container.parentNode.insertBefore(warningEl, container.nextSibling);
     } else {
-        removePoll();
+      return;
     }
-    
-    updatePublishButton();
+  }
+  if (selectedImages.length > 0 && totalSize > MAX_TOTAL_SIZE) {
+    warningEl.style.display = "block";
+    warningEl.innerHTML = `⚠️ Общий размер изображений (${totalSizeMB} МБ) превышает лимит ${MAX_TOTAL_SIZE / (1024 * 1024)} МБ. Пожалуйста, удалите некоторые файлы.`;
+    warningEl.style.color = "#ef4444";
+  } else {
+    warningEl.style.display = "none";
+  }
+  updatePublishButton();
+}
+
+function updateImagePreviews(files) {
+  const container = document.getElementById("image-preview-container");
+  const previews = document.getElementById("image-previews");
+  if (!container || !previews) return;
+  previews.innerHTML = "";
+  if (!files.length) {
+    container.style.display = "none";
+    updateTotalSizeWarning();
+    return;
+  }
+  container.style.display = "block";
+  files.forEach((file, idx) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const div = document.createElement("div");
+      div.className = "image-preview-item";
+      div.innerHTML = `<img src="${e.target.result}" class="image-preview-thumb"><button type="button" class="btn-remove-preview" onclick="removeImagePreview(${idx})">✕</button>`;
+      previews.appendChild(div);
+    };
+    reader.readAsDataURL(file);
+  });
+  updateTotalSizeWarning();
+}
+
+function removeImagePreview(index) {
+  selectedImages.splice(index, 1);
+  updateImagePreviews(selectedImages);
+  const imageInput = document.getElementById("post-image");
+  if (imageInput) imageInput.value = "";
+  updatePublishButton();
+}
+
+function removeSelectedImages() {
+  selectedImages = [];
+  const container = document.getElementById("image-preview-container");
+  if (container) container.style.display = "none";
+  const previews = document.getElementById("image-previews");
+  if (previews) previews.innerHTML = "";
+  const imageInput = document.getElementById("post-image");
+  if (imageInput) imageInput.value = "";
+  updateTotalSizeWarning();
+  updatePublishButton();
+}
+
+// ==================== Poll Form Functions ====================
+function addPoll() {
+  const container = document.getElementById("poll-container");
+  const btn = document.querySelector(".btn-add-poll");
+  if (!container || !btn) return;
+  if (container.style.display === "none") {
+    container.style.display = "block";
+    btn.classList.add("active");
+    btn.textContent = "📊";
+  } else {
+    removePoll();
+  }
+  updatePublishButton();
 }
 
 function removePoll() {
-    const pollContainer = document.getElementById('poll-container');
-    const addPollBtn = document.querySelector('.btn-add-poll');
-    
-    pollContainer.style.display = 'none';
-    addPollBtn.classList.remove('active');
-    addPollBtn.textContent = '📊';
-
-    document.getElementById('poll-question').value = '';
-    document.getElementById('poll-multiple').checked = false;
-
-    const optionsContainer = document.getElementById('poll-options');
-    optionsContainer.innerHTML = `
-        <div class="poll-option-input">
-            <input type="text" placeholder="Вариант ответа 1..." maxlength="100" class="option-input">
-            <button type="button" class="btn-remove-option" onclick="removeOption(this)">✕</button>
-        </div>
-        <div class="poll-option-input">
-            <input type="text" placeholder="Вариант ответа 2..." maxlength="100" class="option-input">
-            <button type="button" class="btn-remove-option" onclick="removeOption(this)">✕</button>
-        </div>
-    `;
-    
-    updatePublishButton();
+  const container = document.getElementById("poll-container");
+  const btn = document.querySelector(".btn-add-poll");
+  if (container) container.style.display = "none";
+  if (btn) {
+    btn.classList.remove("active");
+    btn.textContent = "📊";
+  }
+  const question = document.getElementById("poll-question");
+  if (question) question.value = "";
+  const multiple = document.getElementById("poll-multiple");
+  if (multiple) multiple.checked = false;
+  const options = document.getElementById("poll-options");
+  if (options) {
+    options.innerHTML = `<div class="poll-option-input"><input type="text" class="option-input" placeholder="Вариант ответа 1..."><button type="button" class="btn-remove-option" onclick="removeOption(this)">✕</button></div>
+                            <div class="poll-option-input"><input type="text" class="option-input" placeholder="Вариант ответа 2..."><button type="button" class="btn-remove-option" onclick="removeOption(this)">✕</button></div>`;
+  }
+  updatePublishButton();
 }
 
 function addPollOption() {
-    const optionsContainer = document.getElementById('poll-options');
-    const currentOptions = optionsContainer.querySelectorAll('.poll-option-input').length;
-    
-    if (currentOptions >= 10) {
-        showNotification('Максимум 10 вариантов ответа', 'error');
-        return;
-    }
-    
-    const optionDiv = document.createElement('div');
-    optionDiv.className = 'poll-option-input';
-    optionDiv.innerHTML = `
-        <input type="text" placeholder="Вариант ответа ${currentOptions + 1}..." maxlength="100" class="option-input">
-        <button type="button" class="btn-remove-option" onclick="removeOption(this)">✕</button>
-    `;
-    
-    optionsContainer.appendChild(optionDiv);
-
-    const input = optionDiv.querySelector('.option-input');
-    input.addEventListener('input', updatePublishButton);
-    
-    updatePublishButton();
+  const options = document.getElementById("poll-options");
+  if (!options) return;
+  const current = options.querySelectorAll(".poll-option-input").length;
+  if (current >= 10) {
+    showNotification("Максимум 10 вариантов", "error");
+    return;
+  }
+  const div = document.createElement("div");
+  div.className = "poll-option-input";
+  div.innerHTML = `<input type="text" class="option-input" placeholder="Вариант ответа ${current + 1}..."><button type="button" class="btn-remove-option" onclick="removeOption(this)">✕</button>`;
+  options.appendChild(div);
+  updatePublishButton();
 }
 
-function removeOption(button) {
-    const optionsContainer = document.getElementById('poll-options');
-    const options = optionsContainer.querySelectorAll('.poll-option-input');
-    
-    if (options.length <= 2) {
-        showNotification('Минимум 2 варианта ответа', 'error');
-        return;
-    }
-    
-    button.parentElement.remove();
-    updatePublishButton();
+function removeOption(btn) {
+  const options = document.getElementById("poll-options");
+  if (!options) return;
+  if (options.querySelectorAll(".poll-option-input").length <= 2) {
+    showNotification("Минимум 2 варианта", "error");
+    return;
+  }
+  btn.closest(".poll-option-input").remove();
+  updatePublishButton();
 }
 
 function getPollData() {
-    const pollContainer = document.getElementById('poll-container');
-    
-    if (pollContainer.style.display === 'none') {
-        return null;
-    }
-    
-    const question = document.getElementById('poll-question').value.trim();
-    const multiple = document.getElementById('poll-multiple').checked;
-    const options = [];
-    
-    document.querySelectorAll('.option-input').forEach(input => {
-        const value = input.value.trim();
-        if (value) {
-            options.push(value);
-        }
-    });
-    
-    if (!question || options.length < 2) {
-        return null;
-    }
-    
-    return {
-        question: question,
-        multiple_votes: multiple,
-        options: options
-    };
+  const container = document.getElementById("poll-container");
+  if (!container || container.style.display === "none") return null;
+  const question = document.getElementById("poll-question")?.value.trim();
+  if (!question) return null;
+  const multiple = document.getElementById("poll-multiple")?.checked || false;
+  const options = [];
+  document.querySelectorAll(".option-input").forEach((input) => {
+    const val = input.value.trim();
+    if (val) options.push(val);
+  });
+  if (options.length < 2) return null;
+  return { question, multiple_votes: multiple, options };
 }
 
-function validatePoll() {
-    const pollData = getPollData();
-    
-    if (!pollData) {
-        return true; // Опрос не добавлен, это нормально
-    }
-    
-    if (pollData.question.length > 255) {
-        showNotification('Вопрос опроса слишком длинный (максимум 255 символов)', 'error');
-        return false;
-    }
-    
-    if (pollData.options.length < 2) {
-        showNotification('Минимум 2 варианта ответа', 'error');
-        return false;
-    }
-    
-    if (pollData.options.length > 10) {
-        showNotification('Максимум 10 вариантов ответа', 'error');
-        return false;
-    }
-    
-    for (const option of pollData.options) {
-        if (option.length === 0) {
-            showNotification('Все варианты ответа должны быть заполнены', 'error');
-            return false;
-        }
-        if (option.length > 100) {
-            showNotification('Вариант ответа слишком длинный (максимум 100 символов)', 'error');
-            return false;
-        }
-    }
-    
-    return true;
+function updatePublishButton() {
+  const ta = document.getElementById("post-content");
+  const btn = document.getElementById("btn-publish");
+  if (!ta || !btn) return;
+  const hasText = ta.value.trim().length > 0;
+  const hasImages = selectedImages.length > 0;
+  const hasPoll = getPollData() !== null;
+  btn.disabled = !(hasText || hasImages || hasPoll);
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+// ==================== Publish Post (единая функция) ====================
+async function publishPost() {
+  const textarea = document.getElementById("post-content");
+  const content = textarea?.value.trim() || "";
+  const images = selectedImages;
+  const pollData = getPollData();
 
-    const urlParams = new URLSearchParams(window.location.search);
-    currentFeedType = urlParams.get('type') || 'following';
+  if (!content && images.length === 0 && !pollData) {
+    showNotification(
+      "Заполните хотя бы одно поле: текст, изображение или опрос",
+      "error",
+    );
+    return;
+  }
 
-    const filterButtons = document.querySelectorAll('.feed-filter');
-    filterButtons.forEach(button => {
-        button.addEventListener('click', () => {
-            const type = button.dataset.type;
+  // Проверка размера (после сжатия они уже должны быть маленькими, но на всякий случай)
+  const MAX_TOTAL_SIZE = 7 * 1024 * 1024;
+  const totalSize = images.reduce((sum, img) => sum + img.size, 0);
+  if (images.length > 0 && totalSize > MAX_TOTAL_SIZE) {
+    showNotification(
+      `Общий размер изображений (${(totalSize / 1024 / 1024).toFixed(2)} МБ) превышает лимит 7 МБ. Удалите часть файлов.`,
+      "error",
+    );
+    return;
+  }
 
-            filterButtons.forEach(btn => btn.classList.remove('active'));
-            button.classList.add('active');
+  const btnPublish = document.getElementById("btn-publish");
+  if (btnPublish) {
+    btnPublish.disabled = true;
+    btnPublish.textContent = "⏳ Публикация...";
+  }
 
-            switchFeed(type);
-        });
+  try {
+    const formData = new FormData();
+    const csrfToken = document.querySelector(
+      'meta[name="csrf-token"]',
+    )?.content;
+
+    formData.append("content", content);
+    images.forEach((img) => formData.append("images[]", img));
+    if (pollData) {
+      formData.append("poll_question", pollData.question);
+      formData.append("poll_multiple", pollData.multiple_votes ? "1" : "0");
+      pollData.options.forEach((opt) => formData.append("poll_options[]", opt));
+    }
+
+    const response = await fetch("/api/post/create", {
+      method: "POST",
+      headers: csrfToken ? { "X-CSRF-Token": csrfToken } : {},
+      body: formData,
     });
 
-    loadPosts(false);
+    const data = await response.json();
 
-    initPostForm();
+    if (data.success) {
+      textarea.value = "";
+      const charCount = document.getElementById("char-count");
+      if (charCount) charCount.textContent = "0/2000";
+      removeSelectedImages();
+      removePoll();
+      showNotification("Пост опубликован!", "success");
 
-    setupInfiniteScroll();
+      if (data.post && typeof addPostToFeed === "function") {
+        addPostToFeed(data.post, true);
+      } else if (typeof loadPosts === "function") {
+        loadPosts(false);
+      } else {
+        location.reload();
+      }
+    } else {
+      showNotification(data.error || "Ошибка публикации", "error");
+    }
+  } catch (error) {
+    console.error("Publish error:", error);
+    showNotification("Ошибка публикации", "error");
+  } finally {
+    if (btnPublish) {
+      btnPublish.disabled = false;
+      btnPublish.textContent = "📤 Опубликовать";
+    }
+  }
+}
 
-    initializePosts();
+// ==================== Image Select & Form Init ====================
+async function handleImageSelect(e) {
+  const files = Array.from(e.target.files);
+  if (!files.length) return;
+  await compressAndSetImages(files);
+  e.target.value = ""; // чтобы можно было выбрать те же файлы повторно
+}
+
+function initPostForm() {
+  const form = document.getElementById("create-post-form");
+  if (form) {
+    // Удаляем старый обработчик submit, если был
+    form.removeEventListener("submit", publishPost);
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      publishPost();
+    });
+  }
+  const textarea = document.getElementById("post-content");
+  const imageInput = document.getElementById("post-image");
+  const btnPublish = document.getElementById("btn-publish");
+  if (textarea) {
+    textarea.addEventListener("input", updatePublishButton);
+    const charCount = document.getElementById("char-count");
+    if (charCount) {
+      const updateCharCount = () => {
+        const len = textarea.value.length;
+        charCount.textContent = `${len}/2000`;
+        charCount.style.color =
+          len > 1900 ? "#ef4444" : len > 1800 ? "#f59e0b" : "inherit";
+      };
+      textarea.addEventListener("input", updateCharCount);
+      updateCharCount();
+    }
+  }
+  if (imageInput) {
+    imageInput.removeEventListener("change", handleImageSelect);
+    imageInput.addEventListener("change", handleImageSelect);
+  }
+  if (btnPublish) btnPublish.disabled = true;
+  setTimeout(updatePublishButton, 100);
+}
+
+// ==================== Exports ====================
+window.switchFeed = switchFeed;
+window.loadPosts = loadPosts;
+window.openPostModal = openPostModal;
+window.closePostModal = closePostModal;
+window.toggleComments = toggleComments;
+window.addPoll = addPoll;
+window.removePoll = removePoll;
+window.addPollOption = addPollOption;
+window.removeOption = removeOption;
+window.removeImagePreview = removeImagePreview;
+window.removeSelectedImages = removeSelectedImages;
+window.getPollData = getPollData;
+window.updatePublishButton = updatePublishButton;
+window.publishPost = publishPost;
+window.initPostForm = initPostForm;
+window.initModalHandlers = initModalHandlers;
+window.toggleComments = openPostModal;
+window.selectedImages = selectedImages;
+
+// ==================== DOM Ready ====================
+document.addEventListener("DOMContentLoaded", () => {
+  const postsContainer = document.getElementById("posts-container");
+  if (!postsContainer) {
+    console.log("Feed container not found, skipping feed initialization");
+    return;
+  }
+  console.log("DOM loaded, initializing feed");
+  const urlParams = new URLSearchParams(window.location.search);
+  currentFeedType = urlParams.get("type") || "following";
+  console.log("Current feed type:", currentFeedType);
+  document.querySelectorAll(".feed-filter").forEach((btn) => {
+    btn.removeEventListener("click", handleFilterClick);
+    btn.addEventListener("click", handleFilterClick);
+    if (btn.dataset.type === currentFeedType) btn.classList.add("active");
+  });
+  loadPosts(false);
+  setupInfiniteScroll();
+  initializePosts();
+  startPolling();
+  initPostForm();
 });
 
-window.handleLike = handleLike;
-window.handleSave = handleSave;
-window.toggleComments = toggleComments;
-window.toggleRepost = toggleRepost;
-
-function setupInfiniteScroll() {
-
-    const feedSentinel = document.getElementById('feed-sentinel');
-    if (feedSentinel && 'IntersectionObserver' in window) {
-        const feedObserver = new IntersectionObserver((entries) => {
-            if (entries[0].isIntersecting && !isLoadingFeed && hasMorePosts) {
-                loadPosts(true);
-            }
-        }, { rootMargin: '200px' });
-        feedObserver.observe(feedSentinel);
-    }
+function handleFilterClick(e) {
+  const btn = e.currentTarget;
+  const type = btn.dataset.type;
+  console.log("Filter clicked:", type);
+  switchFeed(type);
 }
-function removeSelectedImage() {
-    selectedImage = null;
-    document.getElementById('image-preview').src = '';
-    document.getElementById('image-preview-container').style.display = 'none';
-    document.getElementById('post-image').value = '';
-    const textarea = document.getElementById('post-content');
-    document.getElementById('btn-publish').disabled = textarea.value.trim().length === 0;
-}
-

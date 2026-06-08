@@ -1,2 +1,25 @@
 User-agent: *
-Disallow:
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+Disallow: /runtime/
+Disallow: /vendor/
+Disallow: /web/uploads/temp/
+
+Sitemap: https://four.course.kpk45.ru/sitemap.xml
+
+User-agent: Googlebot
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+
+User-agent: Yandex
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+Clean-param: utm_source&utm_medium&utm_campaign
+
+User-agent: Bingbot
+Allow: /
+Disallow: /admin/
+Disallow: /api/

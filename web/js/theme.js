@@ -1,15 +1,16 @@
-
-
 function toggleTheme() {
     const body = document.body;
+    const html = document.documentElement;
     const themeToggle = document.getElementById('theme-toggle');
     
     if (body.classList.contains('dark-theme')) {
         body.classList.remove('dark-theme');
+        html.setAttribute('data-theme', 'light');
         localStorage.setItem('theme', 'light');
         if (themeToggle) themeToggle.textContent = '🌙';
     } else {
         body.classList.add('dark-theme');
+        html.setAttribute('data-theme', 'dark');
         localStorage.setItem('theme', 'dark');
         if (themeToggle) themeToggle.textContent = '☀️';
     }
@@ -18,23 +19,23 @@ function toggleTheme() {
 function initTheme() {
     const savedTheme = localStorage.getItem('theme');
     const body = document.body;
+    const html = document.documentElement;
     const themeToggle = document.getElementById('theme-toggle');
     
     if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
         body.classList.add('dark-theme');
+        html.setAttribute('data-theme', 'dark');
         if (themeToggle) themeToggle.textContent = '☀️';
     } else {
         body.classList.remove('dark-theme');
+        html.setAttribute('data-theme', 'light');
         if (themeToggle) themeToggle.textContent = '🌙';
     }
 }
 
 function createThemeToggle() {
-
     let themeToggle = document.getElementById('theme-toggle');
-    if (themeToggle) {
-        return; // Кнопка уже существует
-    }
+    if (themeToggle) return;
 
     const button = document.createElement('button');
     button.id = 'theme-toggle';
@@ -69,26 +70,24 @@ function createThemeToggle() {
     });
 
     document.body.appendChild(button);
-
     initTheme();
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-
-    setTimeout(() => {
-        createThemeToggle();
-    }, 100);
+    setTimeout(createThemeToggle, 100);
 });
 
 window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
     if (!localStorage.getItem('theme')) {
-
         const themeToggle = document.getElementById('theme-toggle');
+        const html = document.documentElement;
         if (e.matches) {
             document.body.classList.add('dark-theme');
+            html.setAttribute('data-theme', 'dark');
             if (themeToggle) themeToggle.textContent = '☀️';
         } else {
             document.body.classList.remove('dark-theme');
+            html.setAttribute('data-theme', 'light');
             if (themeToggle) themeToggle.textContent = '🌙';
         }
     }

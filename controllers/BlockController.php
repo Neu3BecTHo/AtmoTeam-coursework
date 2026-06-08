@@ -5,8 +5,8 @@ namespace app\controllers;
 use Yii;
 use yii\web\Controller;
 use yii\web\Response;
-use yii\web\NotFoundHttpException;
 use yii\filters\AccessControl;
+use app\components\ApiValidator;
 use app\models\User;
 use app\models\Block;
 
@@ -28,7 +28,6 @@ class BlockController extends Controller
         ];
     }
 
-    
     public function actionList()
     {
         $blockedUsers = Block::getBlockedUsers(Yii::$app->user->id);
@@ -53,16 +52,11 @@ class BlockController extends Controller
         ]);
     }
 
-    
     public function actionBlock()
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
         
-        if (Yii::$app->user->isGuest) {
-            return ['success' => false, 'error' => 'Не авторизован'];
-        }
-        
-        $data = json_decode(Yii::$app->request->getRawBody(), true);
+        $data = ApiValidator::getRequestData();
         $blockedUserId = $data['user_id'] ?? Yii::$app->request->post('user_id');
         
         $blockedUser = User::findOne($blockedUserId);
@@ -86,12 +80,11 @@ class BlockController extends Controller
         return ['success' => false, 'error' => 'Ошибка блокировки'];
     }
 
-    
     public function actionUnblock()
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
         
-        $data = json_decode(Yii::$app->request->getRawBody(), true);
+        $data = ApiValidator::getRequestData();
         $blockedUserId = $data['user_id'] ?? Yii::$app->request->post('user_id');
         
         $blockedUser = User::findOne($blockedUserId);
@@ -99,7 +92,8 @@ class BlockController extends Controller
             return ['success' => false, 'error' => 'Пользователь не найден'];
         }
         
-        if (User::findOne(Yii::$app->user->id)->unblockUser($blockedUserId)) {
+        $currentUser = User::findOne(Yii::$app->user->id);
+        if ($currentUser->unblockUser($blockedUserId)) {
             return ['success' => true, 'message' => 'Пользователь разблокирован'];
         }
         

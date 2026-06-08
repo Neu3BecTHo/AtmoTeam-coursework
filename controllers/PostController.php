@@ -6,42 +6,82 @@ use Yii;
 use yii\web\Controller;
 use yii\web\Response;
 use yii\web\NotFoundHttpException;
+use yii\web\UploadedFile;
 use app\models\Post;
 use app\models\Comment;
+use app\components\ApiValidator;
+use app\components\RateLimiter;
 
+/**
+ * PostController - контроллер для работы с постами
+ */
 class PostController extends Controller
 {
+    /**
+     * API: Создать пост
+     */
     public function actionCreate()
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
         
-        if (Yii::$app->user->isGuest) {
-            return ['success' => false, 'error' => 'Не авторизован'];
+        $authCheck = ApiValidator::requireAuth();
+        if ($authCheck !== true) {
+            return $authCheck;
         }
         
-        $content = Yii::$app->request->post('content');
+        $rateLimitCheck = RateLimiter::checkPostLimit();
+        if ($rateLimitCheck !== true) {
+            return $rateLimitCheck;
+        }
+        
+        $content = trim(Yii::$app->request->post('content', ''));
         if (empty($content)) {
-            return ['success' => false, 'error' => 'Содержание поста обязательно'];
+            return ApiValidator::error('Содержание поста обязательно');
         }
-        
+
         $post = new Post([
             'user_id' => Yii::$app->user->id,
             'content' => $content,
         ]);
 
-        $post->imageFile = UploadedFile::getInstanceByName('image');
+        $post->imageFiles = UploadedFile::getInstancesByName('images[]');
         
         if ($post->save()) {
             return ['success' => true, 'post' => $post->toArray()];
         }
         
-        return ['success' => false, 'error' => 'Ошибка создания поста'];
+        return ['success' => false, 'error' => 'Ошибка создания поста', 'errors' => $post->errors];
     }
 
+    public function actionModalContent($id)
+    {
+        Yii::$app->response->format = Response::FORMAT_RAW;
+        Yii::$app->response->headers->set('Content-Type', 'text/html');
+        
+        $post = Post::find()
+            ->with(['user', 'poll.options', 'images'])
+            ->where(['id' => $id])
+            ->one();
+            
+        if (!$post) {
+            return '<p class="error-message">Пост не найден</p>';
+        }
+        
+        // Проверка прав на просмотр
+        if (!Yii::$app->user->isGuest && !$post->user->canViewProfile(Yii::$app->user->id)) {
+            return '<p class="error-message">Доступ запрещён</p>';
+        }
+        
+        return $this->renderPartial('/post/_post_modal_content', ['post' => $post]);
+    }
+
+    /**
+     * API: Получить HTML поста
+     */
     public function actionGetHtml($id)
     {
         $post = Post::find()
-            ->with(['user', 'poll.options'])
+            ->with(['user', 'poll.options', 'images'])
             ->where(['id' => $id])
             ->one();
             
@@ -52,33 +92,37 @@ class PostController extends Controller
         return $this->renderAjax('_post_card', ['post' => $post]);
     }
 
+    /**
+     * API: Получить модальное окно поста
+     */
     public function actionModal($id)
     {
-        try {
-            $post = Post::find()
-                ->with(['user', 'poll.options'])
-                ->where(['id' => $id])
-                ->one();
-                
-            if (!$post) {
-                Yii::$app->response->statusCode = 404;
-                return '<p>Пост не найден</p>';
-            }
+        $post = Post::find()
+            ->with(['user', 'poll.options', 'images'])
+            ->where(['id' => $id])
+            ->one();
             
-            Yii::$app->response->format = \yii\web\Response::FORMAT_RAW;
-            Yii::$app->response->headers->set('Content-Type', 'text/html');
-            
-            return $this->renderPartial('/post/_modal', ['post' => $post]);
-        } catch (\Exception $e) {
-            Yii::$app->response->statusCode = 500;
-            return '<p>Ошибка загрузки поста</p>';
+        if (!$post) {
+            Yii::$app->response->statusCode = 404;
+            return 'Пост не найден';
         }
+        
+        // Важно! Используй renderPartial, а не render
+        // renderPartial НЕ подключает layout
+        Yii::$app->response->format = Response::FORMAT_RAW;
+        Yii::$app->response->headers->set('Content-Type', 'text/html');
+        
+        return $this->renderPartial('/post/_post_modal', ['post' => $post]);
     }
 
+    /**
+     * API: Получить комментарии поста
+     */
     public function actionComments($id)
     {
         try {
             $post = Post::find()
+                ->with(['images'])
                 ->where(['id' => $id])
                 ->one();
                 
@@ -92,7 +136,7 @@ class PostController extends Controller
                 ->orderBy(['created_at' => SORT_DESC])
                 ->all();
                 
-            Yii::$app->response->format = \yii\web\Response::FORMAT_RAW;
+            Yii::$app->response->format = Response::FORMAT_RAW;
             Yii::$app->response->headers->set('Content-Type', 'text/html');
             
             return $this->renderPartial('/comment/_list', ['comments' => $comments]);
@@ -103,12 +147,15 @@ class PostController extends Controller
         }
     }
 
+    /**
+     * API: Получить данные поста
+     */
     public function actionGet($id)
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
         
         $post = Post::find()
-            ->with(['user', 'poll.options'])
+            ->with(['user', 'poll.options', 'images'])
             ->where(['id' => $id])
             ->one();
             
@@ -116,16 +163,19 @@ class PostController extends Controller
             return ['success' => false, 'error' => 'Пост не найден'];
         }
         
-$data = $post->toArray();
-        $data['reposts_count'] = $post->getRepostsCount(); // Явно получаем актуальный счётчик
-        $data['is_liked'] = !Yii::$app->user->isGuest && $post->isLikedBy(Yii::$app->user->id);
-        $data['is_saved'] = !Yii::$app->user->isGuest && $post->isSavedBy(Yii::$app->user->id);
-        $data['is_reposted'] = !Yii::$app->user->isGuest && $post->isRepostedBy(Yii::$app->user->id);
+        $isGuest = Yii::$app->user->isGuest;
+        $userId = Yii::$app->user->id;
+        
+        $data = $post->toArray();
+        $data['reposts_count'] = $post->getRepostsCount();
+        $data['is_liked'] = !$isGuest && $post->isLikedBy($userId);
+        $data['is_saved'] = !$isGuest && $post->isSavedBy($userId);
+        $data['is_reposted'] = !$isGuest && $post->isRepostedBy($userId);
 
         if ($post->poll) {
             $pollData = $post->poll->toArray();
-            $pollData['has_user_voted'] = !Yii::$app->user->isGuest && $post->poll->hasUserVoted(Yii::$app->user->id);
-            $pollData['user_votes'] = !Yii::$app->user->isGuest ? $post->poll->getUserVotes(Yii::$app->user->id) : [];
+            $pollData['has_user_voted'] = !$isGuest && $post->poll->hasUserVoted($userId);
+            $pollData['user_votes'] = !$isGuest ? $post->poll->getUserVotes($userId) : [];
             $pollData['total_votes'] = $post->poll->getTotalVotes();
 
             $pollData['options'] = array_map(function($option) use ($pollData) {
@@ -143,6 +193,9 @@ $data = $post->toArray();
         return ['success' => true, 'post' => $data];
     }
 
+    /**
+     * Страница просмотра поста
+     */
     public function actionView($id)
     {
         $post = Post::findOne($id);
@@ -166,12 +219,16 @@ $data = $post->toArray();
         ]);
     }
 
+    /**
+     * API: Удалить пост
+     */
     public function actionDelete($id)
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
 
-        if (Yii::$app->user->isGuest) {
-            return ['success' => false, 'error' => 'Не авторизован'];
+        $authCheck = ApiValidator::requireAuth();
+        if ($authCheck !== true) {
+            return $authCheck;
         }
 
         $post = Post::findOne($id);

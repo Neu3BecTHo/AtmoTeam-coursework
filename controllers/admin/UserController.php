@@ -7,11 +7,13 @@ use yii\web\Controller;
 use yii\web\Response;
 use yii\web\NotFoundHttpException;
 use yii\filters\AccessControl;
+use yii\filters\VerbFilter;
 use app\models\User;
 use app\models\search\UserSearch;
-use yii\data\ActiveDataProvider;
-use yii\filters\VerbFilter;
-
+use app\models\Post;
+use app\models\Comment;
+use app\models\Like;
+use app\models\Follow;
 
 class UserController extends Controller
 {
@@ -39,7 +41,6 @@ class UserController extends Controller
         ];
     }
 
-    
     public function actionIndex()
     {
         $searchModel = new UserSearch();
@@ -51,17 +52,16 @@ class UserController extends Controller
         ]);
     }
 
-    
     public function actionView($id)
     {
         $model = $this->findModel($id);
 
         $stats = [
-            'posts_count' => \app\models\Post::find()->where(['user_id' => $id])->count(),
-            'followers_count' => \app\models\Follow::find()->where(['following_id' => $id])->count(),
-            'following_count' => \app\models\Follow::find()->where(['follower_id' => $id])->count(),
-            'comments_count' => \app\models\Comment::find()->where(['user_id' => $id])->count(),
-            'likes_count' => \app\models\Like::find()->where(['user_id' => $id])->count(),
+            'posts_count' => Post::find()->where(['user_id' => $id])->count(),
+            'followers_count' => Follow::find()->where(['following_id' => $id])->count(),
+            'following_count' => Follow::find()->where(['follower_id' => $id])->count(),
+            'comments_count' => Comment::find()->where(['user_id' => $id])->count(),
+            'likes_count' => Like::find()->where(['user_id' => $id])->count(),
         ];
 
         return $this->render('view', [
@@ -70,7 +70,6 @@ class UserController extends Controller
         ]);
     }
 
-    
     public function actionCreate()
     {
         $model = new User(['scenario' => 'admin_create']);
@@ -88,12 +87,9 @@ class UserController extends Controller
             }
         }
 
-        return $this->render('create', [
-            'model' => $model,
-        ]);
+        return $this->render('create', ['model' => $model]);
     }
 
-    
     public function actionUpdate($id)
     {
         $model = $this->findModel($id);
@@ -101,13 +97,11 @@ class UserController extends Controller
         $oldPassword = $model->password_hash;
 
         if ($model->load(Yii::$app->request->post())) {
-
             if (!empty($model->password)) {
                 $model->password_hash = Yii::$app->security->generatePasswordHash($model->password);
             } else {
                 $model->password_hash = $oldPassword;
             }
-
             $model->updated_at = time();
 
             if ($model->save()) {
@@ -116,37 +110,28 @@ class UserController extends Controller
             }
         }
 
-        return $this->render('update', [
-            'model' => $model,
-        ]);
+        return $this->render('update', ['model' => $model]);
     }
 
-    
     public function actionDelete($id)
     {
         $model = $this->findModel($id);
-
+        
         if ($model->username === 'admin') {
             Yii::$app->session->setFlash('error', 'Нельзя удалить супер администратора');
             return $this->redirect(['index']);
         }
-
-        \app\models\Post::deleteAll(['user_id' => $id]);
-        \app\models\Comment::deleteAll(['user_id' => $id]);
-        \app\models\Like::deleteAll(['user_id' => $id]);
-        \app\models\Follow::deleteAll(['follower_id' => $id]);
-        \app\models\Follow::deleteAll(['following_id' => $id]);
-
+        
+        // Просто удаляем пользователя — beforeDelete() сделает всё сам
         if ($model->delete()) {
             Yii::$app->session->setFlash('success', 'Пользователь успешно удален');
         } else {
             Yii::$app->session->setFlash('error', 'Ошибка при удалении пользователя');
         }
-
+        
         return $this->redirect(['index']);
     }
 
-    
     public function actionToggleStatus($id)
     {
         $model = $this->findModel($id);
@@ -168,7 +153,6 @@ class UserController extends Controller
         return $this->redirect(['index']);
     }
 
-    
     public function actionBulkActions()
     {
         $action = Yii::$app->request->post('action');
@@ -183,7 +167,7 @@ class UserController extends Controller
         foreach ($ids as $id) {
             $model = User::findOne($id);
             if (!$model || $model->username === 'admin') {
-                continue; // Skip super admin
+                continue;
             }
 
             switch ($action) {
@@ -198,12 +182,11 @@ class UserController extends Controller
                     if ($model->save()) $count++;
                     break;
                 case 'delete':
-
-                    \app\models\Post::deleteAll(['user_id' => $id]);
-                    \app\models\Comment::deleteAll(['user_id' => $id]);
-                    \app\models\Like::deleteAll(['user_id' => $id]);
-                    \app\models\Follow::deleteAll(['follower_id' => $id]);
-                    \app\models\Follow::deleteAll(['following_id' => $id]);
+                    Post::deleteAll(['user_id' => $id]);
+                    Comment::deleteAll(['user_id' => $id]);
+                    Like::deleteAll(['user_id' => $id]);
+                    Follow::deleteAll(['follower_id' => $id]);
+                    Follow::deleteAll(['following_id' => $id]);
                     if ($model->delete()) $count++;
                     break;
             }
@@ -219,10 +202,10 @@ class UserController extends Controller
         return $this->redirect(['index']);
     }
 
-    
     protected function findModel($id)
     {
-        if (($model = User::findOne($id)) !== null) {
+        $model = User::findOne($id);
+        if ($model !== null) {
             return $model;
         }
 

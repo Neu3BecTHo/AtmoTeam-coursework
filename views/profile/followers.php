@@ -1,55 +1,82 @@
 <?php
+
 use yii\helpers\Html;
 use yii\helpers\Url;
+use app\models\Follow;
 
 $this->title = $title . ' - ' . $user->username;
 $this->registerCssFile('@web/css/profile.css');
-$this->registerJsFile('@web/js/profile.js', ['depends' => ['yii\web\JqueryAsset']]);
+
+$currentUserId = Yii::$app->user->id;
+$isGuest = Yii::$app->user->isGuest;
+$username = Html::encode($user->username);
+$avatar = $user->getAvatarUrl();
+$isEmpty = empty($users);
+$titleLower = $title === 'Подписчики' ? 'подписчиков' : 'подписок';
+$emptyIcon = $title === 'Подписчики' ? '👥' : '📋';
+$emptyMessage = "Пока нет {$titleLower}";
+
 ?>
 
 <div class="profile-container">
-    <!-- Header -->
     <div class="profile-header">
         <div class="profile-cover"></div>
         <div class="profile-info">
             <div class="profile-avatar-large">
-                <img src="<?= $user->getAvatarUrl() ?>" alt="<?= Html::encode($user->username) ?>">
+                <img src="<?= Html::encode($avatar) ?>" alt="<?= $username ?>">
             </div>
             <div class="profile-details">
-                <h1 class="profile-name"><?= Html::encode($user->username) ?></h1>
-                <p class="profile-email"><?= $title ?></p>
-                <a href="<?= Url::to(['/profile/view', 'id' => $user->id]) ?>" class="btn-edit-profile">
+                <h1 class="profile-name"><?= $username ?></h1>
+                <p class="profile-bio"><?= Html::encode($title) ?></p>
+                <a href="<?= Url::to(['/profile/view', 'id' => $user->id]) ?>" class="btn-back">
                     ← Назад к профилю
                 </a>
             </div>
         </div>
     </div>
 
-    <!-- Users List -->
     <div class="profile-content">
-        <?php if (empty($users)): ?>
-            <div class="empty-profile">
-                <div class="empty-icon">👥</div>
-                <p>Пока нет <?= $title === 'Подписчики' ? 'подписчиков' : 'подписок' ?></p>
+        <?php if ($isEmpty): ?>
+            <div class="empty-state">
+                <div class="empty-icon"><?= $emptyIcon ?></div>
+                <h3 class="empty-title"><?= $emptyMessage ?></h3>
+                <?php if ($title === 'Подписчики'): ?>
+                    <p class="empty-description">Когда кто-то подпишется на вас, они появятся здесь</p>
+                <?php else: ?>
+                    <p class="empty-description">Когда вы подпишетесь на кого-то, они появятся здесь</p>
+                <?php endif; ?>
+                <a href="<?= Url::to(['/search/index']) ?>" class="btn-primary">
+                    🔍 Найти пользователей
+                </a>
             </div>
         <?php else: ?>
             <div class="users-grid">
-                <?php foreach ($users as $u): ?>
-                    <div class="user-card-item">
+                <?php foreach ($users as $u): 
+                    $uAvatar = $u->getAvatarUrl();
+                    $uUsername = Html::encode($u->username);
+                    $uEmail = Html::encode($u->email);
+                    $isFollowing = !$isGuest && $currentUserId != $u->id ? Follow::isFollowing($currentUserId, $u->id) : false;
+                ?>
+                    <div class="user-card-item" data-user-id="<?= $u->id ?>">
                         <a href="<?= Url::to(['/profile/view', 'id' => $u->id]) ?>" class="user-card-link">
-                            <img src="<?= $u->getAvatarUrl() ?>" alt="" class="user-avatar-medium">
+                            <img src="<?= Html::encode($uAvatar) ?>" 
+                                 alt="<?= $uUsername ?>" 
+                                 class="user-avatar-medium"
+                                 loading="lazy">
                             <div class="user-info-medium">
-                                <span class="user-name-medium"><?= Html::encode($u->username) ?></span>
-                                <span class="user-email-medium"><?= Html::encode($u->email) ?></span>
+                                <span class="user-name-medium"><?= $uUsername ?></span>
+                                <span class="user-email-medium"><?= $uEmail ?></span>
                             </div>
                         </a>
-                        <?php if (!Yii::$app->user->isGuest && Yii::$app->user->id != $u->id): ?>
-                            <?php 
-                            $isFollowing = \app\models\Follow::isFollowing(Yii::$app->user->id, $u->id);
-                            ?>
+                        
+                        <?php if (!$isGuest && $currentUserId != $u->id): ?>
                             <button class="btn-follow-small <?= $isFollowing ? 'following' : '' ?>" 
-                                    onclick="toggleFollowUser(this, <?= $u->id ?>)">
-                                <?= $isFollowing ? 'Отписаться' : 'Подписаться' ?>
+                                    data-user-id="<?= $u->id ?>"
+                                    data-username="<?= $uUsername ?>"
+                                    data-following="<?= $isFollowing ? 'true' : 'false' ?>"
+                                    title="<?= $isFollowing ? "Отписаться от {$uUsername}" : "Подписаться на {$uUsername}" ?>">
+                                <span class="btn-icon"><?= $isFollowing ? '🔓' : '🔔' ?></span>
+                                <span class="btn-text"><?= $isFollowing ? 'Отписаться' : 'Подписаться' ?></span>
                             </button>
                         <?php endif; ?>
                     </div>

@@ -36,12 +36,13 @@ class AdminController extends Controller
 
     public function beforeAction($action)
     {
-
         AdminAsset::register($this->view);
         return parent::beforeAction($action);
     }
 
-    
+    /**
+     * API: Получить статистику
+     */
     public function actionStats()
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
@@ -64,7 +65,9 @@ class AdminController extends Controller
         ];
     }
 
-    
+    /**
+     * Главная страница админки
+     */
     public function actionIndex()
     {
         $stats = [
@@ -92,49 +95,62 @@ class AdminController extends Controller
         ]);
     }
 
-    
+    /**
+     * Страница управления пользователями
+     */
     public function actionUsers()
     {
-        $query = User::find();
-        $users = $query->orderBy(['created_at' => SORT_DESC])->all();
+        $users = User::find()
+            ->orderBy(['created_at' => SORT_DESC])
+            ->all();
 
         return $this->render('users', [
             'users' => $users,
         ]);
     }
 
-    
+    /**
+     * Страница управления постами
+     */
     public function actionPosts()
     {
-        $query = Post::find()->with('user');
-        $posts = $query->orderBy(['created_at' => SORT_DESC])->all();
+        $posts = Post::find()
+            ->with('user')
+            ->orderBy(['created_at' => SORT_DESC])
+            ->all();
 
         return $this->render('posts', [
             'posts' => $posts,
         ]);
     }
 
-    
+    /**
+     * Страница управления комментариями
+     */
     public function actionComments()
     {
-        $query = Comment::find()->with(['user', 'post']);
-        $comments = $query->orderBy(['created_at' => SORT_DESC])->all();
+        $comments = Comment::find()
+            ->with(['user', 'post'])
+            ->orderBy(['created_at' => SORT_DESC])
+            ->all();
 
         return $this->render('comments', [
             'comments' => $comments,
         ]);
     }
 
-    
+    /**
+     * API: Удалить пользователя
+     */
     public function actionDeleteUser()
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
-
+        
         $adminCheck = ApiValidator::requireAdmin();
         if ($adminCheck !== true) {
             return $adminCheck;
         }
-
+        
         $rateLimitCheck = RateLimiter::checkApiLimit();
         if ($rateLimitCheck !== true) {
             return $rateLimitCheck;
@@ -158,31 +174,33 @@ class AdminController extends Controller
         return ['success' => false, 'error' => 'Ошибка удаления'];
     }
 
-    
-    public function actionDeletePost()
+    /**
+     * API: Удалить пост
+     */
+    public function actionDeletePost($id)
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
-
+        
         $adminCheck = ApiValidator::requireAdmin();
         if ($adminCheck !== true) {
             return $adminCheck;
         }
         
-        $postId = Yii::$app->request->post('post_id');
-        $post = Post::findOne($postId);
-        
+        $post = Post::findOne($id);
         if (!$post) {
-            return ApiValidator::error('Пост не найден');
+            return ['success' => false, 'error' => 'Пост не найден'];
         }
         
         if ($post->delete()) {
-            return ['success' => true, 'message' => 'Пост удален'];
+            return ['success' => true];
         }
         
         return ['success' => false, 'error' => 'Ошибка удаления'];
     }
 
-    
+    /**
+     * API: Удалить комментарий
+     */
     public function actionDeleteComment()
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
@@ -206,7 +224,9 @@ class AdminController extends Controller
         return ['success' => false, 'error' => 'Ошибка удаления'];
     }
 
-    
+    /**
+     * API: Заблокировать пользователя
+     */
     public function actionBlockUser()
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
@@ -222,11 +242,9 @@ class AdminController extends Controller
         if (!$user) {
             return ApiValidator::error('Пользователь не найден');
         }
+
         if ($user->username === 'admin') {
             return ApiValidator::error('Нельзя заблокировать администратора');
-        }
-        if (!$user->hasAttribute('is_blocked')) {
-            return ApiValidator::error('Блокировка недоступна');
         }
 
         if ($user->updateAttributes(['is_blocked' => 1])) {
@@ -236,7 +254,9 @@ class AdminController extends Controller
         return ['success' => false, 'error' => 'Ошибка блокировки'];
     }
 
-    
+    /**
+     * API: Разблокировать пользователя
+     */
     public function actionUnblockUser()
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
@@ -252,9 +272,6 @@ class AdminController extends Controller
         if (!$user) {
             return ApiValidator::error('Пользователь не найден');
         }
-        if (!$user->hasAttribute('is_blocked')) {
-            return ApiValidator::error('Блокировка недоступна');
-        }
 
         if ($user->updateAttributes(['is_blocked' => 0])) {
             return ['success' => true, 'message' => 'Пользователь разблокирован'];
@@ -263,7 +280,9 @@ class AdminController extends Controller
         return ['success' => false, 'error' => 'Ошибка разблокировки'];
     }
 
-    
+    /**
+     * API: Снять жалобу с комментария
+     */
     public function actionClearCommentReport()
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
@@ -278,9 +297,6 @@ class AdminController extends Controller
 
         if (!$comment) {
             return ApiValidator::error('Комментарий не найден');
-        }
-        if (!$comment->hasAttribute('is_reported')) {
-            return ApiValidator::error('Поле жалоб недоступно');
         }
 
         if ($comment->updateAttributes(['is_reported' => 0])) {

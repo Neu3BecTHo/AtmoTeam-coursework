@@ -2,31 +2,52 @@
 
 use app\assets\AppAsset;
 use yii\helpers\Html;
+use yii\helpers\Url;
 
 AppAsset::register($this);
 
-$this->params['breadcrumbs'][] = $this->title;
 $this->title = 'Истории';
 $this->registerCssFile('@web/css/story.css');
-$this->registerJsFile('@web/js/common.js');
 $this->registerJsFile('@web/js/story.js', ['position' => \yii\web\View::POS_END]);
+
+$currentUserId = Yii::$app->user->id;
+$isGuest = Yii::$app->user->isGuest;
+$storiesByUser = $storiesByUser ?? [];
+
 ?>
 
-<div class="story-container">
+<div class="story-page">
     <div class="story-header">
-        <h1 class="story-title">📸 Истории</h1>
-        <p class="story-subtitle">Истории ваших подписок (24 часа)</p>
-        <button class="btn-create-story" onclick="showStoryUpload()">
-            + Добавить историю
-        </button>
+        <div class="story-header-info">
+            <h1 class="story-title">📸 Истории</h1>
+            <p class="story-subtitle">Истории ваших подписок (24 часа)</p>
+        </div>
+        <?php if (!$isGuest): ?>
+            <button class="btn-create-story" onclick="showStoryUpload()">
+                ✨ Добавить историю
+            </button>
+        <?php endif; ?>
     </div>
 
     <div class="story-content">
-        <?php if (empty($storiesByUser)): ?>
+        <?php if ($isGuest): ?>
+            <div class="guest-state">
+                <div class="guest-icon">🔒</div>
+                <h3>Войдите, чтобы смотреть истории</h3>
+                <p>Истории появляются здесь, когда ваши подписки делятся моментами из жизни</p>
+                <div class="guest-actions">
+                    <a href="<?= Url::to(['/site/login']) ?>" class="btn btn-primary">Войти</a>
+                    <a href="<?= Url::to(['/site/register']) ?>" class="btn btn-secondary">Регистрация</a>
+                </div>
+            </div>
+        <?php elseif (empty($storiesByUser)): ?>
             <div class="empty-state">
                 <div class="empty-icon">📖</div>
                 <h3>Нет активных историй</h3>
                 <p>Истории появляются здесь, когда ваши подписки делятся моментами из жизни</p>
+                <button class="btn-create-story" onclick="showStoryUpload()">
+                    ✨ Создать первую историю
+                </button>
             </div>
         <?php else: ?>
             <div class="stories-scroll-wrapper">
@@ -36,38 +57,12 @@ $this->registerJsFile('@web/js/story.js', ['position' => \yii\web\View::POS_END]
                 <div class="stories-grid" id="stories-grid">
                     <?php foreach ($storiesByUser as $userId => $userStories): ?>
                         <?php $firstStory = $userStories[0]; $author = $firstStory->user; ?>
-                        <div class="user-stories" data-user-id="<?= $userId ?>">
-                            <div class="user-header">
-                                <a href="<?= \yii\helpers\Url::to(['/profile/view', 'id' => $userId]) ?>" class="user-avatar-link">
-                                    <img class="user-avatar" 
-                                         src="<?= $author ? ($author->avatar ?: 'https://api.dicebear.com/7.x/avataaars/svg?seed=' . $author->id) : '' ?>" 
-                                         alt="<?= $author ? \yii\helpers\Html::encode($author->username) : '' ?>">
-                                </a>
-                                <div class="user-info">
-                                    <div class="username"><?= $author ? \yii\helpers\Html::encode($author->username) : '' ?></div>
-                                    <div class="stories-count"><?= count($userStories) ?> историй</div>
-                                </div>
-                            </div>
-                            <div class="stories-list">
-                                <?php foreach ($userStories as $story): ?>
-                                    <div class="story-item" data-story-id="<?= $story->id ?>">
-                                        <div class="story-image-container">
-                                            <img class="story-image" 
-                                                 src="<?= $story->getImageUrl() ?>" 
-                                                 alt="История">
-                                            <div class="story-time-left"><?= $story->getTimeLeft() ?></div>
-                                            <?php if ($story->caption): ?>
-                                                <div class="story-caption"><?= \yii\helpers\Html::encode($story->caption) ?></div>
-                                            <?php endif; ?>
-                                            <?php if (!Yii::$app->user->isGuest && $story->user_id == Yii::$app->user->id): ?>
-                                                <button class="story-delete-btn" onclick="event.stopPropagation(); deleteStory(<?= $story->id ?>)" title="Удалить">🗑️</button>
-                                            <?php endif; ?>
-                                        </div>
-                                    </div>
-                                    </div>
-                                <?php endforeach; ?>
-                            </div>
-                        </div>
+                        <?= $this->render('_user_stories', [
+                            'userId' => $userId,
+                            'userStories' => $userStories,
+                            'author' => $author,
+                            'context' => 'story',
+                        ]) ?>
                     <?php endforeach; ?>
                 </div>
                 <button class="scroll-btn scroll-btn-right" onclick="scrollStories(1)" aria-label="Прокрутить вправо">
@@ -82,8 +77,8 @@ $this->registerJsFile('@web/js/story.js', ['position' => \yii\web\View::POS_END]
 <div class="story-upload-modal" id="story-upload-modal">
     <div class="modal-content">
         <div class="modal-header">
-            <h3>📸 Добавить историю</h3>
-            <button class="btn-close" onclick="hideStoryUpload()">×</button>
+            <h3 class="modal-title">📸 Добавить историю</h3>
+            <button class="modal-close" onclick="hideStoryUpload()" aria-label="Закрыть">&times;</button>
         </div>
         <div class="modal-body">
             <div class="upload-area" id="upload-area">
@@ -93,38 +88,29 @@ $this->registerJsFile('@web/js/story.js', ['position' => \yii\web\View::POS_END]
                     <p class="upload-hint">или перетащите файл сюда</p>
                 </div>
                 <input type="file" id="story-image-input" accept="image/*" style="display: none;">
-                <img id="preview-image" style="display: none;">
+                <img id="preview-image" class="preview-image" style="display: none;">
             </div>
             <div class="story-form" id="story-form" style="display: none;">
                 <textarea id="story-caption" 
+                          class="story-caption-input"
                           placeholder="Добавьте подпись (необязательно)" 
                           maxlength="200"
                           rows="3"></textarea>
+                <div class="story-info">
+                    <span class="info-icon">ℹ️</span>
+                    <span class="info-text">История будет доступна 24 часа</span>
+                </div>
                 <div class="form-actions">
-                    <button class="btn-cancel" onclick="hideStoryUpload()">Отмена</button>
-                    <button class="btn-upload" onclick="uploadStory()">Опубликовать</button>
+                    <button class="btn-secondary" onclick="hideStoryUpload()">❌ Отмена</button>
+                    <button class="btn-primary" onclick="uploadStory()">📤 Опубликовать</button>
                 </div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Модальное окно просмотра истории -->
-<div class="story-view-modal" id="story-view-modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <button class="btn-close" onclick="hideStoryView()">×</button>
-        </div>
-        <div class="modal-body">
-            <div class="story-view-content" id="story-view-content">
-                <!-- Контент загружается через JS -->
-            </div>
-        </div>
-        <!-- Кнопка выхода из полноэкранного режима -->
-        <button class="fullscreen-exit-btn" onclick="exitFullscreenStory()" style="display: none;">✕ Выйти</button>
-    </div>
-</div>
+
 
 <script>
-window.currentUserId = <?= Yii::$app->user->id ?>;
+window.currentUserId = <?= (int) $currentUserId ?>;
 </script>

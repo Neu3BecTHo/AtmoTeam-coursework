@@ -6,6 +6,7 @@ use Yii;
 use yii\web\Controller;
 use yii\web\Response;
 use yii\web\UploadedFile;
+use yii\filters\VerbFilter;
 use app\models\Post;
 use app\models\Comment;
 use app\models\Like;
@@ -15,7 +16,6 @@ use app\models\Repost;
 use app\models\SavedPost;
 use app\models\Poll;
 use app\models\PollOption;
-use app\models\PollVote;
 use app\models\User;
 use app\components\ApiValidator;
 use app\components\RateLimiter;
@@ -26,7 +26,7 @@ class FeedController extends Controller
     {
         return [
             'verbs' => [
-                'class' => \yii\filters\VerbFilter::class,
+                'class' => VerbFilter::class,
                 'actions' => [
                     'create-post' => ['POST'],
                     'like' => ['POST'],
@@ -34,7 +34,6 @@ class FeedController extends Controller
                     'update-comment' => ['POST'],
                     'delete-comment' => ['POST'],
                     'repost' => ['POST'],
-                    'vote' => ['POST'],
                 ],
             ],
         ];
@@ -42,10 +41,14 @@ class FeedController extends Controller
 
     public function beforeAction($action)
     {
-        if (in_array($action->id, ['create-post', 'like', 'comment', 'update-comment', 'delete-comment', 'repost', 'vote'])) {
+        if (in_array($action->id, [
+            'create-post', 'like', 'comment', 'update-comment', 
+            'delete-comment', 'repost', 'save-post', 'poll-vote',
+                'mark-notifications-read'
+        ])) {
             $this->enableCsrfValidation = false;
         }
-
+        
         if (!Yii::$app->user->isGuest) {
             \app\models\OnlineUser::updateActivity(Yii::$app->user->id);
         }
@@ -67,7 +70,7 @@ class FeedController extends Controller
         }
 
         return $this->render('index', [
-            'posts' => [], // Пустой массив, посты загружаются через API
+            'posts' => [],
             'type' => $type,
             'storiesByUser' => $storiesByUser
         ]);
@@ -77,22 +80,20 @@ class FeedController extends Controller
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
         
-        $limit = (int) Yii::$app->request->get('limit', 3);
+        $limit = (int) Yii::$app->request->get('limit', 10);
         $offset = (int) Yii::$app->request->get('offset', 0);
         $since = (int) Yii::$app->request->get('since', 0);
         $type = Yii::$app->request->get('type', 'following');
         
         $query = Post::find()
-            ->with(['user', 'poll.options'])
+            ->with(['user', 'poll.options', 'poll.options.votes'])
             ->orderBy(['created_at' => SORT_DESC]);
 
         if ($type === 'following' && !Yii::$app->user->isGuest) {
-
             $followingIds = Follow::getFollowingIds(Yii::$app->user->id);
-            $followingIds[] = Yii::$app->user->id; // Добавляем свои посты
+            $followingIds[] = Yii::$app->user->id;
             $query->andWhere(['user_id' => $followingIds]);
         }
-
         
         if ($since > 0) {
             $query->andWhere(['>', 'created_at', $since]);
@@ -104,14 +105,47 @@ class FeedController extends Controller
             return $post->user->canViewProfile(Yii::$app->user->id);
         });
         
-        $userId = Yii::$app->user->id;
-
         $html = '';
+        $postsData = [];
+        
         foreach ($posts as $post) {
             $html .= $this->renderPartial('/post/_post_card', ['post' => $post]);
+            
+            // Добавляем данные поста с правильной структурой poll
+            $postsData[] = [
+                'id' => $post->id,
+                'poll' => $post->poll ? [
+                    'id' => $post->poll->id,
+                    'question' => $post->poll->question,
+                    'multiple_votes' => (bool)$post->poll->multiple_votes,
+                    'has_user_voted' => !Yii::$app->user->isGuest && $post->poll->hasUserVoted(Yii::$app->user->id),
+                    'user_votes' => !Yii::$app->user->isGuest ? $post->poll->getUserVotes(Yii::$app->user->id) : [],
+                    'total_votes' => $post->poll->getTotalVotes(),
+                    'options' => array_map(function($option) use ($post) {
+                        $totalVotes = $post->poll->getTotalVotes();
+                        return [
+                            'id' => $option->id,
+                            'text' => $option->text,
+                            'votes_count' => $option->votes_count,
+                            'percentage' => $totalVotes > 0 ? round(($option->votes_count / $totalVotes) * 100, 1) : 0,
+                        ];
+                    }, $post->poll->options),
+                ] : null,
+            ];
         }
         
-        return ['html' => $html, 'count' => count($posts)];
+        return [
+            'html' => $html, 
+            'count' => count($posts),
+            'posts' => $postsData  // ← Добавляем данные постов
+        ];
+    }
+
+    public function actionUnreadCount()
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+        $count = Notification::getUnreadCount(Yii::$app->user->id);
+        return ['success' => true, 'count' => $count];
     }
 
     public function actionCreatePost()
@@ -127,28 +161,52 @@ class FeedController extends Controller
         if ($rateLimitCheck !== true) {
             return $rateLimitCheck;
         }
-        
-        $content = Yii::$app->request->post('content');
 
-        $validation = ApiValidator::validatePostData(['content' => $content]);
-        if ($validation !== true) {
-            return ApiValidator::error(implode(', ', $validation));
+        $content = Yii::$app->request->post('content', '');
+        $pollQuestion = Yii::$app->request->post('poll_question');
+        $hasImages = !empty($_FILES['images']['name'][0]);
+
+        // Проверяем, что есть хоть что-то
+        if (empty($content) && !$hasImages && empty($pollQuestion)) {
+            return ApiValidator::error('Заполните хотя бы одно поле: текст, изображение или опрос');
         }
-        
+
+        // Проверка ошибок загрузки файлов
+        if ($hasImages && isset($_FILES['images']['error'][0]) && $_FILES['images']['error'][0] !== UPLOAD_ERR_OK) {
+            $errorCode = $_FILES['images']['error'][0];
+            $errorMessages = [
+                UPLOAD_ERR_INI_SIZE => 'Файл превышает upload_max_filesize (настройка PHP)',
+                UPLOAD_ERR_FORM_SIZE => 'Файл превышает MAX_FILE_SIZE (HTML-форма)',
+                UPLOAD_ERR_PARTIAL => 'Файл загружен частично',
+                UPLOAD_ERR_NO_FILE => 'Файл не загружен',
+                UPLOAD_ERR_NO_TMP_DIR => 'Отсутствует временная папка',
+                UPLOAD_ERR_CANT_WRITE => 'Не удалось записать файл',
+                UPLOAD_ERR_EXTENSION => 'Расширение PHP остановило загрузку',
+            ];
+            $errorMsg = $errorMessages[$errorCode] ?? 'Неизвестная ошибка загрузки';
+            return ApiValidator::error("Ошибка загрузки изображения: $errorMsg");
+        }
+
         $post = new Post([
             'user_id' => Yii::$app->user->id,
             'content' => $content,
         ]);
 
-        $post->imageFile = UploadedFile::getInstanceByName('image');
-        
-        if ($post->imageFile && !$post->validate()) {
-            return ['success' => false, 'error' => 'Некорректное изображение: ' . implode(', ', $post->getErrors('imageFile'))];
+        // Загружаем изображения
+        $post->imageFiles = UploadedFile::getInstancesByName('images');
+        if (empty($post->imageFiles)) {
+            $post->imageFiles = UploadedFile::getInstancesByName('images[]');
         }
 
-        $pollQuestion = Yii::$app->request->post('poll_question');
+        Yii::info("Received " . count($post->imageFiles) . " image files", 'post');
+
+        if ($post->imageFiles && !$post->validate()) {
+            return ApiValidator::error('Некорректное изображение: ' . implode(', ', $post->getErrors('imageFiles')));
+        }
+
+        // Обработка опроса
         $pollMultiple = Yii::$app->request->post('poll_multiple', 0);
-        $pollOptionsRaw = Yii::$app->request->post('poll_options', '');
+        $pollOptionsRaw = Yii::$app->request->post('poll_options', []);
 
         $pollOptions = [];
         if (is_array($pollOptionsRaw)) {
@@ -156,37 +214,37 @@ class FeedController extends Controller
         } elseif (is_string($pollOptionsRaw) && !empty(trim($pollOptionsRaw))) {
             $pollOptions = array_map('trim', explode(',', $pollOptionsRaw));
         }
-        
-        if ($pollQuestion && !empty($pollOptions)) {
 
+        if ($pollQuestion && !empty($pollOptions)) {
             $pollData = [
                 'question' => $pollQuestion,
-                'multiple_votes' => $pollMultiple,
-                'options' => $pollOptions
+                'multiple_votes' => (int) $pollMultiple,
+                'options' => $pollOptions,
             ];
-            
+
             $pollValidation = ApiValidator::validatePollData($pollData);
             if ($pollValidation !== true) {
                 return ApiValidator::error(implode(', ', $pollValidation));
             }
         }
-        
-        if ($post->save()) {
 
+        // Сохраняем пост
+        if ($post->save()) {
             $this->parseMentions($content, $post);
 
+            // Создаём опрос, если он есть
             if ($pollQuestion && !empty($pollOptions)) {
-                $poll = new \app\models\Poll([
+                $poll = new Poll([
                     'post_id' => $post->id,
                     'user_id' => Yii::$app->user->id,
                     'question' => $pollQuestion,
-                    'multiple_votes' => $pollMultiple ? 1 : 0,
+                    'multiple_votes' => (int) $pollMultiple,
                 ]);
-                
+
                 if ($poll->save()) {
                     foreach ($pollOptions as $optionText) {
                         if (!empty(trim($optionText))) {
-                            $option = new \app\models\PollOption([
+                            $option = new PollOption([
                                 'poll_id' => $poll->id,
                                 'text' => trim($optionText),
                             ]);
@@ -195,21 +253,24 @@ class FeedController extends Controller
                     }
                 }
             }
-            
+
             $postData = $post->toArray();
             $postData['image_url'] = $post->getImageUrl();
+            $postData['image_urls'] = $post->getImageUrls();
+
             return ['success' => true, 'post' => $postData];
         }
-        
-        return ['success' => false, 'error' => 'Ошибка сохранения'];
+
+        return ApiValidator::error('Ошибка сохранения поста: ' . json_encode($post->errors));
     }
 
     public function actionLike()
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
 
-        if (Yii::$app->user->isGuest) {
-            return ['success' => false, 'error' => 'Не авторизован'];
+        $authCheck = ApiValidator::requireAuth();
+        if ($authCheck !== true) {
+            return $authCheck;
         }
 
         $rateLimitCheck = RateLimiter::checkLikeLimit();
@@ -217,8 +278,7 @@ class FeedController extends Controller
             return $rateLimitCheck;
         }
 
-        $rawData = Yii::$app->request->getRawBody();
-        $data = $rawData ? json_decode($rawData, true) : [];
+        $data = ApiValidator::getRequestData();
         $postId = $data['post_id'] ?? Yii::$app->request->post('post_id');
 
         if (!$postId || !is_numeric($postId)) {
@@ -276,13 +336,11 @@ class FeedController extends Controller
         
         return array_map(function($comment) {
             $data = $comment->toArray();
-
             $data['author'] = [
                 'id' => $comment->user->id,
                 'username' => $comment->user->username,
                 'avatar' => $comment->user->getAvatarUrl(),
             ];
-
             $data['timeAgo'] = Yii::$app->formatter->asRelativeTime($comment->created_at);
             return $data;
         }, $comments);
@@ -302,7 +360,7 @@ class FeedController extends Controller
             return $rateLimitCheck;
         }
 
-        $data = json_decode(Yii::$app->request->getRawBody(), true);
+        $data = ApiValidator::getRequestData();
         $postId = $data['post_id'] ?? Yii::$app->request->post('post_id');
         $content = $data['content'] ?? Yii::$app->request->post('content');
         
@@ -322,9 +380,8 @@ class FeedController extends Controller
             'content' => $content,
         ]);
         
-            if ($comment->save()) {
-            $post->comments_count = Comment::find()->where(['post_id' => $postId])->count();
-            $post->save(false);
+        if ($comment->save()) {
+            $post->updateCounters(['comments_count' => 1]);
 
             if ($post->user_id != Yii::$app->user->id) {
                 Notification::create(
@@ -350,16 +407,16 @@ class FeedController extends Controller
         return ['success' => false, 'error' => 'Ошибка сохранения'];
     }
 
-    
     public function actionUpdateComment()
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
         
-        if (Yii::$app->user->isGuest) {
-            return ['success' => false, 'error' => 'Не авторизован'];
+        $authCheck = ApiValidator::requireAuth();
+        if ($authCheck !== true) {
+            return $authCheck;
         }
 
-        $data = json_decode(Yii::$app->request->getRawBody(), true);
+        $data = ApiValidator::getRequestData();
         $commentId = $data['comment_id'] ?? Yii::$app->request->post('comment_id');
         $content = $data['content'] ?? Yii::$app->request->post('content');
         
@@ -386,16 +443,16 @@ class FeedController extends Controller
         return ['success' => false, 'error' => 'Ошибка сохранения'];
     }
 
-    
     public function actionDeleteComment()
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
         
-        if (Yii::$app->user->isGuest) {
-            return ['success' => false, 'error' => 'Не авторизован'];
+        $authCheck = ApiValidator::requireAuth();
+        if ($authCheck !== true) {
+            return $authCheck;
         }
 
-        $data = json_decode(Yii::$app->request->getRawBody(), true);
+        $data = ApiValidator::getRequestData();
         $commentId = $data['comment_id'] ?? Yii::$app->request->post('comment_id');
         
         $comment = Comment::findOne($commentId);
@@ -411,20 +468,16 @@ class FeedController extends Controller
         $postId = $comment->post_id;
         
         if ($comment->delete()) {
-
             $post = Post::findOne($postId);
             if ($post) {
-                $post->comments_count = Comment::find()->where(['post_id' => $postId])->count();
-                $post->save(false);
+                $post->updateCounters(['comments_count' => -1]);
             }
-            
             return ['success' => true];
         }
         
         return ['success' => false, 'error' => 'Ошибка удаления'];
     }
 
-    
     public function actionRepost()
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
@@ -439,7 +492,7 @@ class FeedController extends Controller
             return $rateLimitCheck;
         }
 
-        $data = json_decode(Yii::$app->request->getRawBody(), true);
+        $data = ApiValidator::getRequestData();
         $postId = $data['post_id'] ?? Yii::$app->request->post('post_id');
         
         $post = Post::findOne($postId);
@@ -449,72 +502,16 @@ class FeedController extends Controller
         
         $result = Repost::toggle(Yii::$app->user->id, $postId);
         
-        if ($result['reposted']) {
-
-            if ($post->user_id !== Yii::$app->user->id) {
-                $notification = new Notification([
-                    'user_id' => $post->user_id,
-                    'from_user_id' => Yii::$app->user->id,
-                    'type' => 'repost',
-                    'post_id' => $postId,
-                ]);
-                $notification->save();
-            }
+        if ($result['reposted'] && $post->user_id !== Yii::$app->user->id) {
+            Notification::create(
+                $post->user_id,
+                Notification::TYPE_REPOST,
+                Yii::$app->user->id,
+                $postId
+            );
         }
         
         return ['success' => true, 'reposted' => $result['reposted'], 'reposts_count' => $result['reposts_count']];
-    }
-
-    
-    public function actionVote()
-    {
-        Yii::$app->response->format = Response::FORMAT_JSON;
-
-        $authCheck = ApiValidator::requireAuth();
-        if ($authCheck !== true) {
-            return $authCheck;
-        }
-
-        $rateLimitCheck = RateLimiter::checkVoteLimit();
-        if ($rateLimitCheck !== true) {
-            return $rateLimitCheck;
-        }
-
-        $data = json_decode(Yii::$app->request->getRawBody(), true);
-        $pollId = $data['poll_id'] ?? Yii::$app->request->post('poll_id');
-        $optionIds = $data['option_ids'] ?? Yii::$app->request->post('option_ids', []);
-        
-        if (!is_array($optionIds) || empty($optionIds)) {
-            return ApiValidator::error('Выберите вариант');
-        }
-        
-        $poll = Poll::findOne($pollId);
-        if (!$poll) {
-            return ['success' => false, 'error' => 'Опрос не найден'];
-        }
-
-        if (!PollVote::vote($pollId, $optionIds, Yii::$app->user->id)) {
-            return ['success' => false, 'error' => 'Ошибка голосования'];
-        }
-
-        $poll = Poll::findOne($pollId);
-        $pollData = $poll->toArray();
-
-        $pollData['has_user_voted'] = $poll->hasUserVoted(Yii::$app->user->id);
-        $pollData['user_votes'] = $poll->getUserVotes(Yii::$app->user->id);
-        $pollData['total_votes'] = $poll->getTotalVotes();
-        $pollData['multiple_votes'] = $poll->multiple_votes;
-
-        $pollData['options'] = array_map(function($option) use ($pollData) {
-            $optionData = $option->toArray();
-            $optionData['votes_count'] = $option->getVotesCount();
-            $optionData['percentage'] = $pollData['total_votes'] > 0 
-                ? round(($optionData['votes_count'] / $pollData['total_votes']) * 100, 1) 
-                : 0;
-            return $optionData;
-        }, $poll->options);
-        
-        return ['success' => true, 'poll' => $pollData];
     }
 
     public function actionPoll($last_check = 0)
@@ -548,13 +545,13 @@ class FeedController extends Controller
         ];
     }
 
-    
     public function actionGetNotifications()
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
 
-        if (Yii::$app->user->isGuest) {
-            return ['success' => false, 'error' => 'Не авторизован'];
+        $authCheck = ApiValidator::requireAuth();
+        if ($authCheck !== true) {
+            return $authCheck;
         }
 
         $notifications = Notification::getUnread(Yii::$app->user->id, 10);
@@ -580,44 +577,41 @@ class FeedController extends Controller
         ];
     }
 
-    
     public function actionMarkNotificationsRead()
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
 
-        if (Yii::$app->user->isGuest) {
-            return ['success' => false, 'error' => 'Не авторизован'];
+        $authCheck = ApiValidator::requireAuth();
+        if ($authCheck !== true) {
+            return $authCheck;
         }
 
-        $data = json_decode(Yii::$app->request->getRawBody(), true);
+        $data = ApiValidator::getRequestData();
         $notificationId = $data['id'] ?? Yii::$app->request->post('id');
 
         if ($notificationId) {
-
             $notification = Notification::findOne($notificationId);
             if ($notification && $notification->user_id === Yii::$app->user->id) {
-                $notification->is_read = 1;
-                $notification->save(false);
+                $notification->updateAttributes(['is_read' => 1]);
                 return ['success' => true];
             }
             return ['success' => false, 'error' => 'Уведомление не найдено'];
         }
 
         Notification::markAllAsRead(Yii::$app->user->id);
-
         return ['success' => true];
     }
 
-    
     public function actionSavePost()
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
 
-        if (Yii::$app->user->isGuest) {
-            return ['success' => false, 'error' => 'Не авторизован'];
+        $authCheck = ApiValidator::requireAuth();
+        if ($authCheck !== true) {
+            return $authCheck;
         }
 
-        $data = json_decode(Yii::$app->request->getRawBody(), true);
+        $data = ApiValidator::getRequestData();
         $postId = $data['post_id'] ?? Yii::$app->request->post('post_id');
 
         $post = Post::findOne($postId);
@@ -630,17 +624,16 @@ class FeedController extends Controller
         return ['success' => true] + $result;
     }
 
-    
     public function actionSavedPosts()
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
 
-        if (Yii::$app->user->isGuest) {
-            return ['success' => false, 'error' => 'Не авторизован'];
+        $authCheck = ApiValidator::requireAuth();
+        if ($authCheck !== true) {
+            return $authCheck;
         }
 
         $posts = SavedPost::getUserSavedPosts(Yii::$app->user->id);
-
         $userId = Yii::$app->user->id;
 
         return array_map(function($post) use ($userId) {
@@ -651,7 +644,6 @@ class FeedController extends Controller
         }, $posts);
     }
 
-    
     private function parseMentions($content, $post)
     {
         preg_match_all('/@(\w+)/', $content, $matches);

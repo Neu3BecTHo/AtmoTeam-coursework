@@ -2,8 +2,23 @@
 
 namespace app\models;
 
+use Yii;
 use yii\db\ActiveRecord;
+use yii\behaviors\TimestampBehavior;
+use yii\db\Query;
 
+/**
+ * Message model
+ *
+ * @property int $id
+ * @property int $sender_id
+ * @property int $receiver_id
+ * @property string $content
+ * @property string|null $image_urls
+ * @property int $is_read
+ * @property int $created_at
+ * @property int $updated_at
+ */
 class Message extends ActiveRecord
 {
     public static function tableName()
@@ -15,30 +30,23 @@ class Message extends ActiveRecord
     {
         return [
             [
-                'class' => \yii\behaviors\TimestampBehavior::class,
+                'class' => TimestampBehavior::class,
                 'createdAtAttribute' => 'created_at',
                 'updatedAtAttribute' => 'updated_at',
             ],
         ];
     }
 
-    public function beforeSave($insert)
-    {
-        if (!parent::beforeSave($insert)) {
-            return false;
-        }
-        
-        return true;
-    }
-
     public function rules()
     {
         return [
-            [['sender_id', 'receiver_id', 'content'], 'required'],
-            [['sender_id', 'receiver_id'], 'integer'],
-            [['content'], 'string'],
+            [['sender_id', 'receiver_id'], 'required'],
+            [['encrypted_text', 'encrypted_key'], 'safe'],
+            [['sender_id', 'receiver_id', 'is_read'], 'integer'],
+            [['content', 'image_urls'], 'string'],
             ['is_read', 'boolean'],
-            ['content', 'match', 'pattern' => '/^[\p{L}\p{N}\p{M}\p{P}\p{S}\p{Z}\h\n\r\t]{1,1000}$/u', 'message' => 'Сообщение содержит недопустимые символы'],
+            ['content', 'validateContentOrImages'],
+            ['content', 'string', 'max' => 1000],
         ];
     }
 
@@ -49,8 +57,10 @@ class Message extends ActiveRecord
             'sender_id' => 'Отправитель',
             'receiver_id' => 'Получатель',
             'content' => 'Сообщение',
+            'image_urls' => 'Изображения',
             'is_read' => 'Прочитано',
-            'created_at' => 'Дата',
+            'created_at' => 'Дата отправки',
+            'updated_at' => 'Обновлено',
         ];
     }
 
@@ -64,52 +74,125 @@ class Message extends ActiveRecord
         return $this->hasOne(User::class, ['id' => 'receiver_id']);
     }
 
-    
     public function getTimeAgo()
     {
+        $diff = time() - $this->created_at;
+        
+        if ($diff < 60) return 'только что';
+        if ($diff < 3600) return floor($diff / 60) . ' мин. назад';
+        if ($diff < 86400) return floor($diff / 3600) . ' ч. назад';
+        
         return date('d.m.Y H:i', $this->created_at);
     }
 
-    
-    public static function sendMessage($senderId, $receiverId, $content)
+    public function getImageUrls(): array
     {
-        if ($senderId === $receiverId) {
-            return false;
+        if (!$this->image_urls) {
+            return [];
         }
+        $urls = json_decode($this->image_urls, true);
+        return is_array($urls) ? $urls : [];
+    }
 
-        $sender = User::findOne($senderId);
-        $receiver = User::findOne($receiverId);
-        
-        if (!$sender || !$receiver) {
-            return false;
+    public function hasImages(): bool
+    {
+        return !empty($this->getImageUrls());
+    }
+
+    public function getPreviewText(): string
+    {
+        $text = trim($this->content);
+        if ($text !== '') {
+            return mb_substr($text, 0, 100);
         }
+        return $this->hasImages() ? '📷 Фото' : '';
+    }
 
-        if (!$sender->canInteractWith($receiverId)) {
+    public function validateContentOrImages($attribute, $params)
+    {
+        if (trim($this->content) === '' && !$this->hasImages()) {
+            $this->addError('content', 'Сообщение не может быть пустым');
+        }
+    }
+
+    public function fields()
+    {
+        return [
+            'id',
+            'sender_id',
+            'receiver_id',
+            'encrypted_text',
+            'encrypted_key',
+            'content',
+            'is_read',
+            'created_at',
+            'updated_at',
+            'timeAgo' => 'timeAgo',
+            'sender' => function () {
+                return $this->sender ? [
+                    'id' => $this->sender->id,
+                    'username' => $this->sender->username,
+                    'avatar' => $this->sender->avatar ?: 'https://api.dicebear.com/7.x/avataaars/svg?seed=' . $this->sender->id,
+                ] : null;
+            },
+            'receiver' => function () {
+                return $this->receiver ? [
+                    'id' => $this->receiver->id,
+                    'username' => $this->receiver->username,
+                    'avatar' => $this->receiver->avatar ?: 'https://api.dicebear.com/7.x/avataaars/svg?seed=' . $this->receiver->id,
+                ] : null;
+            },
+        ];
+    }
+
+    public static function sendMessage($senderId, $receiverId, $encryptedText, $encryptedKey)
+    {
+        // Проверка возможности отправки
+        if ($senderId === $receiverId || !self::canSendMessage($senderId, $receiverId)) {
             return false;
         }
 
         $message = new self([
             'sender_id' => $senderId,
             'receiver_id' => $receiverId,
-            'content' => $content,
+            'encrypted_text' => $encryptedText,
+            'encrypted_key' => $encryptedKey,
+            'content' => '🔒 Зашифрованное сообщение',
         ]);
 
         if ($message->save()) {
-            $notification = new Notification([
-                'user_id' => $receiverId,
-                'from_user_id' => $senderId,
-                'type' => 'message',
-                'message' => 'Новое сообщение от ' . $sender->username,
-            ]);
-            $notification->save();
-            
+            Notification::create(
+                $receiverId,
+                Notification::TYPE_MESSAGE,
+                $senderId,
+                null,
+                'Новое зашифрованное сообщение'
+            );
             return $message;
         }
 
         return false;
     }
 
-    
+    public static function sendUnencryptedMessage($senderId, $receiverId, $content)
+    {
+        if ($senderId === $receiverId || !self::canSendMessage($senderId, $receiverId)) {
+            return false;
+        }
+        $message = new self([
+            'sender_id' => $senderId,
+            'receiver_id' => $receiverId,
+            'content' => $content,
+            'encrypted_text' => null,
+            'encrypted_key' => null,
+        ]);
+        if ($message->save()) {
+            Notification::create($receiverId, Notification::TYPE_MESSAGE, $senderId, null, 'Новое сообщение');
+            return $message;
+        }
+        return false;
+    }
+
     public static function getDialogue($userId1, $userId2, $limit = 50, $offset = 0)
     {
         return self::find()
@@ -125,45 +208,83 @@ class Message extends ActiveRecord
             ->all();
     }
 
-    
     public static function getDialogues($userId, $limit = 20, $offset = 0)
     {
-        $sql = "
-            SELECT DISTINCT 
-                CASE 
-                    WHEN sender_id = :userId THEN receiver_id 
-                    ELSE sender_id 
-                END as other_user_id,
-                MAX(created_at) as last_message_time
-            FROM {{%message}}
-            WHERE sender_id = :userId OR receiver_id = :userId
-            GROUP BY other_user_id
-            ORDER BY last_message_time DESC
-            LIMIT :limit OFFSET :offset
-        ";
+        // 1. Находим всех уникальных собеседников, с кем были сообщения
+        $messages = self::find()
+            ->select(['sender_id', 'receiver_id'])
+            ->where(['or', ['sender_id' => $userId], ['receiver_id' => $userId]])
+            ->asArray()
+            ->all();
 
-        return \Yii::$app->db->createCommand($sql)
-            ->bindValue(':userId', $userId)
-            ->bindValue(':limit', $limit)
-            ->bindValue(':offset', $offset)
-            ->queryAll();
+        $otherUserIds = [];
+        foreach ($messages as $msg) {
+            if ($msg['sender_id'] == $userId) {
+                $otherUserIds[$msg['receiver_id']] = true;
+            } else {
+                $otherUserIds[$msg['sender_id']] = true;
+            }
+        }
+        $otherUserIds = array_keys($otherUserIds);
+
+        if (empty($otherUserIds)) {
+            return [];
+        }
+
+        // 2. Для каждого собеседника получаем последнее сообщение
+        $dialogues = [];
+        foreach ($otherUserIds as $otherId) {
+            $lastMessage = self::find()
+                ->with(['sender', 'receiver'])
+                ->where([
+                    'or',
+                    ['and', ['sender_id' => $userId, 'receiver_id' => $otherId]],
+                    ['and', ['sender_id' => $otherId, 'receiver_id' => $userId]],
+                ])
+                ->orderBy(['created_at' => SORT_DESC])
+                ->limit(1)
+                ->one();
+
+            if (!$lastMessage) {
+                continue;
+            }
+
+            $otherUser = User::findOne($otherId);
+            if (!$otherUser) {
+                continue;
+            }
+
+            $dialogues[] = [
+                'user' => [
+                    'id' => $otherUser->id,
+                    'username' => $otherUser->username,
+                    'avatar' => $otherUser->getAvatarUrl(),
+                ],
+                'last_message' => $lastMessage->getPreviewText(),
+                'last_message_time' => $lastMessage->created_at,
+                'last_message_time_ago' => $lastMessage->timeAgo,
+                'unread_count' => self::getUnreadCountFromUser($userId, $otherId),
+            ];
+        }
+
+        // 3. Сортируем по времени последнего сообщения (новые сверху)
+        usort($dialogues, function ($a, $b) {
+            return $b['last_message_time'] - $a['last_message_time'];
+        });
+
+        // 4. Пагинация
+        return array_slice($dialogues, $offset, $limit);
     }
 
-    
     public static function markAsRead($receiverId, $senderId = null)
     {
+        $condition = ['receiver_id' => $receiverId, 'is_read' => 0];
         if ($senderId) {
-            return self::updateAll(['is_read' => 1], [
-                'receiver_id' => $receiverId, 
-                'sender_id' => $senderId, 
-                'is_read' => 0
-            ]);
+            $condition['sender_id'] = $senderId;
         }
-        
-        return self::updateAll(['is_read' => 1], ['receiver_id' => $receiverId, 'is_read' => 0]);
+        return self::updateAll(['is_read' => 1], $condition);
     }
 
-    
     public static function getUnreadCount($userId)
     {
         return self::find()
@@ -171,7 +292,26 @@ class Message extends ActiveRecord
             ->count();
     }
 
-    
+    public static function getUnreadCountFromUser($receiverId, $senderId)
+    {
+        return self::find()
+            ->where(['receiver_id' => $receiverId, 'sender_id' => $senderId, 'is_read' => 0])
+            ->count();
+    }
+
+    public static function getUnreadCounts($receiverId): array
+    {
+        $counts = (new Query())
+            ->select(['sender_id', 'unread_count' => 'COUNT(*)'])
+            ->from(self::tableName())
+            ->where(['receiver_id' => $receiverId, 'is_read' => 0])
+            ->groupBy('sender_id')
+            ->indexBy('sender_id')
+            ->column();
+
+        return array_map('intval', $counts);
+    }
+
     public static function canSendMessage($senderId, $receiverId)
     {
         if ($senderId === $receiverId) {
@@ -179,27 +319,6 @@ class Message extends ActiveRecord
         }
 
         $sender = User::findOne($senderId);
-        if (!$sender) {
-            return false;
-        }
-
-        return $sender->canInteractWith($receiverId);
-    }
-
-    public function toArray(array $fields = [], array $expand = [], $recursive = true)
-    {
-        $data = parent::toArray($fields, $expand, $recursive);
-        $data['sender'] = $this->sender ? [
-            'id' => $this->sender->id,
-            'username' => $this->sender->username,
-            'avatar' => $this->sender->avatar ?: 'https://api.dicebear.com/7.x/avataaars/svg?seed=' . $this->sender->id,
-        ] : null;
-        $data['receiver'] = $this->receiver ? [
-            'id' => $this->receiver->id,
-            'username' => $this->receiver->username,
-            'avatar' => $this->receiver->avatar ?: 'https://api.dicebear.com/7.x/avataaars/svg?seed=' . $this->receiver->id,
-        ] : null;
-        $data['timeAgo'] = $this->getTimeAgo();
-        return $data;
+        return $sender && $sender->canInteractWith($receiverId);
     }
 }

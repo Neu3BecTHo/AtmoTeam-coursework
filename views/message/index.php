@@ -1,7 +1,22 @@
 <?php
+
+use yii\helpers\Html;
+use yii\helpers\Url;
+
 $this->title = 'Сообщения';
 $this->registerCssFile('@web/css/message.css');
-$this->registerJsFile('@web/js/message.js', ['depends' => ['yii\web\JqueryAsset']]);
+$this->registerJsFile('@web/js/message.js', ['depends' => [\yii\web\JqueryAsset::class]]);
+
+function getTimeAgo($timestamp) {
+    $diff = time() - (int)$timestamp;
+    
+    if ($diff < 60) return 'только что';
+    if ($diff < 3600) return floor($diff / 60) . ' мин. назад';
+    if ($diff < 86400) return floor($diff / 3600) . ' ч. назад';
+    if ($diff < 2592000) return floor($diff / 86400) . ' дн. назад';
+    
+    return date('d.m.Y', $timestamp);
+}
 ?>
 
 <div class="message-container">
@@ -16,34 +31,39 @@ $this->registerJsFile('@web/js/message.js', ['depends' => ['yii\web\JqueryAsset'
                 <div class="empty-state">
                     <div class="empty-icon">💬</div>
                     <p>У вас пока нет сообщений</p>
-                    <a href="<?= \yii\helpers\Url::to(['/search/index']) ?>" class="btn-find-users">
-                        Найти пользователей для общения
+                    <p class="empty-hint">Начните общение с другими пользователями</p>
+                    <a href="<?= Url::to(['/search/index']) ?>" class="btn-find-users">
+                        🔍 Найти пользователей
                     </a>
                 </div>
             <?php else: ?>
                 <div class="dialogues-list">
                     <?php foreach ($dialogues as $dialogue): ?>
-                        <div class="dialogue-item">
-                            <a href="<?= \yii\helpers\Url::to(['/profile/view', 'id' => $dialogue['user']['id']]) ?>" 
-                               class="dialogue-avatar-link" onclick="event.stopPropagation()">
+                        <div class="dialogue-item" data-user-id="<?= $dialogue['user']['id'] ?>" data-last-message-time="<?= $dialogue['last_message_time'] ?? 0 ?>">
+                            <a href="<?= Url::to(['/profile/view', 'id' => $dialogue['user']['id']]) ?>" 
+                               class="dialogue-avatar-link" 
+                               onclick="event.stopPropagation()"
+                               title="<?= Html::encode($dialogue['user']['username']) ?>">
                                 <img class="dialogue-avatar" 
-                                     src="<?= $dialogue['user']['avatar'] ?>" 
-                                     alt="<?= \yii\helpers\Html::encode($dialogue['user']['username']) ?>">
+                                     src="<?= Html::encode($dialogue['user']['avatar']) ?>" 
+                                     alt="<?= Html::encode($dialogue['user']['username']) ?>">
                             </a>
-                            <div class="dialogue-content" onclick="window.location.href='<?= \yii\helpers\Url::to(['/message/dialogue', 'id' => $dialogue['user']['id']]) ?>'">
-                                <div class="dialogue-user">
-                                    <?= \yii\helpers\Html::encode($dialogue['user']['username']) ?>
+                            
+                            <div class="dialogue-content" 
+                                 onclick="window.location.href='<?= Url::to(['/message/dialogue', 'id' => $dialogue['user']['id']]) ?>'">
+                                <div class="dialogue-header-info">
+                                    <div class="dialogue-user"><?= Html::encode($dialogue['user']['username']) ?></div>
+                                    <div class="dialogue-time" data-timestamp="<?= $dialogue['last_message_time'] ?? 0 ?>">
+                                        <?= Html::encode(getTimeAgo($dialogue['last_message_time'] ?? 0)) ?>
+                                    </div>
                                 </div>
                                 <div class="dialogue-preview">
-                                    <?= \yii\helpers\Html::encode($dialogue['last_message'] ?? 'Начните диалог...') ?>
+                                    <?= Html::encode($dialogue['last_message'] ?? 'Начните диалог...') ?>
                                 </div>
-                            </div>
-                            <div class="dialogue-right">
-                                <div class="dialogue-time">
-                                    <?= getTimeAgo($dialogue['last_message_time']) ?>
-                                </div>
-                                <?php if ($dialogue['unread_count'] > 0): ?>
-                                    <span class="unread-badge"><?= $dialogue['unread_count'] ?></span>
+                                <?php if (($dialogue['unread_count'] ?? 0) > 0): ?>
+                                    <span class="unread-badge" title="Непрочитанных: <?= $dialogue['unread_count'] ?>">
+                                        <?= $dialogue['unread_count'] ?>
+                                    </span>
                                 <?php endif; ?>
                             </div>
                         </div>
@@ -53,16 +73,3 @@ $this->registerJsFile('@web/js/message.js', ['depends' => ['yii\web\JqueryAsset'
         </div>
     </div>
 </div>
-
-<?php
-function getTimeAgo($timestamp) {
-    $diff = time() - $timestamp;
-    
-    if ($diff < 60) return 'только что';
-    if ($diff < 3600) return floor($diff / 60) . ' мин. назад';
-    if ($diff < 86400) return floor($diff / 3600) . ' ч. назад';
-    if ($diff < 2592000) return floor($diff / 86400) . ' дн. назад';
-    
-    return date('d.m.Y', $timestamp);
-}
-?>

@@ -4,6 +4,14 @@ namespace app\models;
 
 use yii\db\ActiveRecord;
 
+/**
+ * PollOption model
+ *
+ * @property int $id
+ * @property int $poll_id
+ * @property string $text
+ * @property int $votes_count
+ */
 class PollOption extends ActiveRecord
 {
     public static function tableName()
@@ -25,8 +33,8 @@ class PollOption extends ActiveRecord
         return [
             'id' => 'ID',
             'poll_id' => 'Опрос',
-            'text' => 'Вариант',
-            'votes_count' => 'Голоса',
+            'text' => 'Вариант ответа',
+            'votes_count' => 'Голосов',
         ];
     }
 
@@ -40,8 +48,23 @@ class PollOption extends ActiveRecord
         return $this->hasMany(PollVote::class, ['poll_option_id' => 'id']);
     }
 
-    public function getVotesCount()
+    public function incrementVotes()
     {
-        return $this->getVotes()->count();
+        return $this->updateCounters(['votes_count' => 1]);
+    }
+
+    public function decrementVotes()
+    {
+        return $this->updateCounters(['votes_count' => -1]);
+    }
+
+    public function fields()
+    {
+        return [
+            'id',
+            'poll_id',
+            'text',
+            'votes_count',
+        ];
     }
 }

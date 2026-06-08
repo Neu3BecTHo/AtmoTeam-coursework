@@ -7,10 +7,10 @@ use yii\web\Controller;
 use yii\web\Response;
 use yii\web\NotFoundHttpException;
 use yii\filters\AccessControl;
+use yii\web\UploadedFile;
 use app\models\User;
 use app\models\Post;
 use app\models\Follow;
-use yii\web\UploadedFile;
 use app\components\ApiValidator;
 use app\components\RateLimiter;
 use app\models\Repost;
@@ -57,26 +57,19 @@ class ProfileController extends Controller
             throw new NotFoundHttpException('Профиль приватный или недоступен');
         }
 
-        $posts = []; // Посты будут загружаться через JavaScript
-
         $stats = [
             'posts_count' => Post::find()->where(['user_id' => $id])->count(),
-            'likes_received' => Post::find()
-                ->where(['user_id' => $id])
-                ->sum('likes_count') ?: 0,
+            'likes_received' => Post::find()->where(['user_id' => $id])->sum('likes_count') ?: 0,
             'followers' => Follow::getFollowersCount($id),
             'following' => Follow::getFollowingCount($id),
         ];
 
-        $isFollowing = !Yii::$app->user->isGuest && 
-                       Follow::isFollowing(Yii::$app->user->id, $id);
-
-        $isBlocked = !Yii::$app->user->isGuest && 
-                     User::findOne(Yii::$app->user->id)->hasBlocked($id);
+        $isFollowing = !Yii::$app->user->isGuest && Follow::isFollowing(Yii::$app->user->id, $id);
+        $isBlocked = !Yii::$app->user->isGuest && User::findOne(Yii::$app->user->id)->hasBlocked($id);
 
         return $this->render('view', [
             'user' => $user,
-            'posts' => $posts,
+            'posts' => [],
             'stats' => $stats,
             'isOwner' => !Yii::$app->user->isGuest && Yii::$app->user->id == $id,
             'isFollowing' => $isFollowing,
@@ -104,7 +97,6 @@ class ProfileController extends Controller
                     }
                     $saved = file_put_contents($path . $filename, $decoded);
                     if ($saved !== false) {
-
                         if ($user->avatar && file_exists(Yii::getAlias('@webroot') . $user->avatar)) {
                             @unlink(Yii::getAlias('@webroot') . $user->avatar);
                         }
@@ -112,7 +104,6 @@ class ProfileController extends Controller
                     }
                 }
             } else {
-
                 $user->avatarFile = UploadedFile::getInstance($user, 'avatarFile');
             }
             
@@ -128,9 +119,7 @@ class ProfileController extends Controller
             }
         }
 
-        return $this->render('edit', [
-            'user' => $user,
-        ]);
+        return $this->render('edit', ['user' => $user]);
     }
 
     public function actionPosts($id = null)
@@ -138,10 +127,7 @@ class ProfileController extends Controller
         Yii::$app->response->format = Response::FORMAT_JSON;
         
         $offset = (int) Yii::$app->request->get('offset', 0);
-        
-        if ($id === null) {
-            $id = Yii::$app->user->id;
-        }
+        $id = $id ?? Yii::$app->user->id;
 
         $posts = Post::find()
             ->where(['user_id' => $id])
@@ -159,8 +145,84 @@ class ProfileController extends Controller
         return ['html' => $html, 'count' => count($posts)];
     }
 
-    
     public function actionFollow($id)
+    {
+        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+        
+        if (Yii::$app->user->isGuest) {
+            return ['success' => false, 'error' => 'Необходимо авторизоваться'];
+        }
+        
+        $currentUser = Yii::$app->user->identity;
+        $userToFollow = User::findOne($id);
+        
+        if (!$userToFollow) {
+            return ['success' => false, 'error' => 'Пользователь не найден'];
+        }
+        
+        $follow = new Follow();
+        $follow->follower_id = $currentUser->id;
+        $follow->following_id = $userToFollow->id;
+        
+        if ($follow->save()) {
+            return ['success' => true, 'following' => true, 'followers_count' => $userToFollow->getFollowers()->count()];
+        }
+        
+        return ['success' => false, 'error' => 'Ошибка подписки'];
+    }
+
+    public function actionUnfollow($id)
+    {
+        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+        
+        if (Yii::$app->user->isGuest) {
+            return ['success' => false, 'error' => 'Необходимо авторизоваться'];
+        }
+        
+        $currentUser = Yii::$app->user->identity;
+        $follow = Follow::find()
+            ->where(['follower_id' => $currentUser->id, 'following_id' => $id])
+            ->one();
+        
+        if ($follow && $follow->delete()) {
+            $user = User::findOne($id);
+            return ['success' => true, 'following' => false, 'followers_count' => $user ? $user->getFollowers()->count() : 0];
+        }
+        
+        return ['success' => false, 'error' => 'Ошибка отписки'];
+    }
+
+    public function actionDeleteAccount()
+    {
+        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+        
+        if (Yii::$app->user->isGuest) {
+            return ['success' => false, 'error' => 'Необходимо авторизоваться'];
+        }
+        
+        $userId = Yii::$app->user->id;
+        $user = User::findOne($userId);
+        
+        if (!$user) {
+            return ['success' => false, 'error' => 'Пользователь не найден'];
+        }
+        
+        // Проверка пароля (опционально, для безопасности)
+        $password = Yii::$app->request->post('password');
+        if ($password && !$user->validatePassword($password)) {
+            return ['success' => false, 'error' => 'Неверный пароль'];
+        }
+        
+        // Удаляем пользователя со всем содержимым
+        if ($user->deleteWithContent()) {
+            Yii::$app->user->logout();
+            return ['success' => true, 'message' => 'Аккаунт удалён'];
+        }
+        
+        return ['success' => false, 'error' => 'Ошибка при удалении аккаунта'];
+    }
+
+    public function actionBlock()
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
 
@@ -169,38 +231,7 @@ class ProfileController extends Controller
             return $authCheck;
         }
 
-        $rateLimitCheck = RateLimiter::checkFollowLimit();
-        if ($rateLimitCheck !== true) {
-            return $rateLimitCheck;
-        }
-
-        if ($id == Yii::$app->user->id) {
-            return ApiValidator::error('Нельзя подписаться на себя');
-        }
-
-        $result = Follow::follow(Yii::$app->user->id, $id);
-
-        if ($result) {
-            return [
-                'success' => true,
-                'followers_count' => Follow::getFollowersCount($id),
-                'following' => true,
-            ];
-        }
-
-        return ['success' => false, 'error' => 'Уже подписаны или ошибка'];
-    }
-
-    
-    public function actionBlock()
-    {
-        Yii::$app->response->format = Response::FORMAT_JSON;
-        
-        if (Yii::$app->user->isGuest) {
-            return ['success' => false, 'error' => 'Не авторизован'];
-        }
-        
-        $data = json_decode(Yii::$app->request->getRawBody(), true);
+        $data = ApiValidator::getRequestData();
         $blockedUserId = $data['user_id'] ?? Yii::$app->request->post('user_id');
         
         $blockedUser = User::findOne($blockedUserId);
@@ -224,16 +255,16 @@ class ProfileController extends Controller
         return ['success' => false, 'error' => 'Ошибка блокировки'];
     }
 
-    
     public function actionUnblock()
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
-        
-        if (Yii::$app->user->isGuest) {
-            return ['success' => false, 'error' => 'Не авторизован'];
+
+        $authCheck = ApiValidator::requireAuth();
+        if ($authCheck !== true) {
+            return $authCheck;
         }
-        
-        $data = json_decode(Yii::$app->request->getRawBody(), true);
+
+        $data = ApiValidator::getRequestData();
         $unblockedUserId = $data['user_id'] ?? Yii::$app->request->post('user_id');
         
         $unblockedUser = User::findOne($unblockedUserId);
@@ -257,12 +288,12 @@ class ProfileController extends Controller
         return ['success' => false, 'error' => 'Ошибка разблокировки'];
     }
 
-    
     public function actionSaved($id = null)
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
 
-        if (Yii::$app->user->isGuest) {
+        $authCheck = ApiValidator::requireAuth();
+        if ($authCheck !== true) {
             return ['html' => '', 'count' => 0];
         }
 
@@ -283,10 +314,7 @@ class ProfileController extends Controller
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
 
-        if ($id === null) {
-            $id = Yii::$app->user->id;
-        }
-
+        $id = $id ?? Yii::$app->user->id;
         $offset = (int) Yii::$app->request->get('offset', 0);
 
         $reposts = Repost::find()
@@ -308,64 +336,70 @@ class ProfileController extends Controller
         return ['html' => $html, 'count' => count($reposts)];
     }
 
-    public function actionUnfollow($id)
-    {
-        Yii::$app->response->format = Response::FORMAT_JSON;
-
-        if (Yii::$app->user->isGuest) {
-            return ['success' => false, 'error' => 'Не авторизован'];
-        }
-
-        $result = Follow::unfollow(Yii::$app->user->id, $id);
-
-        if ($result) {
-            return [
-                'success' => true,
-                'followers_count' => Follow::getFollowersCount($id),
-                'following' => false,
-            ];
-        }
-
-        return ['success' => false, 'error' => 'Не подписаны или ошибка'];
-    }
-
-    
     public function actionFollowers($id)
     {
+        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+        
         $user = User::findOne($id);
         if (!$user) {
-            throw new NotFoundHttpException('Пользователь не найден');
+            return ['success' => false, 'error' => 'Пользователь не найден'];
         }
-
-        $followers = User::find()
-            ->innerJoin('{{%follow}}', '{{%follow}}.follower_id = {{%user}}.id')
-            ->where(['{{%follow}}.following_id' => $id])
-            ->all();
-
-        return $this->render('followers', [
-            'user' => $user,
-            'users' => $followers,
-            'title' => 'Подписчики',
-        ]);
+        
+        // getFollowers() должен возвращать User[], а не Follow[]
+        $followers = $user->getFollowers()->all();
+        
+        $html = '';
+        foreach ($followers as $follower) {
+            // $follower уже должен быть объектом User
+            $html .= $this->renderPartial('_user_card', [
+                'user' => $follower,
+                'currentUser' => Yii::$app->user->identity,
+            ]);
+        }
+        
+        return [
+            'success' => true,
+            'html' => $html,
+            'count' => count($followers)
+        ];
     }
 
-    
     public function actionFollowing($id)
     {
+        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+        
         $user = User::findOne($id);
         if (!$user) {
-            throw new NotFoundHttpException('Пользователь не найден');
+            return ['success' => false, 'error' => 'Пользователь не найден'];
         }
+        
+        // getFollowing() должен возвращать User[], а не Follow[]
+        $following = $user->getFollowing()->all();
+        
+        $html = '';
+        foreach ($following as $follow) {
+            // $follow должен быть объектом User
+            $html .= $this->renderPartial('_user_card', [
+                'user' => $follow,
+                'currentUser' => Yii::$app->user->identity,
+            ]);
+        }
+        
+        return [
+            'success' => true,
+            'html' => $html,
+            'count' => count($following)
+        ];
+    }
 
-        $following = User::find()
-            ->innerJoin('{{%follow}}', '{{%follow}}.following_id = {{%user}}.id')
-            ->where(['{{%follow}}.follower_id' => $id])
-            ->all();
-
-        return $this->render('following', [
-            'user' => $user,
-            'users' => $following,
-            'title' => 'Подписки',
-        ]);
+    public function actionModal($id)
+    {
+        $post = Post::findOne($id);
+        if (!$post) {
+            throw new \yii\web\NotFoundHttpException('Пост не найден');
+        }
+        
+        // Возвращаем только HTML, без layout
+        return $this->renderPartial('_post_modal', ['post' => $post]);
     }
 }
