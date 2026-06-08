@@ -43,7 +43,6 @@ class Post extends ActiveRecord
             [['content'], 'required'],
             [['content'], 'string', 'max' => 5000],
             [['user_id', 'likes_count', 'comments_count'], 'integer'],
-            [['image'], 'string', 'max' => 255],
             [['imageFiles'], 'file',
                 'extensions' => ['jpg', 'jpeg', 'png', 'gif', 'webp'],
                 'maxSize' => 5 * 1024 * 1024,
@@ -127,7 +126,7 @@ class Post extends ActiveRecord
         if (!empty($images)) {
             return $images[0]->getImageUrl();
         }
-        return $this->image ? '/' . $this->image : null;
+        return null;
     }
 
     public function getImageUrls(): array
@@ -135,9 +134,6 @@ class Post extends ActiveRecord
         $urls = [];
         foreach ($this->getImages()->all() as $image) {
             $urls[] = $image->getImageUrl();
-        }
-        if (empty($urls) && $this->image) {
-            $urls[] = '/' . $this->image;
         }
         return $urls;
     }
