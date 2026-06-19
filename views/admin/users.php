@@ -5,6 +5,10 @@ use yii\helpers\Url;
 
 $this->title = 'Пользователи - Админ-панель';
 
+/**
+ * @var \app\models\User[] $users
+ */
+
 // Подсчёт статистики
 $adminCount = 0;
 $blockedCount = 0;

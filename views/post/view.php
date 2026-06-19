@@ -1,7 +1,14 @@
 <?php
 
+use Dom\Comment;
 use yii\helpers\Html;
 use yii\helpers\Url;
+
+/**
+ * @var \yii\web\View $this
+ * @var \app\models\Post $post
+ * @var \app\models\Comment[] $comments
+ */
 
 $this->title = 'Пост от ' . $post->user->username;
 

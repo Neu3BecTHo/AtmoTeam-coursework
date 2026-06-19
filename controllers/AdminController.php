@@ -211,11 +211,40 @@ class AdminController extends Controller
             return ['success' => false, 'error' => 'Пост не найден'];
         }
 
+        // Удаляем изображения поста с сервера
+        $this->deletePostImages($post);
+
         if ($post->delete()) {
             return ['success' => true];
         }
 
         return ['success' => false, 'error' => 'Ошибка удаления'];
+    }
+
+    /**
+     * Удалить изображения поста с сервера
+     */
+    private function deletePostImages($post)
+    {
+        $images = $post->getImages()->all();
+        foreach ($images as $image) {
+            $imageFile = Yii::getAlias('@webroot') . $image->file_path;
+            if (file_exists($imageFile)) {
+                @unlink($imageFile);
+            }
+            $image->delete();
+        }
+        
+        // Также удаляем сжатые версии если есть
+        $imagePaths = $post->getImagePaths();
+        if (!empty($imagePaths)) {
+            foreach ($imagePaths as $path) {
+                $fullPath = Yii::getAlias('@webroot') . $path;
+                if (file_exists($fullPath)) {
+                    @unlink($fullPath);
+                }
+            }
+        }
     }
 
     /**
@@ -229,19 +258,44 @@ class AdminController extends Controller
         if ($adminCheck !== true) {
             return $adminCheck;
         }
-        
+
         $commentId = Yii::$app->request->post('comment_id');
         $comment = Comment::findOne($commentId);
-        
+
         if (!$comment) {
             return ApiValidator::error('Комментарий не найден');
         }
+
+        // Удаляем изображения комментария если есть
+        $this->deleteCommentImages($comment);
         
         if ($comment->delete()) {
             return ['success' => true, 'message' => 'Комментарий удален'];
         }
-        
+
         return ['success' => false, 'error' => 'Ошибка удаления'];
+    }
+
+    /**
+     * Удалить изображения комментария с сервера
+     */
+    private function deleteCommentImages($comment)
+    {
+        $imageUrls = $comment->getImageUrls();
+        if (empty($imageUrls)) {
+            return;
+        }
+
+        $baseUrl = Yii::$app->request->baseUrl;
+        foreach ($imageUrls as $url) {
+            if (strpos($url, $baseUrl) === 0) {
+                $relativePath = substr($url, strlen($baseUrl));
+                $fullPath = Yii::getAlias('@webroot') . $relativePath;
+                if (file_exists($fullPath)) {
+                    @unlink($fullPath);
+                }
+            }
+        }
     }
 
     /**

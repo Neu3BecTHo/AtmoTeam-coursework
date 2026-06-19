@@ -5,6 +5,10 @@ use yii\helpers\Url;
 
 $this->title = 'Посты - Админ-панель';
 
+/**
+ * @var \app\models\Post[] $posts
+ */
+
 $todayCount = count(array_filter($posts, fn($p) => $p->created_at > time() - 86400));
 $pollCount = count(array_filter($posts, fn($p) => $p->poll));
 $imageCount = count(array_filter($posts, fn($p) => $p->image));

@@ -1,8 +1,13 @@
 <?php
 
-use yii\web\View;
 use yii\helpers\Html;
 use yii\helpers\Url;
+
+/**
+ * @var \yii\web\View $this
+ * @var \app\models\User $user
+ * @var array $stats
+ */
 
 $this->title = $user->username;
 $this->registerCssFile('@web/css/profile.css');
@@ -219,9 +224,11 @@ $this->registerJsFile('@web/js/feed.js', ['position' => \yii\web\View::POS_END])
                     🚫 Заблокированные пользователи
                 </a>
                 <div class="settings-divider"></div>
-                <a href="<?= Url::to(['/site/logout']) ?>" class="settings-link logout" data-method="post">
+                <?= Html::beginForm(['/site/logout'], 'post', ['class' => 'settings-link logout-form']) ?>
+                <button type="submit" style="background: none; border: none; cursor: pointer; width: 100%; text-align: left; color: inherit; display: flex; align-items: center; gap: 0;">
                     🚪 Выйти из аккаунта
-                </a>
+                </button>
+                <?= Html::endForm() ?>
             </div>
         </div>
         <?php endif; ?>

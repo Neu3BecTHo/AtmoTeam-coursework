@@ -5,6 +5,11 @@ use app\widgets\Alert;
 use yii\helpers\Html;
 use yii\helpers\Url;
 
+/**
+ * @var \yii\web\View $this
+ * @var string $content
+ */
+
 AppAsset::register($this);
 
 $this->title = "AtmoTeam - современная социальная сеть для общения, обмена фото и видео, создания постов и историй";
@@ -106,6 +111,15 @@ $navAvatar = $currentUser ? ($currentUser->avatar ?: 'https://api.dicebear.com/7
                 </a>
             </div>
 
+            <!-- Кнопка меню (аватарка) для мобильных -->
+            <button class="mobile-menu-btn" onclick="toggleMobileMenu()" aria-label="Меню">
+                <?php if (!Yii::$app->user->isGuest): ?>
+                    <img src="<?= $navAvatar ?>" class="mobile-menu-avatar" alt="Меню">
+                <?php else: ?>
+                    <span class="mobile-menu-burger-icon">☰</span>
+                <?php endif; ?>
+            </button>
+
             <nav class="header-nav">
                 <ul class="nav-list">
                     <li><a href="<?= Url::to(['feed/index']) ?>" class="nav-link">🏠 Лента</a></li>
@@ -146,17 +160,66 @@ $navAvatar = $currentUser ? ($currentUser->avatar ?: 'https://api.dicebear.com/7
                                         Админ-панель</a>
                                 <?php endif; ?>
                                 <div class="dropdown-divider"></div>
-                                <a href="<?= Url::to(['site/logout']) ?>" class="dropdown-item logout-link"
-                                    data-method="post">🚪 Выйти</a>
+                                <?= Html::beginForm(['site/logout'], 'post', ['class' => 'dropdown-item logout-link-form']) ?>
+                                <button type="submit" style="background: none; border: none; cursor: pointer; width: 100%; text-align: left; color: inherit; display: flex; align-items: center; gap: var(--space-2);">🚪 Выйти</button>
+                                <?= Html::endForm() ?>
                             </div>
                         </li>
                     <?php else: ?>
-                        <li><a href="<?= Url::to(['site/login']) ?>" class="nav-link">🔐 Войти</a></li>
+                        <li><a href="<?= Url::to(['site/login']) ?>" class="nav-link btn-login">🔐 <span>Войти</span></a></li>
                     <?php endif; ?>
                 </ul>
             </nav>
         </div>
     </header>
+
+    <!-- Мобильное меню (вне header, поверх всего контента) -->
+    <div class="mobile-menu-overlay" id="mobile-menu-overlay" onclick="closeMobileMenu()">
+        <div class="mobile-menu-content" onclick="event.stopPropagation()">
+            <div class="mobile-menu-header">
+                <div class="mobile-menu-user">
+                    <img src="<?= $navAvatar ?>" class="mobile-menu-avatar-large" alt="Аватар">
+                    <span class="site-title">Меню</span>
+                </div>
+                <button class="mobile-menu-close" onclick="closeMobileMenu()">&times;</button>
+            </div>
+            <ul class="mobile-nav-list">
+                <li><a href="<?= Url::to(['feed/index']) ?>" class="mobile-nav-link" onclick="closeMobileMenu()">🏠 Лента</a></li>
+                <li><a href="<?= Url::to(['search/index']) ?>" class="mobile-nav-link" onclick="closeMobileMenu()">🔍 Поиск</a></li>
+                <?php if (!Yii::$app->user->isGuest): ?>
+                    <li><a href="<?= Url::to(['story/index']) ?>" class="mobile-nav-link" onclick="closeMobileMenu()">📸 Истории</a></li>
+                    <li>
+                        <a href="<?= Url::to(['message/index']) ?>" class="mobile-nav-link" onclick="closeMobileMenu()">
+                            💬 Сообщения
+                            <?php
+                            $unreadMessages = \app\models\Message::getUnreadCount(Yii::$app->user->id);
+                            if ($unreadMessages > 0): ?>
+                                <span class="nav-badge messages-badge"><?= $unreadMessages ?></span>
+                            <?php endif; ?>
+                        </a>
+                    </li>
+                    <li>
+                        <button class="mobile-nav-link mobile-notification-btn" onclick="toggleMobileNotifications()" style="background: none; border: none; cursor: pointer; width: 100%; text-align: left; color: inherit; display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-4); font-size: var(--text-base);">
+                            🔔 Уведомления
+                            <span id="mobile-notification-badge" class="nav-badge" style="display: none;">0</span>
+                        </button>
+                    </li>
+                    <li><a href="<?= Url::to(['profile/view']) ?>" class="mobile-nav-link" onclick="closeMobileMenu()">👤 Мой профиль</a></li>
+                    <li><a href="<?= Url::to(['profile/edit']) ?>" class="mobile-nav-link" onclick="closeMobileMenu()">✏️ Редактировать</a></li>
+                    <?php if (Yii::$app->user->can('accessAdminPanel')): ?>
+                        <li><a href="<?= Url::to(['admin/index']) ?>" class="mobile-nav-link" onclick="closeMobileMenu()">⚙️ Админ-панель</a></li>
+                    <?php endif; ?>
+                    <li>
+                        <?= Html::beginForm(['site/logout'], 'post', ['class' => 'mobile-nav-link logout-link']) ?>
+                        <button type="submit" onclick="closeMobileMenu()" style="background: none; border: none; cursor: pointer; width: 100%; text-align: left; color: inherit; display: flex; align-items: center; gap: var(--space-3);">🚪 Выйти</button>
+                        <?= Html::endForm() ?>
+                    </li>
+                <?php else: ?>
+                    <li><a href="<?= Url::to(['site/login']) ?>" class="mobile-nav-link" onclick="closeMobileMenu()">🔐 Войти</a></li>
+                <?php endif; ?>
+            </ul>
+        </div>
+    </div>
 
     <main class="main">
         <div class="main-container">

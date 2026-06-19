@@ -27,13 +27,13 @@ if (!isset($postModel)) {
         <img src="<?= Html::encode($currentAvatar) ?>" alt="Ваш аватар">
     </div>
     
-    <div class="post-input-area">
-        <div class="post-input-wrapper">
-            <?= $form->field($postModel, 'content', ['options' => ['class' => 'post-input-wrapper'], 'template' => "{input}"])
-                ->textarea(['id' => 'post-content', 'class' => 'post-input-textarea', 'placeholder' => 'Что у вас нового? 📝', 'maxlength' => 2000, 'rows' => 3]) ?>
-            <div class="post-input-focus-border"></div>
-        </div>
-        
+        <div class="post-input-area">
+            <div class="post-input-wrapper">
+                <?= $form->field($postModel, 'content', ['options' => ['class' => 'post-input-wrapper'], 'template' => "{input}"])
+                    ->textarea(['id' => 'post-content', 'class' => 'post-input-textarea', 'placeholder' => 'Что у вас нового? 📝', 'maxlength' => 5000, 'rows' => 3]) ?>
+                <div class="post-input-focus-border"></div>
+            </div>
+            
         <?= $form->field($postModel, 'imageFiles[]', ['options' => ['style' => 'display:none;'], 'template' => "{input}"])
             ->fileInput(['id' => 'post-image', 'accept' => 'image/*', 'multiple' => true, 'class' => 'image-input']) ?>
         
@@ -72,7 +72,7 @@ if (!isset($postModel)) {
             <div class="post-actions-left">
                 <label for="post-image" class="btn-attach-image" title="Прикрепить изображение">📷</label>
                 <button type="button" class="btn-add-poll" onclick="addPoll()" title="Добавить опрос">📊</button>
-                <span class="char-count" id="char-count">0/2000</span>
+                <span class="char-count" id="char-count">0/5000</span>
             </div>
             <button type="submit" id="btn-publish" class="btn-publish" disabled>📤 Опубликовать</button>
         </div>

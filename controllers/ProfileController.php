@@ -79,6 +79,9 @@ class ProfileController extends Controller
 
     public function actionEdit()
     {
+        /**
+         * @var User $user
+         */
         $user = Yii::$app->user->identity;
         $user->scenario = 'update';
         

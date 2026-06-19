@@ -4,6 +4,11 @@ use yii\helpers\Html;
 use yii\grid\GridView;
 use yii\widgets\Pjax;
 
+/**
+ * @var \yii\web\View $this
+ * @var \yii\data\ActiveDataProvider $dataProvider
+ */
+
 $this->title = 'Управление пользователями';
 $this->params['breadcrumbs'][] = ['label' => 'Админ панель', 'url' => ['/admin']];
 $this->params['breadcrumbs'][] = $this->title;
@@ -133,13 +138,18 @@ $this->params['breadcrumbs'][] = $this->title;
                             },
                             'delete' => function ($url, $model) {
                                 if ($model->username === 'admin') return '';
-                                return Html::a('🗑️', ['delete', 'id' => $model->id], [
+                                $confirm = 'Вы уверены, что хотите удалить пользователя ' . Html::encode($model->username) . ' и все связанные с ним данные?';
+                                return Html::beginForm(['delete', 'id' => $model->id], 'post', [
+                                    'data-confirm' => $confirm,
+                                    'class' => 'delete-form',
+                                    'style' => 'display: inline;',
+                                ]) . 
+                                Html::button('🗑️', [
+                                    'type' => 'submit',
                                     'title' => 'Удалить',
                                     'class' => 'action-btn action-btn-delete',
-                                    'data-confirm' => 'Вы уверены, что хотите удалить пользователя ' . Html::encode($model->username) . ' и все связанные с ним данные?',
-                                    'data-method' => 'post',
-                                    'data-pjax' => 0,
-                                ]);
+                                ]) .
+                                Html::endForm();
                             },
                         ],
                     ],

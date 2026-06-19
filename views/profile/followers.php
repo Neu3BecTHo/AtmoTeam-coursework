@@ -4,6 +4,13 @@ use yii\helpers\Html;
 use yii\helpers\Url;
 use app\models\Follow;
 
+/**
+ * @var \yii\web\View $this
+ * @var \app\models\User $user
+ * @var \app\models\User[] $users
+ * @var string $title
+ */
+
 $this->title = $title . ' - ' . $user->username;
 $this->registerCssFile('@web/css/profile.css');
 

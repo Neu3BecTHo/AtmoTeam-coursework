@@ -175,16 +175,25 @@ function toggleNotifications(e) {
   e?.preventDefault();
   const dropdown = document.getElementById("notification-dropdown");
   if (!dropdown) return;
-  const isOpen = dropdown.classList.contains("show");
-  // Закрываем все другие меню
-  document
-    .querySelectorAll(".nav-dropdown-menu, .notification-dropdown")
-    .forEach((m) => m.classList.remove("show"));
-  if (!isOpen) {
-    dropdown.classList.add("show");
+  dropdown.classList.toggle("show");
+  // Закрываем другие открытые меню
+  const userMenu = document.getElementById("user-menu");
+  if (userMenu) userMenu.classList.remove("show");
+  // Загружаем уведомления если ещё не загружены
+  if (!dropdown.dataset.loaded) {
     loadNotifications();
-    // По желанию можно отметить все как прочитанные при открытии
-    // markAllNotificationsRead();
+  }
+}
+
+function toggleMobileNotifications() {
+  const dropdown = document.getElementById("notification-dropdown");
+  if (!dropdown) return;
+  dropdown.classList.toggle("show");
+  // Закрываем мобильное меню
+  closeMobileMenu();
+  // Загружаем уведомления если ещё не загружены
+  if (!dropdown.dataset.loaded) {
+    loadNotifications();
   }
 }
 
@@ -496,20 +505,81 @@ function updateOnlineCount() {
     .catch((e) => console.error(e));
 }
 
+// ==================== Mobile Menu ====================
+function toggleMobileMenu() {
+  const overlay = document.getElementById('mobile-menu-overlay');
+  if (!overlay) return;
+  const isOpen = overlay.classList.contains('show');
+  if (isOpen) {
+    closeMobileMenu();
+  } else {
+    overlay.classList.add('show');
+    document.body.style.overflow = 'hidden';
+  }
+}
+
+function closeMobileMenu() {
+  const overlay = document.getElementById('mobile-menu-overlay');
+  if (overlay) overlay.classList.remove('show');
+  document.body.style.overflow = '';
+}
+
+// Закрытие всех модалок
+function closeAllModals() {
+  // Закрываем пост-модалку
+  const postModal = document.getElementById('post-modal');
+  if (postModal) {
+    postModal.classList.remove('show');
+    postModal.classList.add('hidden');
+  }
+  
+  // Закрываем все остальные модалки с классом modal-overlay
+  document.querySelectorAll('.modal-overlay.show').forEach(modal => {
+    modal.classList.remove('show');
+    modal.classList.add('hidden');
+  });
+  
+  // Закрываем fullscreen image modal
+  const fullscreenModal = document.getElementById('fullscreen-image-modal');
+  if (fullscreenModal) {
+    fullscreenModal.style.display = 'none';
+    const img = document.getElementById('fullscreen-image');
+    if (img) img.src = '';
+  }
+  
+  // Восстанавливаем скролл
+  document.body.style.overflow = '';
+}
+
 // ==================== Gestures ====================
 function initSwipeGestures() {
-  const container = document.querySelector(".feed-container");
-  if (!container) return;
   let startX = 0;
-  container.addEventListener("touchstart", (e) => {
+  let startY = 0;
+  let isSwiping = false;
+
+  document.addEventListener("touchstart", (e) => {
     startX = e.touches[0].clientX;
-  });
-  container.addEventListener("touchend", (e) => {
+    startY = e.touches[0].clientY;
+    isSwiping = true;
+  }, { passive: true });
+
+  document.addEventListener("touchend", (e) => {
+    if (!isSwiping) return;
+    isSwiping = false;
+
     const endX = e.changedTouches[0].clientX;
-    const delta = endX - startX;
-    if (delta > 50) showNotification("Свайп вправо", "info");
-    else if (delta < -50) showNotification("Свайп влево", "info");
-  });
+    const endY = e.changedTouches[0].clientY;
+    const deltaX = endX - startX;
+    const deltaY = Math.abs(endY - startY);
+
+    // Если был вертикальный скролл — игнорируем
+    if (deltaY > 50) return;
+    
+    // Свайп вправо только если начался с левого края экрана (до 30px)
+    if (deltaX > 50 && startX < 30) {
+      toggleMobileMenu();
+    }
+  }, { passive: true });
 }
 
 // ==================== Cache ====================
@@ -591,8 +661,23 @@ document.addEventListener("DOMContentLoaded", () => {
   document.addEventListener("click", closeMenus);
   setInterval(updateOnlineCount, 30000);
   
+  // Закрытие мобильного меню и модалок по Escape
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeMobileMenu();
+      closePostModal();
+      closeAllModals();
+    }
+  });
+  
+  // Закрытие модалок по клику вне их
+  document.addEventListener('click', (e) => {
+    if (e.target.classList.contains('modal-overlay')) {
+      closeAllModals();
+    }
+  });
+  
   if (window.currentUserId) {
-    const notified = sessionStorage.getItem('encryption_notified');
     fetch(`/api/user/public-key?id=${window.currentUserId}`)
         .then(r => r.json())
         .then(data => {
@@ -602,9 +687,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 } else {
                     generateAndStoreKeyPairGlobal();
                 }
-            } else if (!notified) {
-                showAnimatedNotification('✅ Шифрование сообщений активно', 'success');
-                sessionStorage.setItem('encryption_notified', 'true');
             }
         })
         .catch(e => console.error('Ошибка проверки ключа', e));
@@ -657,15 +739,12 @@ async function generateAndStoreKeyPairGlobal() {
         });
         const result = await response.json();
         if (result.success) {
-            showAnimatedNotification('✅ Шифрование сообщений настроено', 'success');
-            sessionStorage.setItem('encryption_notified', 'true');
             console.log('Публичный ключ сохранён');
         } else {
             console.error('Ошибка сохранения ключа', result.error);
         }
     } catch(e) {
         console.error('Ошибка генерации ключей', e);
-        showAnimatedNotification('❌ Не удалось настроить шифрование', 'error');
     }
 }
 
@@ -676,6 +755,9 @@ window.ensureUserHasKeys = generateAndStoreKeyPairGlobal;
 // ==================== Exports ====================
 window.toggleUserMenu = toggleUserMenu;
 window.toggleNotifications = toggleNotifications;
+window.toggleMobileNotifications = toggleMobileNotifications;
+window.toggleMobileMenu = toggleMobileMenu;
+window.closeMobileMenu = closeMobileMenu;
 window.getOptimizedImageUrl = getOptimizedImageUrl;
 window.supportsWebP = supportsWebP;
 window.showLoading = showLoading;

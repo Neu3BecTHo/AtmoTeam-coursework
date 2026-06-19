@@ -40,7 +40,9 @@ class Post extends ActiveRecord
     public function rules()
     {
         return [
-            [['content'], 'required'],
+            [['content'], 'required', 'when' => function ($model) {
+                return empty($model->imageFiles) && !Yii::$app->request->post('poll_question');
+            }, 'message' => 'Введите текст поста или добавьте изображение/опрос'],
             [['content'], 'string', 'max' => 5000],
             [['user_id', 'likes_count', 'comments_count'], 'integer'],
             [['imageFiles'], 'file',

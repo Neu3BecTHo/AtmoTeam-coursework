@@ -5,6 +5,11 @@ use yii\helpers\Url;
 
 $this->title = 'Админ-панель';
 
+/**
+ * @var array $stats
+ * @var \app\models\User[] $recentUsers
+ */
+
 // Определяем URL для API
 $deleteUserUrl = Url::to(['/api/admin/delete-user']);
 $deletePostUrl = Url::to(['/api/admin/delete-post']);

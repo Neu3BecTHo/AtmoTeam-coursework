@@ -4,6 +4,11 @@ use yii\helpers\Html;
 use yii\helpers\Url;
 use yii\widgets\ActiveForm;
 
+/**
+ * @var \yii\web\View $this
+ * @var \app\models\LoginForm $model
+ */
+
 $this->title = 'Вход';
 $this->registerCssFile('@web/css/auth.css');
 
@@ -76,7 +81,7 @@ $this->registerCssFile('@web/css/auth.css');
 
 .form-actions {
     display: flex;
-    justify-content: center;
+    justify-content: center !important;
 }
 
 .checkbox-wrapper {

@@ -89,6 +89,7 @@ $config = [
                 'api/message/upload-images' => 'message/upload-images',
                 'api/message/get-dialogue/<id:\d+>' => 'message/get-dialogue',
                 'api/message/get-dialogues' => 'message/get-dialogues',
+                'api/message/delete' => 'message/delete',
                 
                 // Profile routes
                 'profile' => 'profile/view',

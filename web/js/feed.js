@@ -9,6 +9,7 @@ let hasMorePosts = true;
 let currentModalPostId = null;
 let lastCheck = 0;
 let selectedImages = [];
+let processedCommentIds = new Set(); // Для предотвращения дублирования комментариев
 
 // === Настройки сжатия изображений ===
 const MAX_IMAGE_WIDTH = 1200;
@@ -111,7 +112,6 @@ async function loadPosts(append = false) {
     if (!response.ok) throw new Error("Network error");
 
     const result = await response.json();
-    console.log("Posts loaded:", result.count);
 
     const container = document.getElementById("posts-container");
     if (!container) {
@@ -207,6 +207,13 @@ function initializeSinglePost(card) {
   card.dataset.handlersInitialized = "true";
   const postId = card.dataset.postId;
   if (!postId) return;
+  
+  // Помечаем все существующие комментарии как обработанные
+  card.querySelectorAll(".comment-item, .comment").forEach(comment => {
+    const commentId = comment.dataset?.commentId;
+    if (commentId) processedCommentIds.add(parseInt(commentId));
+  });
+  
   const likeBtn = card.querySelector(".btn-like");
   if (likeBtn) {
     likeBtn.removeEventListener("click", () => handleLike(postId));
@@ -434,15 +441,64 @@ function updatePostLikes(data) {
 }
 
 function addCommentToPost(data) {
+  // Проверяем, не обрабатывали ли уже этот комментарий
+  if (processedCommentIds.has(data.id)) return;
+  
   const postEl = document.querySelector(`[data-post-id="${data.post_id}"]`);
   if (!postEl) return;
-  const countEl = postEl.querySelector(".comments-count");
+  
+  // Помечаем комментарий как обработанный
+  processedCommentIds.add(data.id);
+  
+  // Обновляем счётчик в карточке поста (в ленте)
+  const countEl = postEl.querySelector(".btn-comment-toggle .action-count");
   if (countEl) {
     const current = parseInt(countEl.textContent) || 0;
-    countEl.textContent = `${current + 1} комментариев`;
+    countEl.textContent = current + 1;
   }
 }
-
+  
+function addCommentToModal(data) {
+  const modalCommentList = document.getElementById("modal-comments-list");
+  if (!modalCommentList) return;
+  
+  // Проверяем, не был ли уже добавлен этот комментарий
+  const existingComment = modalCommentList.querySelector(`[data-comment-id="${data.id}"]`);
+  if (existingComment) return;
+  
+  // Удаляем пустое состояние если есть
+  const emptyState = modalCommentList.querySelector('.empty-comments');
+  if (emptyState) emptyState.remove();
+  
+  const commentHtml = `
+    <div class="comment-item" data-comment-id="${data.id}">
+      <div class="comment-author">
+        <img src="${data.author?.avatar || ''}" class="comment-avatar" alt="">
+        <div class="comment-author-info">
+          <a href="/profile/view?id=${data.author?.id}" class="comment-author-name">${escapeHtml(data.author?.username || 'Пользователь')}</a>
+          <span class="comment-time">${data.timeAgo || 'только что'}</span>
+        </div>
+      </div>
+      <div class="comment-content">${escapeHtml(data.content)}</div>
+      ${data.canDelete ? `<button class="btn-delete-comment" data-comment-id="${data.id}">🗑️</button>` : ''}
+    </div>
+  `;
+  
+  modalCommentList.insertAdjacentHTML('beforeend', commentHtml);
+  
+  // Инициализируем обработчики для нового комментария
+  const deleteBtn = modalCommentList.querySelector(`.btn-delete-comment[data-comment-id="${data.id}"]`);
+  if (deleteBtn) {
+    deleteBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (typeof window.deleteComment === 'function') {
+        window.deleteComment(data.id, data.post_id);
+      }
+    });
+  }
+}
+  
 // ==================== Сжатие изображений в WebP ====================
 /**
  * Сжимает одно изображение, масштабирует и конвертирует в WebP (или JPEG)
@@ -503,9 +559,6 @@ async function compressImage(file) {
               type: mime,
               lastModified: Date.now(),
             });
-            console.log(
-              `Сжатие: ${(file.size / 1024).toFixed(1)} KB → ${(compressedFile.size / 1024).toFixed(1)} KB`,
-            );
             resolve(compressedFile);
           },
           mime,
@@ -524,15 +577,12 @@ async function compressImage(file) {
 async function compressAndSetImages(files) {
   if (!files.length) return;
 
-  showNotification("Сжатие изображений... (WebP)", "info");
   try {
     const compressed = await Promise.all(files.map(compressImage));
     selectedImages = compressed;
     updateImagePreviews(selectedImages);
-    showNotification(`Готово: ${compressed.length} изображений`, "success");
   } catch (err) {
     console.error("Ошибка сжатия:", err);
-    showNotification("Сжатие не удалось, используются оригиналы", "error");
     selectedImages = files;
     updateImagePreviews(selectedImages);
   }
@@ -621,6 +671,10 @@ function addPoll() {
     container.style.display = "block";
     btn.classList.add("active");
     btn.textContent = "📊";
+    // Добавляем обработчики на существующие инпуты
+    document.querySelectorAll(".option-input").forEach(input => {
+      input.addEventListener("input", updatePublishButton);
+    });
   } else {
     removePoll();
   }
@@ -636,13 +690,20 @@ function removePoll() {
     btn.textContent = "📊";
   }
   const question = document.getElementById("poll-question");
-  if (question) question.value = "";
+  if (question) {
+    question.value = "";
+    question.removeEventListener("input", updatePublishButton);
+  }
   const multiple = document.getElementById("poll-multiple");
   if (multiple) multiple.checked = false;
   const options = document.getElementById("poll-options");
   if (options) {
     options.innerHTML = `<div class="poll-option-input"><input type="text" class="option-input" placeholder="Вариант ответа 1..."><button type="button" class="btn-remove-option" onclick="removeOption(this)">✕</button></div>
                             <div class="poll-option-input"><input type="text" class="option-input" placeholder="Вариант ответа 2..."><button type="button" class="btn-remove-option" onclick="removeOption(this)">✕</button></div>`;
+    // Добавляем обработчики на новые инпуты
+    options.querySelectorAll(".option-input").forEach(input => {
+      input.addEventListener("input", updatePublishButton);
+    });
   }
   updatePublishButton();
 }
@@ -657,8 +718,19 @@ function addPollOption() {
   }
   const div = document.createElement("div");
   div.className = "poll-option-input";
-  div.innerHTML = `<input type="text" class="option-input" placeholder="Вариант ответа ${current + 1}..."><button type="button" class="btn-remove-option" onclick="removeOption(this)">✕</button>`;
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "option-input";
+  input.placeholder = `Вариант ответа ${current + 1}...`;
+  const removeBtn = document.createElement("button");
+  removeBtn.type = "button";
+  removeBtn.className = "btn-remove-option";
+  removeBtn.textContent = "✕";
+  removeBtn.onclick = function() { removeOption(this); };
+  div.appendChild(input);
+  div.appendChild(removeBtn);
   options.appendChild(div);
+  input.addEventListener("input", updatePublishButton);
   updatePublishButton();
 }
 
@@ -694,8 +766,23 @@ function updatePublishButton() {
   if (!ta || !btn) return;
   const hasText = ta.value.trim().length > 0;
   const hasImages = selectedImages.length > 0;
-  const hasPoll = getPollData() !== null;
-  btn.disabled = !(hasText || hasImages || hasPoll);
+  const pollContainer = document.getElementById("poll-container");
+  const hasPollUI = pollContainer && pollContainer.style.display !== "none";
+  
+  // Проверяем опрос: если UI показан, проверяем вопрос и варианты
+  let hasValidPoll = false;
+  if (hasPollUI) {
+    const question = document.getElementById("poll-question")?.value.trim();
+    const options = [];
+    document.querySelectorAll(".option-input").forEach((input) => {
+      const val = input.value.trim();
+      if (val) options.push(val);
+    });
+    hasValidPoll = question && options.length >= 2;
+  }
+  
+  // Кнопка активна если есть текст, изображения, или заполненный опрос
+  btn.disabled = !(hasText || hasImages || hasValidPoll);
 }
 
 // ==================== Publish Post (единая функция) ====================
@@ -755,7 +842,7 @@ async function publishPost() {
     if (data.success) {
       textarea.value = "";
       const charCount = document.getElementById("char-count");
-      if (charCount) charCount.textContent = "0/2000";
+      if (charCount) charCount.textContent = "0/5000";
       removeSelectedImages();
       removePoll();
       showNotification("Пост опубликован!", "success");
@@ -802,23 +889,27 @@ function initPostForm() {
   const textarea = document.getElementById("post-content");
   const imageInput = document.getElementById("post-image");
   const btnPublish = document.getElementById("btn-publish");
+  const pollQuestion = document.getElementById("poll-question");
   if (textarea) {
     textarea.addEventListener("input", updatePublishButton);
     const charCount = document.getElementById("char-count");
-    if (charCount) {
-      const updateCharCount = () => {
-        const len = textarea.value.length;
-        charCount.textContent = `${len}/2000`;
-        charCount.style.color =
-          len > 1900 ? "#ef4444" : len > 1800 ? "#f59e0b" : "inherit";
-      };
-      textarea.addEventListener("input", updateCharCount);
-      updateCharCount();
-    }
+      if (charCount) {
+        const updateCharCount = () => {
+          const len = textarea.value.length;
+          charCount.textContent = `${len}/5000`;
+          charCount.style.color =
+            len > 4900 ? "#ef4444" : len > 4800 ? "#f59e0b" : "inherit";
+        };
+        textarea.addEventListener("input", updateCharCount);
+        updateCharCount();
+      }
   }
   if (imageInput) {
     imageInput.removeEventListener("change", handleImageSelect);
     imageInput.addEventListener("change", handleImageSelect);
+  }
+  if (pollQuestion) {
+    pollQuestion.addEventListener("input", updatePublishButton);
   }
   if (btnPublish) btnPublish.disabled = true;
   setTimeout(updatePublishButton, 100);
@@ -843,6 +934,8 @@ window.initPostForm = initPostForm;
 window.initModalHandlers = initModalHandlers;
 window.toggleComments = openPostModal;
 window.selectedImages = selectedImages;
+window.addCommentToPost = addCommentToPost;
+window.addCommentToModal = addCommentToModal;
 
 // ==================== DOM Ready ====================
 document.addEventListener("DOMContentLoaded", () => {
@@ -851,10 +944,8 @@ document.addEventListener("DOMContentLoaded", () => {
     console.log("Feed container not found, skipping feed initialization");
     return;
   }
-  console.log("DOM loaded, initializing feed");
   const urlParams = new URLSearchParams(window.location.search);
   currentFeedType = urlParams.get("type") || "following";
-  console.log("Current feed type:", currentFeedType);
   document.querySelectorAll(".feed-filter").forEach((btn) => {
     btn.removeEventListener("click", handleFilterClick);
     btn.addEventListener("click", handleFilterClick);

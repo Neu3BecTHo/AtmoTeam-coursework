@@ -124,6 +124,7 @@ class Message extends ActiveRecord
             'encrypted_text',
             'encrypted_key',
             'content',
+            'image_urls' => function() { return $this->getImageUrls(); },
             'is_read',
             'created_at',
             'updated_at',

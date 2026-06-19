@@ -467,6 +467,9 @@ class FeedController extends Controller
         
         $postId = $comment->post_id;
         
+        // Удаляем изображения комментария если есть
+        $this->deleteCommentImages($comment);
+        
         if ($comment->delete()) {
             $post = Post::findOne($postId);
             if ($post) {
@@ -478,10 +481,32 @@ class FeedController extends Controller
         return ['success' => false, 'error' => 'Ошибка удаления'];
     }
 
+    /**
+     * Удалить изображения комментария с сервера
+     */
+    private function deleteCommentImages($comment)
+    {
+        $imageUrls = $comment->getImageUrls();
+        if (empty($imageUrls)) {
+            return;
+        }
+
+        $baseUrl = Yii::$app->request->baseUrl;
+        foreach ($imageUrls as $url) {
+            if (strpos($url, $baseUrl) === 0) {
+                $relativePath = substr($url, strlen($baseUrl));
+                $fullPath = Yii::getAlias('@webroot') . $relativePath;
+                if (file_exists($fullPath)) {
+                    @unlink($fullPath);
+                }
+            }
+        }
+    }
+
     public function actionRepost()
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
-
+        
         $authCheck = ApiValidator::requireAuth();
         if ($authCheck !== true) {
             return $authCheck;
@@ -494,12 +519,12 @@ class FeedController extends Controller
 
         $data = ApiValidator::getRequestData();
         $postId = $data['post_id'] ?? Yii::$app->request->post('post_id');
-        
+
         $post = Post::findOne($postId);
         if (!$post) {
             return ['success' => false, 'error' => 'Пост не найден'];
         }
-        
+
         $result = Repost::toggle(Yii::$app->user->id, $postId);
         
         if ($result['reposted'] && $post->user_id !== Yii::$app->user->id) {
@@ -517,7 +542,7 @@ class FeedController extends Controller
     public function actionPoll($last_check = 0)
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
-        
+
         $lastCheck = (int) $last_check;
         $now = time();
         $userId = Yii::$app->user->id;

@@ -388,22 +388,6 @@
     overflow: hidden;
 }
 
-.poll-container::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: linear-gradient(90deg, var(--primary-600) 0%, var(--primary-400) 50%, var(--primary-600) 100%);
-    animation: poll-shimmer 3s infinite;
-}
-
-@keyframes poll-shimmer {
-    0% { transform: translateX(-100%); }
-    100% { transform: translateX(100%); }
-}
-
 .poll-question-input {
     width: 100%;
     padding: var(--space-3);

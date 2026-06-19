@@ -2,6 +2,8 @@
 let currentUserId = window.currentUserId;
 let receiverId = window.receiverId;
 let selectedImageFiles = [];
+let contextMenuTimeout = null;
+let contextMenuElement = null;
 
 // === Настройки сжатия для сообщений ===
 const MSG_MAX_WIDTH = 1200;
@@ -91,7 +93,6 @@ async function handleImageSelection() {
     const preview = document.getElementById("message-image-preview");
     if (!input?.files?.length) return;
     const files = Array.from(input.files);
-    showNotification("Сжатие изображений...", "info");
     try {
         const compressed = await Promise.all(files.map(compressImage));
         selectedImageFiles = compressed;
@@ -111,9 +112,7 @@ async function handleImageSelection() {
                 reader.readAsDataURL(file);
             });
         }
-        showNotification(`${selectedImageFiles.length} изображений готово`, "success");
     } catch(err) {
-        showNotification("Ошибка сжатия, используются оригиналы", "error");
         selectedImageFiles = files;
         input.value = "";
         if (preview) preview.innerHTML = "";
@@ -213,13 +212,26 @@ async function sendImageMessage(content) {
 // ==================== Отображение сообщений ====================
 function buildMessageBubble(message) {
     const images = parseImageUrls(message.image_urls);
+    const hasText = message.content && message.content.trim().length > 0;
+    
     if (images.length === 0) {
         return `<div class="message-text" data-decrypted="false"></div>`;
     }
+    
+    // Если есть только изображения без текста - не создаём пустой блок
+    if (!hasText) {
+        if (images.length === 1) {
+            return `<div class="message-image-bubble"><img class="message-image-content" src="${escapeHtml(images[0])}" alt="Image"></div>`;
+        }
+        // несколько изображений
+        return `<div class="message-grouped-bubble">${images.map(url => `<img class="grouped-image" src="${escapeHtml(url)}" alt="Image">`).join('')}</div>`;
+    }
+    
+    // Есть и текст, и изображения
     if (images.length === 1) {
         return `<div class="message-image-bubble"><img class="message-image-content" src="${escapeHtml(images[0])}" alt="Image"></div><div class="message-text" data-decrypted="false"></div>`;
     }
-    // несколько изображений
+    // несколько изображений + текст
     return `<div class="message-grouped-bubble">${images.map(url => `<img class="grouped-image" src="${escapeHtml(url)}" alt="Image">`).join('')}</div><div class="message-text" data-decrypted="false"></div>`;
 }
 
@@ -264,33 +276,11 @@ async function addMessageToChat(message, isSent, originalText = null) {
     // Принудительно навешиваем обработчики клика на изображения в этом сообщении
     attachImageClickHandlers(msgDiv);
     
+    // Инициализируем обработчики контекстного меню для удаления
+    attachMessageContextHandlers();
+    
     scrollToBottom();
 }
-
-// Привязка обработчиков клика к изображениям
-function attachImageClickHandlers(container) {
-    const images = container.querySelectorAll('.message-image-content, .grouped-image');
-    images.forEach(img => {
-        img.removeEventListener('click', imageClickHandler);
-        img.addEventListener('click', imageClickHandler);
-    });
-}
-
-function imageClickHandler(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    viewImageMessage(this.src);
-}
-
-// Глобальный делегат на случай, если обработчики не навесились
-document.addEventListener("click", (e) => {
-    const img = e.target.closest(".message-image-content, .grouped-image");
-    if (img) {
-        e.preventDefault();
-        e.stopPropagation();
-        viewImageMessage(img.src);
-    }
-});
 
 // ==================== Поллинг и диалоги ====================
 async function markAsRead(senderId) {
@@ -383,7 +373,29 @@ async function updateUnreadCount() {
         }
     } catch {}
 }
-function viewImageMessage(imageUrl) {
+// ==================== Полноэкранный просмотр изображений ====================
+let currentMessageImages = [];
+let currentMessageImageIndex = 0;
+
+function viewImageMessage(imageElement, messageElement = null) {
+    if (!messageElement) {
+        messageElement = imageElement.closest('.message');
+    }
+    
+    const images = messageElement ? messageElement.querySelectorAll('.message-image-content, .grouped-image') : [];
+    const imageUrl = imageElement.src;
+
+    // Если в сообщении несколько изображений — открываем fullscreen с навигацией
+    if (images.length > 1) {
+        currentMessageImages = Array.from(images).map(img => img.src);
+        currentMessageImageIndex = Array.from(images).findIndex(img => img.src === imageUrl);
+        if (currentMessageImageIndex < 0) currentMessageImageIndex = 0;
+        
+        openMessageImageFullscreen(currentMessageImages[currentMessageImageIndex]);
+        return;
+    }
+    
+    // Одно изображение — простая модалка
     const existing = document.querySelector('.message-image-viewer-modal');
     if (existing) existing.remove();
     const modal = document.createElement('div');
@@ -397,6 +409,250 @@ function viewImageMessage(imageUrl) {
         </div>
     `;
     document.body.appendChild(modal);
+}
+
+function openMessageImageFullscreen(imageUrl) {
+    const existing = document.querySelector('.message-image-viewer-modal.fullscreen');
+    if (existing) existing.remove();
+    
+    const modal = document.createElement('div');
+    modal.className = 'message-image-viewer-modal fullscreen';
+    const hasMultiple = currentMessageImages.length > 1;
+    
+    modal.innerHTML = `
+        <div class="image-viewer-overlay" onclick="closeMessageImageFullscreen()"></div>
+        <div class="image-viewer-content" onclick="event.stopPropagation()">
+            <button class="image-viewer-close-btn" onclick="closeMessageImageFullscreen()">✕</button>
+            <img class="image-viewer-image" src="${escapeHtml(imageUrl)}" alt="Full size image">
+        </div>
+        ${hasMultiple ? `
+            <button class="image-viewer-prev" data-action="prev">‹</button>
+            <button class="image-viewer-next" data-action="next">›</button>
+            <div class="image-viewer-counter">${currentMessageImageIndex + 1} / ${currentMessageImages.length}</div>
+        ` : ''}
+    `;
+    document.body.appendChild(modal);
+    document.body.style.overflow = 'hidden';
+    
+    // Навешиваем обработчики на кнопки
+    if (hasMultiple) {
+        const prevBtn = modal.querySelector('.image-viewer-prev');
+        const nextBtn = modal.querySelector('.image-viewer-next');
+        
+        if (prevBtn) {
+            prevBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                prevMessageImage();
+            });
+        }
+        
+        if (nextBtn) {
+            nextBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                nextMessageImage();
+            });
+        }
+    }
+}
+    
+function closeMessageImageFullscreen() {
+    const modal = document.querySelector('.message-image-viewer-modal.fullscreen');
+    if (modal) {
+        modal.remove();
+        document.body.style.overflow = '';
+    }
+}
+
+function prevMessageImage(e) {
+    e?.preventDefault();
+    e?.stopPropagation();
+    if (currentMessageImages.length <= 1) return;
+    currentMessageImageIndex = (currentMessageImageIndex - 1 + currentMessageImages.length) % currentMessageImages.length;
+    updateMessageImage();
+}
+
+function nextMessageImage(e) {
+    e?.preventDefault();
+    e?.stopPropagation();
+    if (currentMessageImages.length <= 1) return;
+    currentMessageImageIndex = (currentMessageImageIndex + 1) % currentMessageImages.length;
+    updateMessageImage();
+}
+
+function updateMessageImage() {
+    const modal = document.querySelector('.message-image-viewer-modal.fullscreen');
+    if (!modal) return;
+    
+    const img = modal.querySelector('.image-viewer-image');
+    const counter = modal.querySelector('.image-viewer-counter');
+    
+    if (img) {
+        img.style.opacity = '0';
+        setTimeout(() => {
+            img.src = currentMessageImages[currentMessageImageIndex];
+            img.style.opacity = '1';
+        }, 150);
+    }
+    
+    if (counter) {
+        counter.textContent = `${currentMessageImageIndex + 1} / ${currentMessageImages.length}`;
+    }
+}
+
+// Обработчик клавиш для навигации
+document.addEventListener('keydown', (e) => {
+    const modal = document.querySelector('.message-image-viewer-modal.fullscreen');
+    if (!modal) return;
+    
+    if (e.key === 'Escape') {
+        closeMessageImageFullscreen();
+    } else if (e.key === 'ArrowLeft') {
+        prevMessageImage();
+    } else if (e.key === 'ArrowRight') {
+        nextMessageImage();
+    }
+});
+
+function showContextMenu(e, messageId, isOwn) {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!isOwn) return; // Можно удалять только свои сообщения
+    
+    hideContextMenu();
+    
+    const menu = document.createElement('div');
+    menu.className = 'message-context-menu';
+    menu.innerHTML = `
+        <button class="context-menu-item delete-message-btn" onclick="deleteMessage(${messageId})">
+            🗑️ Удалить
+        </button>
+    `;
+    
+    // Позиционируем меню
+    const x = e.type === 'contextmenu' ? e.clientX : e.touches[0].clientX;
+    const y = e.type === 'contextmenu' ? e.clientY : e.touches[0].clientY;
+    menu.style.left = `${Math.min(x, window.innerWidth - 150)}px`;
+    menu.style.top = `${Math.min(y, window.innerHeight - 100)}px`;
+    
+    document.body.appendChild(menu);
+    contextMenuElement = menu;
+    
+    // Закрываем меню при клике вне его
+    setTimeout(() => {
+        document.addEventListener('click', hideContextMenu);
+    }, 100);
+}
+
+function hideContextMenu() {
+    if (contextMenuElement) {
+        contextMenuElement.remove();
+        contextMenuElement = null;
+    }
+    document.removeEventListener('click', hideContextMenu);
+}
+
+async function deleteMessage(messageId) {
+    hideContextMenu();
+    
+    // Используем кастомную модалку вместо browser confirm
+    if (typeof window.showDeleteModal === 'function') {
+        window.showDeleteModal('Удалить это сообщение?', async () => {
+            try {
+                const response = await postJson('/api/message/delete', { message_id: messageId });
+                
+                if (response.success) {
+                    showNotification('Сообщение удалено', 'success');
+                    
+                    // Удаляем сообщение из DOM
+                    const messageEl = document.querySelector(`.message[data-message-id="${messageId}"]`);
+                    if (messageEl) {
+                        messageEl.style.transition = 'opacity 0.3s ease';
+                        messageEl.style.opacity = '0';
+                        setTimeout(() => messageEl.remove(), 300);
+                    }
+                    
+                    // Удаляем из localStorage если есть
+                    const sentMessages = JSON.parse(localStorage.getItem('sent_messages') || '{}');
+                    delete sentMessages[messageId];
+                    localStorage.setItem('sent_messages', JSON.stringify(sentMessages));
+                } else {
+                    showNotification(response.error || 'Ошибка удаления', 'error');
+                }
+            } catch (error) {
+                console.error('Delete message error:', error);
+                showNotification('Ошибка удаления', 'error');
+            }
+        });
+    } else {
+        // Fallback если showDeleteModal недоступна
+        if (!confirm('Удалить это сообщение?')) return;
+        
+        try {
+            const response = await postJson('/api/message/delete', { message_id: messageId });
+            
+            if (response.success) {
+                showNotification('Сообщение удалено', 'success');
+                
+                const messageEl = document.querySelector(`.message[data-message-id="${messageId}"]`);
+                if (messageEl) {
+                    messageEl.style.transition = 'opacity 0.3s ease';
+                    messageEl.style.opacity = '0';
+                    setTimeout(() => messageEl.remove(), 300);
+                }
+                
+                const sentMessages = JSON.parse(localStorage.getItem('sent_messages') || '{}');
+                delete sentMessages[messageId];
+                localStorage.setItem('sent_messages', JSON.stringify(sentMessages));
+            } else {
+                showNotification(response.error || 'Ошибка удаления', 'error');
+            }
+        } catch (error) {
+            console.error('Delete message error:', error);
+            showNotification('Ошибка удаления', 'error');
+        }
+    }
+}
+
+function attachMessageContextHandlers() {
+    const container = document.getElementById('messages-container');
+    if (!container) return;
+    
+    container.querySelectorAll('.message').forEach(msg => {
+        const messageId = msg.dataset.messageId;
+        const isSent = msg.classList.contains('sent');
+        const isOwn = isSent && parseInt(messageId) > 0;
+        
+        if (isOwn && messageId && !msg.dataset.contextHandler) {
+            msg.dataset.contextHandler = 'true';
+            
+            // Правая кнопка мыши (десктоп)
+            msg.addEventListener('contextmenu', (e) => {
+                showContextMenu(e, messageId, isOwn);
+            });
+            
+            // Долгий тап (мобильные)
+            let touchTimer = null;
+            msg.addEventListener('touchstart', (e) => {
+                if (!isOwn) return;
+                touchTimer = setTimeout(() => {
+                    showContextMenu(e, messageId, isOwn);
+                    // Вибрация для обратной связи
+                    if (navigator.vibrate) navigator.vibrate(50);
+                }, 500);
+            }, { passive: true });
+            
+            msg.addEventListener('touchend', () => {
+                if (touchTimer) clearTimeout(touchTimer);
+            });
+            
+            msg.addEventListener('touchmove', () => {
+                if (touchTimer) clearTimeout(touchTimer);
+            });
+        }
+    });
 }
 
 // ==================== Инициализация обработчиков ====================
@@ -427,6 +683,22 @@ function initMessageHandlers() {
             });
         }
     }
+    
+    // Инициализируем обработчики для клика по изображениям (делегирование)
+    const container = document.getElementById('messages-container');
+    if (container) {
+        container.addEventListener('click', function(e) {
+            const img = e.target.closest('.message-image-content, .grouped-image');
+            if (img) {
+                e.preventDefault();
+                e.stopPropagation();
+                viewImageMessage(img, img.closest('.message'));
+            }
+        });
+    }
+    
+    // Инициализируем обработчики контекстного меню для удаления сообщений
+    attachMessageContextHandlers();
 }
 
 // ==================== Точка входа ====================
@@ -446,3 +718,10 @@ document.addEventListener("DOMContentLoaded", () => {
 window.sendMessage = sendMessage;
 window.removeImageMessage = removeImageMessage;
 window.viewImageMessage = viewImageMessage;
+window.deleteMessage = deleteMessage;
+window.showContextMenu = showContextMenu;
+window.hideContextMenu = hideContextMenu;
+window.closeMessageImageFullscreen = closeMessageImageFullscreen;
+window.prevMessageImage = prevMessageImage;
+window.nextMessageImage = nextMessageImage;
+window.openMessageImageFullscreen = openMessageImageFullscreen;

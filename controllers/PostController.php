@@ -240,10 +240,39 @@ class PostController extends Controller
             return ['success' => false, 'error' => 'Нет прав на удаление'];
         }
 
+        // Удаляем изображения с сервера
+        $this->deletePostImages($post);
+
         if ($post->delete()) {
             return ['success' => true];
         }
 
         return ['success' => false, 'error' => 'Ошибка удаления'];
+    }
+
+    /**
+     * Удалить изображения поста с сервера
+     */
+    private function deletePostImages($post)
+    {
+        $images = $post->getImages()->all();
+        foreach ($images as $image) {
+            $imageFile = Yii::getAlias('@webroot') . $image->file_path;
+            if (file_exists($imageFile)) {
+                @unlink($imageFile);
+            }
+            $image->delete();
+        }
+        
+        // Также удаляем сжатые версии если есть
+        $imagePaths = $post->getImagePaths();
+        if (!empty($imagePaths)) {
+            foreach ($imagePaths as $path) {
+                $fullPath = Yii::getAlias('@webroot') . $path;
+                if (file_exists($fullPath)) {
+                    @unlink($fullPath);
+                }
+            }
+        }
     }
 }

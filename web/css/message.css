@@ -371,6 +371,7 @@
 }
 
 /* Image Viewer Modal */
+/* Image Viewer Modal */
 .message-image-viewer-modal {
     position: fixed;
     top: 0;
@@ -378,15 +379,17 @@
     width: 100%;
     height: 100%;
     z-index: 99999;
-}
-
-.message-image-viewer-modal .image-viewer-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.95);
     display: flex;
     align-items: center;
     justify-content: center;
+    background: rgba(0, 0, 0, 0.95);
+}
+
+.message-image-viewer-modal .image-viewer-overlay {
+    position: absolute;
+    inset: 0;
+    background: transparent;
+    display: block;
     cursor: pointer;
 }
 
@@ -396,6 +399,149 @@
     max-height: 90vh;
     background: transparent;
     cursor: default;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.message-image-viewer-modal .image-viewer-image {
+    max-width: 100%;
+    max-height: 85vh;
+    border-radius: 16px;
+    object-fit: contain;
+    display: block;
+    margin: 0 auto;
+}
+
+.message-image-viewer-modal .image-viewer-overlay {
+    position: absolute;
+    inset: 0;
+    background: transparent;
+    display: block;
+    cursor: pointer;
+}
+
+.message-image-viewer-modal .image-viewer-content {
+    position: relative;
+    max-width: 90vw;
+    max-height: 90vh;
+    background: transparent;
+    cursor: default;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.message-image-viewer-modal .image-viewer-image {
+    max-width: 100%;
+    max-height: 85vh;
+    border-radius: 16px;
+    object-fit: contain;
+    display: block;
+    margin: 0 auto;
+}
+
+.message-image-viewer-modal .image-viewer-overlay {
+    position: absolute;
+    inset: 0;
+    background: transparent;
+    display: block;
+    cursor: pointer;
+}
+
+.message-image-viewer-modal .image-viewer-content {
+    position: relative;
+    max-width: 90vw;
+    max-height: 90vh;
+    background: transparent;
+    cursor: default;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.message-image-viewer-modal .image-viewer-image {
+    max-width: 100%;
+    max-height: 85vh;
+    border-radius: 16px;
+    object-fit: contain;
+    display: block;
+    margin: 0 auto;
+}
+
+.message-image-viewer-modal .image-viewer-overlay {
+    position: absolute;
+    inset: 0;
+    background: transparent;
+    display: block;
+    cursor: pointer;
+}
+
+.message-image-viewer-modal .image-viewer-content {
+    position: relative;
+    max-width: 90vw;
+    max-height: 90vh;
+    background: transparent;
+    cursor: default;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.message-image-viewer-modal .image-viewer-image {
+    max-width: 100%;
+    max-height: 85vh;
+    border-radius: 16px;
+    object-fit: contain;
+    display: block;
+    margin: 0 auto;
+}
+
+.message-image-viewer-modal .image-viewer-overlay {
+    position: absolute;
+    inset: 0;
+    background: transparent;
+    display: block;
+    cursor: pointer;
+}
+
+.message-image-viewer-modal .image-viewer-content {
+    position: relative;
+    max-width: 90vw;
+    max-height: 90vh;
+    background: transparent;
+    cursor: default;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.message-image-viewer-modal .image-viewer-image {
+    max-width: 100%;
+    max-height: 85vh;
+    border-radius: 16px;
+    object-fit: contain;
+    display: block;
+    margin: 0 auto;
+}
+
+.message-image-viewer-modal .image-viewer-overlay {
+    position: absolute;
+    inset: 0;
+    background: transparent;
+    display: block;
+    cursor: pointer;
+}
+
+.message-image-viewer-modal .image-viewer-content {
+    position: relative;
+    max-width: 90vw;
+    max-height: 90vh;
+    background: transparent;
+    cursor: default;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .message-image-viewer-modal .image-viewer-image {
@@ -429,7 +575,172 @@
     transform: scale(1.1);
 }
 
-/* Responsive */
+.message-image-viewer-modal .image-viewer-overlay {
+    position: fixed;
+    inset: 0;
+    background: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.message-image-viewer-modal .image-viewer-content {
+    position: relative;
+    max-width: 90vw;
+    max-height: 90vh;
+    background: transparent;
+    cursor: default;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: auto;
+}
+
+.message-image-viewer-modal .image-viewer-image {
+    max-width: 100%;
+    max-height: 85vh;
+    border-radius: 16px;
+    object-fit: contain;
+    display: block;
+    margin: auto;
+}
+
+.message-image-viewer-modal .image-viewer-close-btn {
+    position: absolute;
+    top: -40px;
+    right: -40px;
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    transition: all 0.2s;
+}
+
+.message-image-viewer-modal .image-viewer-close-btn:hover {
+    background: rgba(255, 255, 255, 0.4);
+    transform: scale(1.1);
+}
+
+/* Навигация для нескольких изображений */
+.message-image-viewer-modal.fullscreen .image-viewer-prev,
+.message-image-viewer-modal.fullscreen .image-viewer-next {
+    position: fixed;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(0, 0, 0, 0.5);
+    color: white;
+    border: none;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    font-size: 24px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    z-index: 100001;
+}
+
+.message-image-viewer-modal.fullscreen .image-viewer-prev {
+    left: 20px;
+}
+
+.message-image-viewer-modal.fullscreen .image-viewer-next {
+    right: 20px;
+}
+
+.message-image-viewer-modal.fullscreen .image-viewer-prev:hover,
+.message-image-viewer-modal.fullscreen .image-viewer-next:hover {
+    background: rgba(0, 0, 0, 0.8);
+    transform: translateY(-50%) scale(1.1);
+}
+
+.message-image-viewer-modal.fullscreen .image-viewer-counter {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 600;
+    z-index: 100001;
+}
+
+.message-image-viewer-modal.fullscreen .image-viewer-image {
+    transition: opacity 0.15s ease;
+}
+
+/* ==================== Context Menu ==================== */
+.message-context-menu {
+    position: fixed;
+    z-index: 100002;
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    border: 1px solid #e0e0e0;
+    overflow: hidden;
+    min-width: 150px;
+    animation: contextMenuFadeIn 0.15s ease;
+}
+
+@keyframes contextMenuFadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.9);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.context-menu-item {
+    display: block;
+    width: 100%;
+    padding: 12px 16px;
+    background: none;
+    border: none;
+    border-bottom: 1px solid #f0f0f0;
+    text-align: left;
+    font-size: 14px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.2s;
+    color: #333333;
+}
+
+.context-menu-item:last-child {
+    border-bottom: none;
+}
+
+.context-menu-item:hover {
+    background: #f5f5f5;
+}
+
+.context-menu-item.delete-story-btn,
+.context-menu-item.delete-message-btn {
+    color: #e74c3c;
+    font-weight: 500;
+}
+
+.context-menu-item.delete-story-btn:hover,
+.context-menu-item.delete-message-btn:hover {
+    background: #ffeaea;
+}
+
+/* ==================== Responsive ==================== */
 @media (max-width: 768px) {
     .message-container {
         padding: var(--space-3);

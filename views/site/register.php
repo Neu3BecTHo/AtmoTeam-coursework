@@ -73,6 +73,11 @@ $this->registerCssFile('@web/css/auth.css');
     margin-bottom: var(--space-4);
 }
 
+.form-actions {
+    display: flex;
+    justify-content: center !important;
+}
+
 .password-strength {
     margin-top: var(--space-2);
     padding: var(--space-2);

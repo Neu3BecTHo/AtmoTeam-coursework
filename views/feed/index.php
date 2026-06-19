@@ -38,33 +38,6 @@ window.feedType = <?= json_encode($feedType) ?>;
         </div>
     </div>
 
-    <!-- Stories Section -->
-    <?php if (!Yii::$app->user->isGuest && !empty($storiesByUser)): ?>
-    <div class="feed-stories-section">
-        <div class="stories-scroll-wrapper">
-            <button class="scroll-btn scroll-btn-left" onclick="scrollStories(-1)" aria-label="Прокрутить влево">‹</button>
-            <div class="stories-grid" id="feed-stories-grid">
-                <?php foreach ($storiesByUser as $userId => $userStories): ?>
-                    <?php $firstStory = $userStories[0]; $author = $firstStory->user; ?>
-                    <?= $this->render('//story/_user_stories', [
-                        'userId' => $userId,
-                        'userStories' => $userStories,
-                        'author' => $author,
-                        'context' => 'feed',
-                    ]) ?>
-                <?php endforeach; ?>
-            </div>
-            <button class="scroll-btn scroll-btn-right" onclick="scrollStories(1)" aria-label="Прокрутить вправо">›</button>
-        </div>
-    </div>
-    <?php elseif (!Yii::$app->user->isGuest): ?>
-    <div class="stories-empty">
-        <div class="stories-empty-icon">📸</div>
-        <p>У ваших подписок пока нет историй</p>
-        <button class="btn-create-story" onclick="showStoryUpload()">➕ Создать историю</button>
-    </div>
-    <?php endif; ?>
-
     <div class="feed-content">
         <!-- Форма создания поста -->
         <?php if (!Yii::$app->user->isGuest): ?>
@@ -97,19 +70,6 @@ window.feedType = <?= json_encode($feedType) ?>;
             </div>
         </div>
     </div>
-</div>
-
-<!-- Story View Modal -->
-<div class="story-view-modal" id="story-view-modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <button class="btn-close" onclick="hideStoryView()">&times;</button>
-        </div>
-        <div class="modal-body">
-            <div class="story-view-content" id="story-view-content"></div>
-        </div>
-    </div>
-    <button class="fullscreen-exit-btn" onclick="exitFullscreenStory()" style="display: none;">✕ Выйти</button>
 </div>
 
 <!-- Fullscreen Image Viewer Modal -->
@@ -283,6 +243,7 @@ $css = <<<CSS
     border-radius: var(--radius-lg);
     padding: var(--space-4);
     margin-top: var(--space-2);
+    animation: none;
 }
 
 .poll-header {

@@ -331,20 +331,30 @@ function initCommentForm(postId) {
             });
             const result = await response.json();
             
-            if (result.success) {
+            if (result.success && result.comment) {
                 textarea.value = '';
                 updateCounter();
                 
-                // Перезагружаем комментарии
-                if (typeof window.loadComments === 'function') {
-                    await window.loadComments(postId, 'modal-comments-list');
+                // Добавляем комментарий в список
+                if (typeof window.addCommentToModal === 'function') {
+                    window.addCommentToModal(result.comment);
                 }
                 
-                // Обновляем счётчик комментариев в заголовке
+                // Обновляем счётчик комментариев в заголовке модалки
                 const headerCount = document.querySelector('#post-modal .comments-header__count');
                 if (headerCount) {
                     const current = parseInt(headerCount.textContent) || 0;
                     headerCount.textContent = current + 1;
+                }
+                
+                // Обновляем счётчик в карточке поста в ленте
+                const postCard = document.querySelector(`.post-card[data-post-id="${postId}"]`);
+                if (postCard) {
+                    const commentCountEl = postCard.querySelector('.btn-comment-toggle .action-count');
+                    if (commentCountEl) {
+                        const current = parseInt(commentCountEl.textContent) || 0;
+                        commentCountEl.textContent = current + 1;
+                    }
                 }
                 
                 showNotification('Комментарий добавлен!', 'success');
@@ -497,11 +507,21 @@ async function deleteComment(commentId, postId) {
                 const commentEl = document.querySelector(`.comment-item[data-comment-id="${commentId}"]`);
                 if (commentEl) commentEl.remove();
                 
-                // Обновляем счётчик комментариев
+                // Обновляем счётчик комментариев в заголовке модалки
                 const commentsHeaderCount = document.querySelector('#post-modal .comments-header__count');
                 if (commentsHeaderCount) {
                     const currentCount = parseInt(commentsHeaderCount.textContent) || 0;
                     commentsHeaderCount.textContent = Math.max(0, currentCount - 1);
+                }
+                
+                // Обновляем счётчик в карточке поста в ленте
+                const postCard = document.querySelector(`.post-card[data-post-id="${postId}"]`);
+                if (postCard) {
+                    const commentCountEl = postCard.querySelector('.btn-comment-toggle .action-count');
+                    if (commentCountEl) {
+                        const current = parseInt(commentCountEl.textContent) || 0;
+                        commentCountEl.textContent = Math.max(0, current - 1);
+                    }
                 }
                 
                 // Если комментариев не осталось, показываем пустое состояние
@@ -843,11 +863,16 @@ function openImageFullscreen(imageUrl, totalCount = 1, index = 0) {
         `;
         document.body.appendChild(modal);
         
-        // Навешиваем обработчики
-        modal.querySelector('.fullscreen-image-overlay').onclick = () => closeFullscreenImage();
-        modal.querySelector('.fullscreen-image-close').onclick = () => closeFullscreenImage();
-        modal.querySelector('.fullscreen-image-prev').onclick = () => prevFullscreenImage();
-        modal.querySelector('.fullscreen-image-next').onclick = () => nextFullscreenImage();
+        // Навешиваем обработчики через addEventListener для надёжности
+        const overlay = modal.querySelector('.fullscreen-image-overlay');
+        const closeBtn = modal.querySelector('.fullscreen-image-close');
+        const prevBtn = modal.querySelector('.fullscreen-image-prev');
+        const nextBtn = modal.querySelector('.fullscreen-image-next');
+        
+        if (overlay) overlay.addEventListener('click', closeFullscreenImage);
+        if (closeBtn) closeBtn.addEventListener('click', closeFullscreenImage);
+        if (prevBtn) prevBtn.addEventListener('click', (e) => { e.preventDefault(); prevFullscreenImage(); });
+        if (nextBtn) nextBtn.addEventListener('click', (e) => { e.preventDefault(); nextFullscreenImage(); });
     }
     
     // Собираем все изображения из поста

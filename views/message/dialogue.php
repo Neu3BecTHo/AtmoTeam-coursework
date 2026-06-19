@@ -6,6 +6,13 @@ use yii\helpers\Url;
 
 AppAsset::register($this);
 
+/**
+ * @var \yii\web\View $this
+ * @var \app\models\User $otherUser
+ * @var \app\models\Message[] $messages
+ * @var \app\models\User $currentUser
+ */
+
 $this->title = 'Диалог с ' . Html::encode($otherUser->username);
 $this->registerCssFile('@web/css/message.css');
 

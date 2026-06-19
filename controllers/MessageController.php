@@ -30,7 +30,7 @@ class MessageController extends Controller
                 'class' => AccessControl::class,
                 'rules' => [
                     [
-                        'actions' => ['index', 'dialogue', 'get-dialogue', 'send', 'mark-read', 'unread-count', 'get-dialogues', 'upload-images'],
+                        'actions' => ['index', 'dialogue', 'get-dialogue', 'send', 'mark-read', 'unread-count', 'get-dialogues', 'upload-images', 'delete'],
                         'allow' => true,
                         'roles' => ['@'],
                     ],
@@ -209,6 +209,63 @@ class MessageController extends Controller
         $userId = Yii::$app->user->id;
         $dialogues = Message::getDialogues($userId);
         return ['success' => true, 'dialogues' => $dialogues];
+    }
+
+    /**
+     * API: Удалить сообщение (только своё)
+     */
+    public function actionDelete()
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        $data = json_decode(Yii::$app->request->getRawBody(), true);
+        $messageId = (int) ($data['message_id'] ?? 0);
+
+        if (!$messageId) {
+            return ['success' => false, 'error' => 'Неверный ID сообщения'];
+        }
+
+        $message = Message::findOne($messageId);
+        if (!$message) {
+            return ['success' => false, 'error' => 'Сообщение не найдено'];
+        }
+
+        // Можно удалять только свои сообщения
+        if ($message->sender_id !== Yii::$app->user->id) {
+            return ['success' => false, 'error' => 'Нельзя удалить чужое сообщение'];
+        }
+
+        // Удаляем изображения с сервера
+        $this->deleteMessageImages($message);
+
+        if ($message->delete()) {
+            return ['success' => true];
+        }
+
+        return ['success' => false, 'error' => 'Ошибка удаления сообщения'];
+    }
+
+    /**
+     * Удалить изображения сообщения с сервера
+     */
+    private function deleteMessageImages($message)
+    {
+        $imageUrls = $message->getImageUrls();
+        if (empty($imageUrls)) {
+            return;
+        }
+
+        $baseUrl = Yii::$app->request->baseUrl;
+        foreach ($imageUrls as $url) {
+            // Преобразуем URL в путь к файлу
+            if (strpos($url, $baseUrl) === 0) {
+                $relativePath = substr($url, strlen($baseUrl));
+                $fullPath = Yii::getAlias('@webroot') . $relativePath;
+                if (file_exists($fullPath)) {
+                    @unlink($fullPath);
+                }
+            }
+        }
     }
 
     /**

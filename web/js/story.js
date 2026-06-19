@@ -3,6 +3,7 @@ let selectedImageFile = null;
 let currentStoryIndex = 0;
 let currentUserStories = [];
 let storyModal = null;
+let storyContextMenu = null;
 
 // === Настройки сжатия для историй ===
 const STORY_MAX_WIDTH = 1200;
@@ -33,6 +34,73 @@ function escapeHtml(str) {
 function resetImageInput() {
     const input = document.getElementById("story-image-input");
     if (input) input.value = "";
+}
+
+// ==================== View Story - используем fullscreen image viewer как в постах ====================
+function viewStory(storyId) {
+    const storyEl = document.querySelector(`.story-item[data-story-id="${storyId}"]`);
+    if (!storyEl) {
+        showNotification("Ошибка: не удалось найти историю", "error");
+        return;
+    }
+
+    const imageUrl = storyEl.querySelector('.story-image')?.src;
+    const author = storyEl.querySelector('.username')?.textContent || 'Пользователь';
+    
+    if (imageUrl) {
+        // Сохраняем текущие истории для навигации
+        const userStoriesBlock = storyEl.closest('.user-stories');
+        if (userStoriesBlock) {
+            const userId = userStoriesBlock.dataset.userId;
+            loadUserStoriesForFullscreen(userId, storyId);
+        } else {
+            // Если нет блока, просто открываем изображение
+            openImageFullscreen(imageUrl, 1, 0);
+        }
+    }
+}
+
+// Загрузка историй пользователя для навигации в fullscreen viewer
+function loadUserStoriesForFullscreen(userId, currentStoryId) {
+    fetch(`/api/story/get?user_id=${userId}`)
+        .then(r => r.json())
+        .then(data => {
+            if (data.success && data.stories && data.stories.length > 0) {
+                currentUserStories = data.stories;
+                const index = currentUserStories.findIndex(s => s.id == currentStoryId);
+                currentStoryIndex = index !== -1 ? index : 0;
+                
+                // Открываем fullscreen viewer
+                const story = currentUserStories[currentStoryIndex];
+                if (story) {
+                    openImageFullscreen(story.image_url, currentUserStories.length, currentStoryIndex);
+                    // Обновляем counter с именем автора
+                    const counter = document.getElementById('fullscreen-image-counter');
+                    if (counter) {
+                        counter.textContent = `${story.author?.username || 'История'} ${currentStoryIndex + 1}/${currentUserStories.length}`;
+                    }
+                    
+                    // Навешиваем обработчики для кнопок навигации
+                    setTimeout(() => {
+                        const prevBtn = document.querySelector('.fullscreen-image-prev');
+                        const nextBtn = document.querySelector('.fullscreen-image-next');
+                        if (prevBtn) {
+                            prevBtn.addEventListener('click', (e) => {
+                                e.preventDefault();
+                                prevStoryImage();
+                            });
+                        }
+                        if (nextBtn) {
+                            nextBtn.addEventListener('click', (e) => {
+                                e.preventDefault();
+                                nextStoryImage();
+                            });
+                        }
+                    }, 100);
+                }
+            }
+        })
+        .catch(e => console.error('Ошибка загрузки историй:', e));
 }
 
 // ==================== Сжатие изображения для истории ====================
@@ -84,7 +152,6 @@ async function compressStoryImage(file) {
                             type: mime,
                             lastModified: Date.now(),
                         });
-                        console.log(`Сжатие истории: ${(file.size / 1024).toFixed(1)} KB → ${(compressed.size / 1024).toFixed(1)} KB`);
                         resolve(compressed);
                     },
                     mime,
@@ -95,143 +162,6 @@ async function compressStoryImage(file) {
         };
         reader.onerror = () => reject(new Error("Ошибка чтения файла"));
     });
-}
-
-// ==================== Modal Management ====================
-function ensureStoryModal() {
-    if (storyModal) return;
-    storyModal = document.createElement("div");
-    storyModal.className = "story-view-modal";
-    storyModal.id = "story-view-modal";
-    storyModal.innerHTML = `
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 class="modal-title">История</h3>
-                <button class="modal-close" onclick="closeStoryModal()">&times;</button>
-            </div>
-            <div class="modal-body" id="story-modal-body">
-                <div class="story-view-wrapper"></div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn-prev-story" onclick="prevStory()">← Предыдущая</button>
-                <button class="btn-next-story" onclick="nextStory()">Следующая →</button>
-            </div>
-        </div>
-    `;
-    document.body.appendChild(storyModal);
-    storyModal.addEventListener("click", (e) => {
-        if (e.target === storyModal) closeStoryModal();
-    });
-}
-
-async function openStoryModal(storyId, userId) {
-    ensureStoryModal();
-    if (!userId) {
-        const storyEl = document.querySelector(`.story-item[data-story-id="${storyId}"]`);
-        if (storyEl) userId = storyEl.dataset.userId;
-    }
-    if (!userId) {
-        showNotification("Не удалось определить пользователя", "error");
-        return;
-    }
-
-    try {
-        const response = await fetch(`/api/story/get?user_id=${userId}`);
-        const data = await response.json();
-        if (!data.success || !data.stories.length) {
-            showNotification("Истории не найдены", "error");
-            return;
-        }
-        currentUserStories = data.stories;
-        const index = currentUserStories.findIndex((s) => s.id == storyId);
-        currentStoryIndex = index !== -1 ? index : 0;
-        renderStoryInModal(currentUserStories[currentStoryIndex]);
-        storyModal.classList.add("show");
-        document.body.style.overflow = "hidden";
-    } catch (error) {
-        console.error(error);
-        showNotification("Ошибка загрузки истории", "error");
-    }
-}
-
-function renderStoryInModal(story) {
-    const wrapper = storyModal.querySelector(".story-view-wrapper");
-    if (!wrapper) return;
-
-    const timeAgo = story.timeAgo || "";
-    const timeLeft = story.time_left || "24ч";
-    const caption = story.caption || "";
-    const isOwner = window.currentUserId && story.user_id == window.currentUserId;
-    const author = story.author || {};
-
-    wrapper.innerHTML = `
-        <div class="story-view-header">
-            <div class="story-view-avatar">
-                <img src="${escapeHtml(author.avatar || "")}" alt="${escapeHtml(author.username || "")}">
-            </div>
-            <div class="story-view-info">
-                <div class="story-view-username">${escapeHtml(author.username || "Пользователь")}</div>
-                <div class="story-view-time">${escapeHtml(timeAgo)}</div>
-            </div>
-        </div>
-        <div class="story-view-image-container" onclick="toggleFullscreenStory(${story.id})">
-            <img class="story-view-image" src="${escapeHtml(story.image_url)}" alt="История">
-        </div>
-        ${caption ? `<div class="story-view-caption">${escapeHtml(caption)}</div>` : ""}
-        <div class="story-view-meta">
-            <span>⏱️ ${escapeHtml(timeLeft)}</span>
-            <span>👁️ ${story.views_count || 0} просмотров</span>
-            ${isOwner ? `<button class="btn-delete-story" onclick="deleteStory(${story.id})">🗑️ Удалить</button>` : ""}
-        </div>
-    `;
-
-    const titleEl = storyModal.querySelector(".modal-title");
-    if (titleEl) titleEl.textContent = `История ${currentStoryIndex + 1} из ${currentUserStories.length}`;
-
-    const prevBtn = storyModal.querySelector(".btn-prev-story");
-    const nextBtn = storyModal.querySelector(".btn-next-story");
-    if (prevBtn) prevBtn.disabled = currentStoryIndex === 0;
-    if (nextBtn) nextBtn.disabled = currentStoryIndex === currentUserStories.length - 1;
-}
-
-function nextStory() {
-    if (currentStoryIndex + 1 < currentUserStories.length) {
-        currentStoryIndex++;
-        renderStoryInModal(currentUserStories[currentStoryIndex]);
-    }
-}
-
-function prevStory() {
-    if (currentStoryIndex - 1 >= 0) {
-        currentStoryIndex--;
-        renderStoryInModal(currentUserStories[currentStoryIndex]);
-    }
-}
-
-function closeStoryModal() {
-    if (storyModal) {
-        storyModal.classList.remove("show");
-        document.body.style.overflow = "";
-        const wrapper = storyModal.querySelector(".story-view-wrapper");
-        if (wrapper) wrapper.innerHTML = "";
-        currentUserStories = [];
-        currentStoryIndex = 0;
-    }
-}
-
-function toggleFullscreenStory(storyId) {
-    if (storyModal) storyModal.classList.toggle("fullscreen");
-}
-
-// ==================== View Story (entry point) ====================
-async function viewStory(storyId) {
-    const storyEl = document.querySelector(`.story-item[data-story-id="${storyId}"]`);
-    const userId = storyEl ? storyEl.dataset.userId : null;
-    if (userId) {
-        openStoryModal(storyId, userId);
-    } else {
-        showNotification("Ошибка: не удалось найти историю", "error");
-    }
 }
 
 // ==================== Upload & Delete ====================
@@ -310,11 +240,6 @@ async function handleImageFile(file) {
         return;
     }
 
-    if (file.size > 10 * 1024 * 1024) {
-        showNotification(`Файл большой (${(file.size / 1024 / 1024).toFixed(1)}MB), сжатие может занять несколько секунд...`, "info");
-    } else {
-        showNotification("Сжатие изображения... (WebP)", "info");
-    }
 
     try {
         const compressed = await compressStoryImage(file);
@@ -344,7 +269,6 @@ async function handleImageFile(file) {
             }
         };
         reader.readAsDataURL(compressed);
-        showNotification(`Готово: ${(compressed.size / 1024 / 1024).toFixed(2)} MB`, "success");
     } catch (err) {
         console.error("Ошибка сжатия:", err);
         showNotification("Не удалось сжать изображение. Попробуйте другое фото или меньшего размера.", "error");
@@ -473,6 +397,7 @@ function addStoryToGrid(story) {
         const storyEl = createStoryElement(story);
         storiesList.appendChild(storyEl);
         initAllStoryScrolling();
+        attachStoryContextMenuHandlers();
     }
 }
 
@@ -554,6 +479,7 @@ function addStoryToFeedGrid(story) {
         storiesList.removeAttribute('data-scroll-initialized');
     }
     initAllStoryScrolling();
+    attachStoryContextMenuHandlers();
 }
 
 function createStoryElement(story) {
@@ -565,12 +491,11 @@ function createStoryElement(story) {
     const timeLeft = story.time_left || "24ч";
     storyEl.innerHTML = `
         <div class="story-image-container">
-            <img class="story-image" src="${story.image_url}" alt="История" onclick="viewStory(${story.id})">
+            <img class="story-image" src="${story.image_url}" alt="История" onclick="event.stopPropagation(); viewStory(${story.id})">
             <div class="story-time-left">⏱️ ${escapeHtml(timeLeft)}</div>
             ${story.caption ? `<div class="story-caption">${escapeHtml(story.caption)}</div>` : ""}
             <div class="story-overlay-buttons">
                 <button class="story-view-btn" onclick="event.stopPropagation(); viewStory(${story.id})" title="Просмотр">👁️</button>
-                ${isOwner ? `<button class="story-delete-btn" onclick="event.stopPropagation(); deleteStory(${story.id})" title="Удалить">🗑️</button>` : ""}
             </div>
         </div>
     `;
@@ -625,9 +550,8 @@ async function performStoryDeletion(storyId) {
                 }
             }
             
-            if (storyModal && storyModal.classList.contains("show")) {
-                closeStoryModal();
-            }
+            // Закрываем fullscreen viewer если открыт
+            closeFullscreenImage();
         } else {
             showNotification(result.error || "Ошибка удаления", "error");
         }
@@ -702,21 +626,30 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
     setTimeout(initAllStoryScrolling, 100);
+    setTimeout(attachStoryContextMenuHandlers, 200);
 });
 
-window.addEventListener("load", () => setTimeout(initAllStoryScrolling, 200));
+window.addEventListener("load", () => {
+    setTimeout(initAllStoryScrolling, 200);
+    setTimeout(attachStoryContextMenuHandlers, 300);
+});
 
 document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
-        if (storyModal && storyModal.classList.contains("show")) {
-            closeStoryModal();
-        } else {
-            hideStoryUpload();
+        closeFullscreenImage();
+        hideStoryUpload();
+    } else if (e.key === "ArrowLeft") {
+        // Для историй используем prevStoryImage
+        const modal = document.getElementById('fullscreen-image-modal');
+        if (modal && modal.style.display === 'flex' && currentUserStories.length > 0) {
+            prevStoryImage();
         }
-    }
-    if (storyModal && storyModal.classList.contains("show")) {
-        if (e.key === "ArrowLeft") prevStory();
-        if (e.key === "ArrowRight") nextStory();
+    } else if (e.key === "ArrowRight") {
+        // Для историй используем nextStoryImage
+        const modal = document.getElementById('fullscreen-image-modal');
+        if (modal && modal.style.display === 'flex' && currentUserStories.length > 0) {
+            nextStoryImage();
+        }
     }
 });
 
@@ -725,15 +658,177 @@ document.addEventListener("click", (e) => {
     if (uploadModal && e.target === uploadModal) hideStoryUpload();
 });
 
+// ==================== Context Menu для удаления историй ====================
+function showStoryContextMenu(e, storyId, isOwn) {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!isOwn) return; // Можно удалять только свои истории
+    
+    hideStoryContextMenu();
+    
+    const menu = document.createElement('div');
+    menu.className = 'message-context-menu';
+    menu.innerHTML = `
+        <button class="context-menu-item delete-message-btn" onclick="deleteStoryFromContext(${storyId})">
+            🗑️ Удалить
+        </button>
+    `;
+    
+    // Получаем координаты элемента
+    const target = e.target;
+    const rect = target.getBoundingClientRect();
+    
+    // Позиционируем меню под элементом
+    const menuWidth = 150;
+    const menuHeight = 50;
+    const x = Math.min(rect.left, window.innerWidth - menuWidth - 10);
+    const y = Math.min(rect.bottom + 5, window.innerHeight - menuHeight - 10);
+    
+    menu.style.left = `${x}px`;
+    menu.style.top = `${y}px`;
+    
+    document.body.appendChild(menu);
+    storyContextMenu = menu;
+    
+    // Закрываем меню при клике вне его
+    setTimeout(() => {
+        document.addEventListener('click', hideStoryContextMenu);
+    }, 100);
+}
+
+function hideStoryContextMenu() {
+    if (storyContextMenu) {
+        storyContextMenu.remove();
+        storyContextMenu = null;
+    }
+    document.removeEventListener('click', hideStoryContextMenu);
+}
+
+async function deleteStoryFromContext(storyId) {
+    hideStoryContextMenu();
+    
+    if (typeof window.showDeleteModal === 'function') {
+        window.showDeleteModal('Удалить эту историю?', () => performStoryDeletion(storyId));
+    } else if (confirm('Удалить эту историю?')) {
+        await performStoryDeletion(storyId);
+    }
+}
+
+function attachStoryContextMenuHandlers() {
+    const grid = document.getElementById('stories-grid') || document.getElementById('feed-stories-grid');
+    if (!grid) return;
+    
+    grid.querySelectorAll('.story-item').forEach(item => {
+        const storyId = item.dataset.storyId;
+        const userId = item.dataset.userId;
+        const isOwn = window.currentUserId && userId == window.currentUserId;
+        
+        if (isOwn && storyId && !item.dataset.contextHandler) {
+            item.dataset.contextHandler = 'true';
+            
+            let touchTimer = null;
+            let isLongPress = false;
+            
+            // Удержание (десктоп и мобильные)
+            item.addEventListener('mousedown', (e) => {
+                if (!isOwn || e.button !== 0) return;
+                isLongPress = false;
+                touchTimer = setTimeout(() => {
+                    isLongPress = true;
+                    showStoryContextMenu(e, storyId, isOwn);
+                }, 300);
+            });
+            
+            item.addEventListener('mouseup', (e) => {
+                if (touchTimer) {
+                    clearTimeout(touchTimer);
+                    touchTimer = null;
+                }
+                if (isLongPress) {
+                    e.preventDefault();
+                    isLongPress = false;
+                }
+            });
+            
+            item.addEventListener('mouseleave', () => {
+                if (touchTimer) {
+                    clearTimeout(touchTimer);
+                    touchTimer = null;
+                }
+            });
+            
+            // Правая кнопка мыши
+            item.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                showStoryContextMenu(e, storyId, isOwn);
+            });
+            
+            // Мобильные — долгое нажатие
+            item.addEventListener('touchstart', (e) => {
+                if (!isOwn) return;
+                isLongPress = false;
+                touchTimer = setTimeout(() => {
+                    isLongPress = true;
+                    if (navigator.vibrate) navigator.vibrate(50);
+                    showStoryContextMenu(e, storyId, isOwn);
+                }, 300);
+            }, { passive: true });
+            
+            item.addEventListener('touchend', () => {
+                if (touchTimer) {
+                    clearTimeout(touchTimer);
+                    touchTimer = null;
+                }
+            });
+            
+            item.addEventListener('touchmove', () => {
+                if (touchTimer) {
+                    clearTimeout(touchTimer);
+                    touchTimer = null;
+                }
+            });
+        }
+    });
+}
+
+// ==================== Fullscreen Navigation (для историй) ====================
+function prevStoryImage() {
+    if (currentUserStories.length > 0 && currentStoryIndex > 0) {
+        currentStoryIndex--;
+        updateFullscreenStory();
+    }
+}
+
+function nextStoryImage() {
+    if (currentUserStories.length > 0 && currentStoryIndex < currentUserStories.length - 1) {
+        currentStoryIndex++;
+        updateFullscreenStory();
+    }
+}
+
+function updateFullscreenStory() {
+    const story = currentUserStories[currentStoryIndex];
+    if (!story) return;
+    
+    const img = document.getElementById('fullscreen-image');
+    const counter = document.getElementById('fullscreen-image-counter');
+    
+    if (img) {
+        img.src = story.image_url;
+    }
+    if (counter) {
+        counter.textContent = `${story.author?.username || 'История'} ${currentStoryIndex + 1}/${currentUserStories.length}`;
+    }
+}
+
 // ==================== Exports ====================
 window.deleteStory = deleteStory;
 window.scrollStories = scrollStories;
 window.chooseAnotherImage = chooseAnotherImage;
 window.viewStory = viewStory;
-window.closeStoryModal = closeStoryModal;
-window.prevStory = prevStory;
-window.nextStory = nextStory;
-window.toggleFullscreenStory = toggleFullscreenStory;
+window.prevStoryImage = prevStoryImage;
+window.nextStoryImage = nextStoryImage;
 window.showStoryUpload = showStoryUpload;
 window.hideStoryUpload = hideStoryUpload;
 window.uploadStory = uploadStory;
@@ -741,3 +836,7 @@ window.initAllStoryScrolling = initAllStoryScrolling;
 window.addStoryToFeedGrid = addStoryToFeedGrid;
 window.createStoryElement = createStoryElement;
 window.getStoriesWord = getStoriesWord;
+window.attachStoryContextMenuHandlers = attachStoryContextMenuHandlers;
+window.showStoryContextMenu = showStoryContextMenu;
+window.hideStoryContextMenu = hideStoryContextMenu;
+window.deleteStoryFromContext = deleteStoryFromContext;
