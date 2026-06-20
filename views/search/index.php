@@ -3,7 +3,7 @@
 use yii\helpers\Html;
 use yii\helpers\Url;
 
-$this->title = 'Поиск: ' . Html::encode($query);
+$this->title = Yii::t('app','Поиск') . ': ' . Html::encode($query);
 $this->registerCssFile('@web/css/search.css');
 $this->registerJsFile('@web/js/search.js', ['depends' => [\yii\web\JqueryAsset::class]]);
 $this->registerJsFile('@web/js/main.js', ['depends' => [\yii\web\JqueryAsset::class]]);
@@ -16,25 +16,25 @@ $postsCount = count($posts);
 
 <div class="search-container">
     <div class="search-header">
-        <h1 class="search-title">🔍 Поиск</h1>
-        <p class="search-subtitle">Найдите пользователей или интересные посты</p>
+        <h1 class="search-title">🔍 <?= Yii::t('app','Поиск') ?></h1>
+        <p class="search-subtitle"><?= Yii::t('app','Найдите пользователей или интересные посты') ?></p>
         <div class="search-box-large">
             <input type="text" id="search-input" 
                    class="search-input-field"
-                   placeholder="Поиск пользователей и постов..." 
+                   placeholder="<?= Yii::t('app','Поиск пользователей и постов...') ?>" 
                    value="<?= Html::encode($query) ?>" 
                    autocomplete="off">
-            <button class="btn-search" onclick="performSearch()">🔍 Найти</button>
+            <button class="btn-search" onclick="performSearch()">🔍 <?= Yii::t('app','Найти') ?></button>
         </div>
     </div>
 
     <?php if ($hasQuery): ?>
         <div class="search-tabs">
             <button class="tab-btn active" data-tab="users">
-                👤 Пользователи <span class="tab-count"><?= number_format($usersCount) ?></span>
+                👤 <?= Yii::t('app','Пользователи') ?> <span class="tab-count"><?= number_format($usersCount) ?></span>
             </button>
             <button class="tab-btn" data-tab="posts">
-                📝 Посты <span class="tab-count"><?= number_format($postsCount) ?></span>
+                📝 <?= Yii::t('app','Посты') ?> <span class="tab-count"><?= number_format($postsCount) ?></span>
             </button>
         </div>
 
@@ -43,8 +43,8 @@ $postsCount = count($posts);
             <?php if (empty($users)): ?>
                 <div class="empty-state">
                     <div class="empty-icon">👻</div>
-                    <h3 class="empty-title">Пользователи не найдены</h3>
-                    <p class="empty-description">Попробуйте изменить поисковый запрос</p>
+                    <h3 class="empty-title"><?= Yii::t('app','Пользователи не найдены') ?></h3>
+                    <p class="empty-description"><?= Yii::t('app','Попробуйте изменить поисковый запрос') ?></p>
                 </div>
             <?php else: ?>
                 <div class="users-grid">
@@ -73,8 +73,8 @@ $postsCount = count($posts);
             <?php if (empty($posts)): ?>
                 <div class="empty-state">
                     <div class="empty-icon">📝</div>
-                    <h3 class="empty-title">Посты не найдены</h3>
-                    <p class="empty-description">Попробуйте изменить поисковый запрос</p>
+                    <h3 class="empty-title"><?= Yii::t('app','Посты не найдены') ?></h3>
+                    <p class="empty-description"><?= Yii::t('app','Попробуйте изменить поисковый запрос') ?></p>
                 </div>
             <?php else: ?>
                 <div class="posts-results">
@@ -101,8 +101,8 @@ $postsCount = count($posts);
                                 <p><?= $postPreview ?><?= $hasMore ? '...' : '' ?></p>
                             </a>
                             <div class="post-meta">
-                                <span class="post-meta-item" title="Лайки">❤️ <?= $likesCount ?></span>
-                                <span class="post-meta-item" title="Комментарии">💬 <?= $commentsCount ?></span>
+                                <span class="post-meta-item" title="<?= Yii::t('app','Лайки') ?>">❤️ <?= $likesCount ?></span>
+                                <span class="post-meta-item" title="<?= Yii::t('app','Комментарии') ?>">💬 <?= $commentsCount ?></span>
                             </div>
                         </div>
                     <?php endforeach; ?>
@@ -112,10 +112,10 @@ $postsCount = count($posts);
     <?php else: ?>
         <div class="empty-state">
             <div class="empty-icon">🔍</div>
-            <h3 class="empty-title">Начните поиск</h3>
-            <p class="empty-description">Введите запрос, чтобы найти пользователей или посты</p>
+            <h3 class="empty-title"><?= Yii::t('app','Начните поиск') ?></h3>
+            <p class="empty-description"><?= Yii::t('app','Введите запрос, чтобы найти пользователей или посты') ?></p>
             <div class="search-suggestions">
-                <span class="suggestion-title">Популярные запросы:</span>
+                <span class="suggestion-title"><?= Yii::t('app','Популярные запросы:') ?></span>
                 <div class="suggestion-tags">
                     <button class="suggestion-tag" onclick="quickSearch('admin')">admin</button>
                     <button class="suggestion-tag" onclick="quickSearch('привет')">привет</button>

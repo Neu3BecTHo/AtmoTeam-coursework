@@ -2,17 +2,17 @@
 <div id="delete-modal" class="modal-overlay hidden">
     <div class="modal-content">
         <div class="modal-header">
-            <h3 class="modal-title">🗑️ Подтверждение удаления</h3>
-            <button class="modal-close" onclick="hideDeleteModal()" aria-label="Закрыть">&times;</button>
+            <h3 class="modal-title">🗑️ <?= Yii::t('app', 'Подтверждение удаления') ?></h3>
+            <button class="modal-close" onclick="hideDeleteModal()" aria-label="<?= Yii::t('app', 'Закрыть') ?>">&times;</button>
         </div>
         <div class="modal-body">
             <div class="modal-icon">⚠️</div>
-            <p id="delete-modal-text">Вы уверены, что хотите удалить этот элемент?</p>
-            <p class="modal-warning">Это действие нельзя отменить!</p>
+            <p id="delete-modal-text"><?= Yii::t('app', 'Вы уверены, что хотите удалить этот элемент?') ?></p>
+            <p class="modal-warning"><?= Yii::t('app', 'Это действие нельзя отменить!') ?></p>
         </div>
         <div class="modal-footer">
-            <button class="btn-secondary" onclick="hideDeleteModal()">❌ Отмена</button>
-            <button class="btn-danger" id="delete-modal-confirm">🗑️ Да, удалить</button>
+            <button class="btn-secondary" onclick="hideDeleteModal()">❌ <?= Yii::t('app', 'Отмена') ?></button>
+            <button class="btn-danger" id="delete-modal-confirm">🗑️ <?= Yii::t('app', 'Да, удалить') ?></button>
         </div>
     </div>
 </div>

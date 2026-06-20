@@ -41,7 +41,7 @@ function createThemeToggle() {
     button.id = 'theme-toggle';
     button.className = 'theme-toggle';
     button.textContent = '🌙';
-    button.title = 'Переключить тему';
+    button.title = window.translations.toggle_theme;
     button.style.cssText = `
         position: fixed;
         bottom: 20px;

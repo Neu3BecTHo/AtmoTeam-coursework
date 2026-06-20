@@ -9,7 +9,7 @@ use yii\widgets\ActiveForm;
  * @var \app\models\LoginForm $model
  */
 
-$this->title = 'Вход';
+$this->title = Yii::t('app', 'Вход');
 $this->registerCssFile('@web/css/auth.css');
 
 ?>
@@ -17,8 +17,8 @@ $this->registerCssFile('@web/css/auth.css');
 <div class="auth-container">
     <div class="auth-card">
         <div class="auth-icon">🔐</div>
-        <h1 class="auth-title">👋 Добро пожаловать</h1>
-        <p class="auth-subtitle">Войдите в свой аккаунт</p>
+        <h1 class="auth-title"><?= Yii::t('app', '👋 Добро пожаловать') ?></h1>
+        <p class="auth-subtitle"><?= Yii::t('app', 'Войдите в свой аккаунт') ?></p>
 
         <?php $form = ActiveForm::begin([
             'id' => 'login-form',
@@ -32,7 +32,7 @@ $this->registerCssFile('@web/css/auth.css');
 
         <div class="form-group">
             <?= $form->field($model, 'username')->textInput([
-                'placeholder' => 'Введите имя пользователя',
+                'placeholder' => Yii::t('app', 'Введите имя пользователя'),
                 'autofocus' => true,
                 'autocomplete' => 'username'
             ]) ?>
@@ -40,7 +40,7 @@ $this->registerCssFile('@web/css/auth.css');
 
         <div class="form-group">
             <?= $form->field($model, 'password')->passwordInput([
-                'placeholder' => 'Введите пароль',
+                'placeholder' => Yii::t('app', 'Введите пароль'),
                 'autocomplete' => 'current-password'
             ]) ?>
         </div>
@@ -53,14 +53,14 @@ $this->registerCssFile('@web/css/auth.css');
         </div>
 
         <div class="form-actions">
-            <?= Html::submitButton('🚀 Войти', ['class' => 'btn btn-primary', 'name' => 'login-button']) ?>
+            <?= Html::submitButton(Yii::t('app', '🚀 Войти'), ['class' => 'btn btn-primary', 'name' => 'login-button']) ?>
         </div>
 
         <?php ActiveForm::end(); ?>
 
         <div class="auth-footer">
-            <p>Нет аккаунта? <a href="<?= Url::to(['/site/register']) ?>">📝 Зарегистрироваться</a></p>
-            <p class="auth-footer-hint">После регистрации вы сможете создавать посты, комментировать и общаться с друзьями</p>
+            <p><?= Yii::t('app', 'Нет аккаунта?') ?> <a href="<?= Url::to(['/site/register']) ?>"><?= Yii::t('app', '📝 Зарегистрироваться') ?></a></p>
+            <p class="auth-footer-hint"><?= Yii::t('app', 'После регистрации вы сможете создавать посты, комментировать и общаться с друзьями') ?></p>
         </div>
     </div>
 </div>

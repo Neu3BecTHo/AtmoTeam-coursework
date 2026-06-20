@@ -4,6 +4,13 @@ use yii\helpers\Html;
 use yii\helpers\Url;
 use app\models\Follow;
 
+/**
+ * @var \yii\web\View $this
+ * @var \app\models\User $user
+ * @var string $title
+ * @var array $users
+ */
+
 $this->title = $title . ' - ' . $user->username;
 $this->registerCssFile('@web/css/profile.css');
 
@@ -12,8 +19,8 @@ $isGuest = Yii::$app->user->isGuest;
 $username = Html::encode($user->username);
 $avatar = $user->getAvatarUrl();
 $isEmpty = empty($users);
-$titleLower = $title === 'Подписчики' ? 'подписчиков' : 'подписок';
-$emptyIcon = $title === 'Подписчики' ? '👥' : '📋';
+$titleLower = $title === Yii::t('app','Подписчики') ? Yii::t('app','подписчиков') : Yii::t('app','подписок');
+$emptyIcon = $title === Yii::t('app','Подписчики') ? '👥' : '📋';
 
 ?>
 
@@ -28,7 +35,7 @@ $emptyIcon = $title === 'Подписчики' ? '👥' : '📋';
                 <h1 class="profile-name"><?= $username ?></h1>
                 <p class="profile-bio"><?= Html::encode($title) ?></p>
                 <a href="<?= Url::to(['/profile/view', 'id' => $user->id]) ?>" class="btn-back">
-                    ← Назад к профилю
+                    ← <?= Yii::t('app','Назад к профилю') ?>
                 </a>
             </div>
         </div>
@@ -38,14 +45,14 @@ $emptyIcon = $title === 'Подписчики' ? '👥' : '📋';
         <?php if ($isEmpty): ?>
             <div class="empty-state">
                 <div class="empty-icon"><?= $emptyIcon ?></div>
-                <h3 class="empty-title">Пока нет <?= $titleLower ?></h3>
-                <?php if ($title === 'Подписчики'): ?>
-                    <p class="empty-description">Когда кто-то подпишется на вас, они появятся здесь</p>
+                <h3 class="empty-title"><?= Yii::t('app','Пока нет') ?> <?= $titleLower ?></h3>
+                <?php if ($title === Yii::t('app','Подписчики')): ?>
+                    <p class="empty-description"><?= Yii::t('app','Когда кто-то подпишется на вас, они появятся здесь') ?></p>
                 <?php else: ?>
-                    <p class="empty-description">Когда вы подпишетесь на кого-то, они появятся здесь</p>
+                    <p class="empty-description"><?= Yii::t('app','Когда вы подпишетесь на кого-то, они появятся здесь') ?></p>
                 <?php endif; ?>
                 <a href="<?= Url::to(['/search/index']) ?>" class="btn-primary">
-                    🔍 Найти пользователей
+                    🔍 <?= Yii::t('app','Найти пользователей') ?>
                 </a>
             </div>
         <?php else: ?>
@@ -74,7 +81,7 @@ $emptyIcon = $title === 'Подписчики' ? '👥' : '📋';
                                     data-username="<?= $uUsername ?>"
                                     data-following="<?= $isFollowing ? 'true' : 'false' ?>">
                                 <span class="btn-icon"><?= $isFollowing ? '🔓' : '🔔' ?></span>
-                                <span class="btn-text"><?= $isFollowing ? 'Отписаться' : 'Подписаться' ?></span>
+                                <span class="btn-text"><?= $isFollowing ? Yii::t('app','Отписаться') : Yii::t('app','Подписаться') ?></span>
                             </button>
                         <?php endif; ?>
                     </div>

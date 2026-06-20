@@ -46,7 +46,7 @@ async function compressProfileImage(file) {
         canvas.toBlob(
           (blob) => {
             if (!blob) {
-              reject(new Error("Не удалось создать Blob"));
+              reject(new Error(window.t('blob_creation_error')));
               return;
             }
             let newName = file.name;
@@ -66,9 +66,9 @@ async function compressProfileImage(file) {
           quality,
         );
       };
-      img.onerror = () => reject(new Error("Ошибка загрузки изображения"));
+      img.onerror = () => reject(new Error(window.t('image_loading_error')));
     };
-    reader.onerror = () => reject(new Error("Ошибка чтения файла"));
+    reader.onerror = () => reject(new Error(window.t('file_reading_error')));
   });
 }
 
@@ -106,7 +106,7 @@ async function compressAvatar(file) {
         canvas.toBlob(
           (blob) => {
             if (!blob) {
-              reject(new Error("Не удалось создать Blob"));
+              reject(new Error(window.t('blob_creation_error')));
               return;
             }
             let newName = file.name;
@@ -127,9 +127,9 @@ async function compressAvatar(file) {
         );
       };
       img.onerror = () =>
-        reject(new Error("Ошибка загрузки изображения аватара"));
+        reject(new Error(window.t('image_loading_error')));
     };
-    reader.onerror = () => reject(new Error("Ошибка чтения файла аватара"));
+    reader.onerror = () => reject(new Error(window.t('file_reading_error')));
   });
 }
 
@@ -159,25 +159,25 @@ async function handleProfilePostSubmit(e) {
   });
 
   if (!content && rawImages.length === 0 && !pollQuestion) {
-    showNotification("Заполните хотя бы одно поле", "error");
+    showNotification(window.t('fill_at_least_one_field_short'), "error");
     return;
   }
 
   const btnPublish = document.getElementById("btn-publish");
   if (btnPublish) {
     btnPublish.disabled = true;
-    btnPublish.textContent = "⏳ Публикация...";
+    btnPublish.textContent = window.t('publishing');
   }
 
   // Сжатие изображений
   let compressedImages = [];
   if (rawImages.length) {
-    showNotification("Сжатие изображений... (WebP)", "info");
+    showNotification(window.t('compressing_images'), "info");
     try {
       compressedImages = await Promise.all(rawImages.map(compressProfileImage));
     } catch (err) {
       console.error("Ошибка сжатия:", err);
-      showNotification("Сжатие не удалось, используются оригиналы", "error");
+      showNotification(window.t('compression_failed_originals'), "error");
       compressedImages = rawImages;
     }
   }
@@ -211,7 +211,7 @@ async function handleProfilePostSubmit(e) {
         window.removeSelectedImages();
       if (typeof window.removePoll === "function") window.removePoll();
 
-      showNotification("Пост опубликован!", "success");
+      showNotification(window.t('post_published'), "success");
 
       if (typeof window.loadMoreProfilePosts === "function") {
         window.profilePostsOffset = 0;
@@ -221,15 +221,15 @@ async function handleProfilePostSubmit(e) {
         await window.loadInitialProfilePosts();
       }
     } else {
-      showNotification(data.error || "Ошибка публикации", "error");
+      showNotification(data.error || window.t('publish_error'), "error");
     }
   } catch (error) {
     console.error("Publish error:", error);
-    showNotification("Ошибка публикации", "error");
+    showNotification(window.t('publish_error'), "error");
   } finally {
     if (btnPublish) {
       btnPublish.disabled = false;
-      btnPublish.textContent = "📤 Опубликовать";
+      btnPublish.textContent = window.t('publish_button');
     }
   }
 }
@@ -239,11 +239,11 @@ async function submitModalComment(postId) {
   const input = document.getElementById("modal-comment-input");
   const content = input?.value.trim();
   if (!content) {
-    showNotification("Напишите комментарий", "error");
+    showNotification(window.t('write_comment'), "error");
     return;
   }
   if (!window.currentUserId) {
-    showNotification("Войдите, чтобы оставить комментарий", "error");
+    showNotification(window.t('login_to_comment'), "error");
     return;
   }
   try {
@@ -261,14 +261,14 @@ async function submitModalComment(postId) {
         if (commentsCount) {
           const match = commentsCount.textContent.match(/(\d+)/);
           if (match)
-            commentsCount.textContent = `${parseInt(match[1]) + 1} комментариев`;
+            commentsCount.textContent = window.t('comments_count', { n: parseInt(match[1]) + 1 });
         }
       }
     } else {
-      showNotification(result.error || "Ошибка отправки комментария", "error");
+      showNotification(result.error || window.t('comment_send_error'), "error");
     }
   } catch (error) {
-    showNotification("Ошибка отправки комментария", "error");
+    showNotification(window.t('comment_send_error'), "error");
   }
 }
 
@@ -294,11 +294,11 @@ async function openAvatarCropper(input) {
   // Сжимаем выбранный файл перед кропом
   let compressedFile;
   try {
-    showNotification("Сжатие аватара...", "info");
+    showNotification(window.t('compressing_avatar'), "info");
     compressedFile = await compressAvatar(rawFile);
   } catch (err) {
     console.error("Avatar compression failed:", err);
-    showNotification("Сжатие не удалось, используется оригинал", "error");
+    showNotification(window.t('compression_failed_original'), "error");
     compressedFile = rawFile;
   }
 
@@ -321,13 +321,13 @@ async function openAvatarCropper(input) {
     };
     cropImage.onerror = function () {
       console.error("Image failed to load");
-      showNotification("Ошибка загрузки изображения", "error");
+      showNotification(window.t('image_load_error'), "error");
     };
     cropImage.src = e.target.result;
   };
   reader.onerror = function () {
     console.error("FileReader error");
-    showNotification("Ошибка чтения файла", "error");
+    showNotification(window.t('file_reading_error'), "error");
   };
   reader.readAsDataURL(compressedFile);
 }
@@ -503,7 +503,7 @@ async function loadMoreProfilePosts() {
       initProfilePostHandlers();
     } else if (offset === 0) {
       container.innerHTML =
-        '<div class="empty-profile"><div class="empty-icon">📝</div><p>Пока нет постов</p></div>';
+        '<div class="empty-profile"><div class="empty-icon">📝</div><p>' + window.t('no_posts_yet') + '</p></div>';
       profileHasMorePosts = false;
     } else {
       profileHasMorePosts = false;
@@ -516,7 +516,7 @@ async function loadMoreProfilePosts() {
       const container = document.getElementById("user-posts");
       if (container) {
         container.innerHTML =
-          '<div class="empty-profile"><div class="empty-icon">⚠️</div><p>Ошибка загрузки постов</p></div>';
+          '<div class="empty-profile"><div class="empty-icon">⚠️</div><p>' + window.t('posts_load_error') + '</p></div>';
       }
     }
   } finally {
@@ -634,23 +634,23 @@ async function handleFollowClick(e) {
       const textSpan = btn.querySelector(".btn-text");
       if (iconSpan) iconSpan.textContent = result.following ? "🔓" : "🔔";
       if (textSpan)
-        textSpan.textContent = result.following ? "Отписаться" : "Подписаться";
+        textSpan.textContent = result.following ? window.t('unfollow') : window.t('follow');
 
       const followersCount = document.getElementById("followers-count");
       if (followersCount) followersCount.textContent = result.followers_count;
 
       showNotification(
         result.following
-          ? `Вы подписались на ${username}`
-          : `Вы отписались от ${username}`,
+          ? window.t('followed_user', { username })
+          : window.t('unfollowed_user', { username }),
         "success",
       );
     } else {
-      showNotification(result.error || "Ошибка", "error");
+      showNotification(result.error || window.t('error'), "error");
     }
   } catch (error) {
     console.error("Follow error:", error);
-    showNotification("Ошибка сети", "error");
+    showNotification(window.t('network_error'), "error");
   } finally {
     btn.disabled = false;
     btn.style.opacity = "";
@@ -665,15 +665,15 @@ async function handleBlockClick(e) {
   const btn = e.currentTarget;
   const userId = btn.dataset.userId;
   const username = btn.dataset.username;
-  const isBlocked = btn.textContent.includes("Разблокировать");
+  const isBlocked = btn.classList.contains("unblock");
 
   const action = isBlocked ? "unblock" : "block";
   const confirmMessage = isBlocked
-    ? `Разблокировать пользователя ${username}?`
-    : `Заблокировать пользователя ${username}?`;
+    ? window.t('unblock_user_question', { username })
+    : window.t('block_user_question', { username });
   const successMessage = isBlocked
-    ? `Пользователь ${username} разблокирован`
-    : `Пользователь ${username} заблокирован`;
+    ? window.t('user_unblocked', { username })
+    : window.t('user_blocked', { username });
 
   showDeleteModal(confirmMessage, async () => {
     try {
@@ -692,19 +692,19 @@ async function handleBlockClick(e) {
 
       if (result.success) {
         if (action === "block") {
-          btn.textContent = "✅ Разблокировать";
+          btn.textContent = window.t('unblock_button');
           btn.classList.add("unblock");
         } else {
-          btn.textContent = "🚫 Заблокировать";
+          btn.textContent = window.t('block_button');
           btn.classList.remove("unblock");
         }
         showNotification(successMessage, "success");
       } else {
-        showNotification(result.error || "Ошибка", "error");
+        showNotification(result.error || window.t('error'), "error");
       }
     } catch (error) {
       console.error("Block error:", error);
-      showNotification("Ошибка сети", "error");
+      showNotification(window.t('network_error'), "error");
     }
   });
 }
@@ -751,14 +751,14 @@ async function doBlockUser(userId) {
     });
     const result = await response.json();
     if (result.success) {
-      showNotification("Пользователь заблокирован", "success");
+      showNotification(window.t('block_user_success'), "success");
       updateBlockButton(userId, true);
     } else {
-      showNotification(result.error || "Ошибка блокировки", "error");
+      showNotification(result.error || window.t('block_error'), "error");
     }
   } catch (error) {
     console.error("Error blocking user:", error);
-    showNotification("Ошибка блокировки", "error");
+    showNotification(window.t('block_error'), "error");
   }
 }
 
@@ -777,14 +777,14 @@ async function unblockUser(userId) {
     });
     const result = await response.json();
     if (result.success) {
-      showNotification("Пользователь разблокирован", "success");
+      showNotification(window.t('unblock_user_success'), "success");
       updateBlockButton(userId, false);
     } else {
-      showNotification(result.error || "Ошибка разблокировки", "error");
+      showNotification(result.error || window.t('unblock_error'), "error");
     }
   } catch (error) {
     console.error("Error unblocking user:", error);
-    showNotification("Ошибка разблокировки", "error");
+    showNotification(window.t('unblock_error'), "error");
   }
 }
 
@@ -793,10 +793,10 @@ function updateBlockButton(userId, isBlocked) {
   if (!btn) return;
   const username = btn.dataset.username || "";
   if (isBlocked) {
-    btn.textContent = "✅ Разблокировать";
+    btn.textContent = window.t('unblock_button');
     btn.onclick = () => unblockUser(userId);
   } else {
-    btn.textContent = "🚫 Заблокировать";
+    btn.textContent = window.t('block_button');
     btn.onclick = () => showBlockModal(userId, username);
   }
 }
@@ -818,7 +818,7 @@ async function loadRepostsPosts() {
         window.initProfilePostHandlers();
     } else if (offset === 0) {
       container.innerHTML =
-        '<div class="empty-profile"><div class="empty-icon">🔄</div><p>Нет репостов</p></div>';
+        '<div class="empty-profile"><div class="empty-icon">🔄</div><p>' + window.t('no_reposts') + '</p></div>';
     }
   } catch (error) {
     console.error("Error loading reposts:", error);
@@ -843,7 +843,7 @@ async function loadSavedPosts() {
         initProfilePostHandlers();
     } else if (offset === 0) {
       container.innerHTML =
-        '<div class="empty-profile"><div class="empty-icon">🔖</div><p>Нет сохранённых постов</p></div>';
+        '<div class="empty-profile"><div class="empty-icon">🔖</div><p>' + window.t('no_saved_posts') + '</p></div>';
     }
   } catch (error) {
     console.error("Error loading saved posts:", error);
@@ -881,7 +881,7 @@ async function handleFollowSmallClick(e) {
       const textSpan = btn.querySelector(".btn-text");
       if (iconSpan) iconSpan.textContent = result.following ? "🔓" : "🔔";
       if (textSpan)
-        textSpan.textContent = result.following ? "Отписаться" : "Подписаться";
+        textSpan.textContent = result.following ? window.t('unfollow') : window.t('follow');
 
       const followersCount = document.getElementById("followers-count");
       if (
@@ -896,19 +896,19 @@ async function handleFollowSmallClick(e) {
       if (typeof showNotification === "function") {
         showNotification(
           result.following
-            ? `Вы подписались на ${username}`
-            : `Вы отписались от ${username}`,
+            ? window.t('followed_user', { username })
+            : window.t('unfollowed_user', { username }),
           "success",
         );
       }
     } else {
       if (typeof showNotification === "function")
-        showNotification(result.error || "Ошибка", "error");
+        showNotification(result.error || window.t('error'), "error");
     }
   } catch (error) {
     console.error("Follow error:", error);
     if (typeof showNotification === "function")
-      showNotification("Ошибка сети", "error");
+      showNotification(window.t('network_error'), "error");
   } finally {
     btn.disabled = false;
     btn.style.opacity = "";
@@ -930,12 +930,12 @@ async function loadFollowers() {
       initFollowSmallButtons();
     } else {
       container.innerHTML =
-        '<div class="empty-profile"><div class="empty-icon">👥</div><p>Нет подписчиков</p></div>';
+        '<div class="empty-profile"><div class="empty-icon">👥</div><p>' + window.t('no_followers') + '</p></div>';
     }
   } catch (error) {
     console.error("Error loading followers:", error);
     container.innerHTML =
-      '<div class="empty-profile"><div class="empty-icon">⚠️</div><p>Ошибка загрузки</p></div>';
+      '<div class="empty-profile"><div class="empty-icon">⚠️</div><p>' + window.t('loading_error') + '</p></div>';
   } finally {
     if (spinner) spinner.classList.add("hidden");
   }
@@ -956,12 +956,12 @@ async function loadFollowing() {
       initFollowSmallButtons();
     } else {
       container.innerHTML =
-        '<div class="empty-profile"><div class="empty-icon">📋</div><p>Нет подписок</p></div>';
+        '<div class="empty-profile"><div class="empty-icon">📋</div><p>' + window.t('no_following') + '</p></div>';
     }
   } catch (error) {
     console.error("Error loading following:", error);
     container.innerHTML =
-      '<div class="empty-profile"><div class="empty-icon">⚠️</div><p>Ошибка загрузки</p></div>';
+      '<div class="empty-profile"><div class="empty-icon">⚠️</div><p>' + window.t('loading_error') + '</p></div>';
   } finally {
     if (spinner) spinner.classList.add("hidden");
   }

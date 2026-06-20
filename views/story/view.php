@@ -6,7 +6,7 @@ use yii\helpers\Url;
 $author = $story->user;
 $authorUsername = $author ? Html::encode($author->username) : '';
 $authorAvatar = $author ? ($author->avatar ?: 'https://api.dicebear.com/7.x/avataaars/svg?seed=' . $author->id) : '';
-$timeAgo = $story->toArray()['timeAgo'] ?? 'только что';
+$timeAgo = $story->toArray()['timeAgo'] ?? Yii::t('app','только что');
 $caption = $story->caption;
 $timeLeft = $story->getTimeLeft();
 $storyId = $story->id;
@@ -31,10 +31,10 @@ $isOwner = !Yii::$app->user->isGuest && $story->user_id == Yii::$app->user->id;
     </div>
     
     <div class="story-view-image-container">
-        <img class="story-view-image"
-             src="<?= Html::encode($story->getImageUrl()) ?>"
-             alt="История от <?= $authorUsername ?>"
-             loading="lazy">
+           <img class="story-view-image"
+               src="<?= Html::encode($story->getImageUrl()) ?>"
+               alt="<?= Yii::t('app','История от {username}', ['username' => $authorUsername]) ?>"
+               loading="lazy">
     </div>
     
     <?php if ($caption): ?>
@@ -51,11 +51,11 @@ $isOwner = !Yii::$app->user->isGuest && $story->user_id == Yii::$app->user->id;
         </div>
         <div class="meta-item">
             <span class="meta-icon">👁️</span>
-            <span class="meta-text"><?= number_format($story->views_count ?? 0) ?> просмотров</span>
+            <span class="meta-text"><?= number_format($story->views_count ?? 0) ?> <?= Yii::t('app','просмотров') ?></span>
         </div>
         <?php if ($isOwner): ?>
             <button class="btn-delete-story" onclick="deleteStory(<?= $storyId ?>)">
-                🗑️ Удалить
+                🗑️ <?= Yii::t('app','Удалить') ?>
             </button>
         <?php endif; ?>
     </div>

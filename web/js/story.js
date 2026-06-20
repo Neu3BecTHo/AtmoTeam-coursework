@@ -15,10 +15,10 @@ const STORY_JPEG_QUALITY = 0.85;
 function getStoriesWord(count) {
     const last = count % 10;
     const lastTwo = count % 100;
-    if (lastTwo >= 11 && lastTwo <= 19) return "историй";
-    if (last === 1) return "история";
-    if (last >= 2 && last <= 4) return "истории";
-    return "историй";
+    if (lastTwo >= 11 && lastTwo <= 19) return window.translations.stories;
+    if (last === 1) return window.translations.story_genitive;
+    if (last >= 2 && last <= 4) return window.translations.stories;
+    return window.translations.stories;
 }
 
 function escapeHtml(str) {
@@ -40,12 +40,12 @@ function resetImageInput() {
 function viewStory(storyId) {
     const storyEl = document.querySelector(`.story-item[data-story-id="${storyId}"]`);
     if (!storyEl) {
-        showNotification("Ошибка: не удалось найти историю", "error");
+        showNotification(window.translations.story_not_found, "error");
         return;
     }
 
     const imageUrl = storyEl.querySelector('.story-image')?.src;
-    const author = storyEl.querySelector('.username')?.textContent || 'Пользователь';
+    const author = storyEl.querySelector('.username')?.textContent || window.translations.story;
     
     if (imageUrl) {
         // Сохраняем текущие истории для навигации
@@ -77,7 +77,7 @@ function loadUserStoriesForFullscreen(userId, currentStoryId) {
                     // Обновляем counter с именем автора
                     const counter = document.getElementById('fullscreen-image-counter');
                     if (counter) {
-                        counter.textContent = `${story.author?.username || 'История'} ${currentStoryIndex + 1}/${currentUserStories.length}`;
+                        counter.textContent = `${story.author?.username || window.translations.story} ${currentStoryIndex + 1}/${currentUserStories.length}`;
                     }
                     
                     // Навешиваем обработчики для кнопок навигации
@@ -100,7 +100,7 @@ function loadUserStoriesForFullscreen(userId, currentStoryId) {
                 }
             }
         })
-        .catch(e => console.error('Ошибка загрузки историй:', e));
+        .catch(e => console.error(window.translations.stories_loading_error + ':', e));
 }
 
 // ==================== Сжатие изображения для истории ====================
@@ -141,7 +141,7 @@ async function compressStoryImage(file) {
                 canvas.toBlob(
                     (blob) => {
                         if (!blob) {
-                            reject(new Error("Не удалось создать Blob"));
+                            reject(new Error(window.translations.blob_creation_error));
                             return;
                         }
                         let newName = file.name;
@@ -158,9 +158,9 @@ async function compressStoryImage(file) {
                     quality
                 );
             };
-            img.onerror = () => reject(new Error("Ошибка загрузки изображения (возможно, файл повреждён или слишком велик)"));
+            img.onerror = () => reject(new Error(window.translations.image_loading_error));
         };
-        reader.onerror = () => reject(new Error("Ошибка чтения файла"));
+        reader.onerror = () => reject(new Error(window.translations.file_reading_error));
     });
 }
 
@@ -172,7 +172,7 @@ function showStoryUpload() {
         modal.classList.add("show");
         resetUploadForm();
     } else {
-        showNotification("Ошибка: модальное окно не найдено", "error");
+        showNotification(window.translations.modal_not_found, "error");
     }
 }
 
@@ -219,8 +219,8 @@ function chooseAnotherImage() {
         if (placeholder) {
             placeholder.innerHTML = `
                 <div class="upload-icon">📸</div>
-                <p>Нажмите для выбора изображения</p>
-                <p class="upload-hint">или перетащите файл сюда</p>
+                <p>${window.translations.select_image}</p>
+                <p class="upload-hint">${window.translations.or_drag_file_here}</p>
             `;
         }
         selectedImageFile = null;
@@ -229,13 +229,13 @@ function chooseAnotherImage() {
 
 async function handleImageFile(file) {
     if (!file) {
-        showNotification("Файл не выбран", "error");
+        showNotification(window.translations.file_not_selected, "error");
         return;
     }
 
     const validImageTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
     if (!validImageTypes.includes(file.type)) {
-        showNotification("Неподдерживаемый формат. Допустимы: JPG, PNG, GIF, WebP", "error");
+        showNotification(window.translations.unsupported_format, "error");
         resetImageInput();
         return;
     }
@@ -263,15 +263,15 @@ async function handleImageFile(file) {
                 const compressedSizeMB = (compressed.size / 1024 / 1024).toFixed(2);
                 fileInfo.innerHTML = `
                     ✅ ${compressed.name}<br>
-                    <small>${compressedSizeMB}MB (сжато)</small><br>
-                    <button onclick="chooseAnotherImage()">🔄 Выбрать другое изображение</button>
+                    <small>${compressedSizeMB}MB (${window.translations.compressed})</small><br>
+                    <button onclick="chooseAnotherImage()">🔄 ${window.translations.choose_another_image}</button>
                 `;
             }
         };
         reader.readAsDataURL(compressed);
     } catch (err) {
-        console.error("Ошибка сжатия:", err);
-        showNotification("Не удалось сжать изображение. Попробуйте другое фото или меньшего размера.", "error");
+        console.error(window.translations.compression_error + ':', err);
+        showNotification(window.translations.compression_failed, "error");
         resetImageInput();
         selectedImageFile = null;
     }
@@ -279,7 +279,7 @@ async function handleImageFile(file) {
 
 async function uploadStory() {
     if (!selectedImageFile) {
-        showNotification("Выберите изображение", "error");
+        showNotification(window.translations.select_image, "error");
         return;
     }
 
@@ -293,7 +293,7 @@ async function uploadStory() {
     const btnUpload = document.querySelector(".btn-upload");
     if (btnUpload) {
         btnUpload.disabled = true;
-        btnUpload.textContent = "⏳ Публикация...";
+        btnUpload.textContent = window.translations.publishing;
     }
 
     try {
@@ -303,21 +303,21 @@ async function uploadStory() {
         });
         const result = await response.json();
         if (result.success) {
-            showNotification("История опубликована!", "success");
+            showNotification(window.translations.story_published, "success");
             hideStoryUpload();
             addStoryToFeedGrid(result.story);
             addStoryToGrid(result.story);
             resetUploadForm();
         } else {
-            showNotification(result.error || "Ошибка загрузки", "error");
+            showNotification(result.error || window.translations.loading_error, "error");
         }
     } catch (error) {
         console.error(error);
-        showNotification("Ошибка загрузки истории", "error");
+        showNotification(window.translations.story_loading_error, "error");
     } finally {
         if (btnUpload) {
             btnUpload.disabled = false;
-            btnUpload.textContent = "Опубликовать";
+            btnUpload.textContent = window.translations.publish;
         }
     }
 }
@@ -375,7 +375,7 @@ function addStoryToGrid(story) {
                 </a>
                 <div class="user-info">
                     <div class="username">${escapeHtml(story.author?.username || '')}</div>
-                    <div class="stories-count">1 история</div>
+                    <div class="stories-count">1 ${window.translations.story_genitive}</div>
                 </div>
             </div>
             <div class="stories-list"></div>
@@ -450,7 +450,7 @@ function addStoryToFeedGrid(story) {
                 </a>
                 <div class="user-info">
                     <div class="username">${escapeHtml(story.author?.username || '')}</div>
-                    <div class="stories-count">📸 1 история</div>
+                    <div class="stories-count">📸 1 ${window.translations.story_genitive}</div>
                 </div>
             </div>
             <div class="stories-list"></div>
@@ -488,14 +488,14 @@ function createStoryElement(story) {
     storyEl.dataset.storyId = story.id;
     storyEl.dataset.userId = story.user_id;
     const isOwner = window.currentUserId && story.user_id == window.currentUserId;
-    const timeLeft = story.time_left || "24ч";
+    const timeLeft = story.time_left || ('24' + window.translations.hours);
     storyEl.innerHTML = `
         <div class="story-image-container">
-            <img class="story-image" src="${story.image_url}" alt="История" onclick="event.stopPropagation(); viewStory(${story.id})">
+            <img class="story-image" src="${story.image_url}" alt="${window.translations.story}" onclick="event.stopPropagation(); viewStory(${story.id})">
             <div class="story-time-left">⏱️ ${escapeHtml(timeLeft)}</div>
             ${story.caption ? `<div class="story-caption">${escapeHtml(story.caption)}</div>` : ""}
             <div class="story-overlay-buttons">
-                <button class="story-view-btn" onclick="event.stopPropagation(); viewStory(${story.id})" title="Просмотр">👁️</button>
+                <button class="story-view-btn" onclick="event.stopPropagation(); viewStory(${story.id})" title="${window.translations.view}">👁️</button>
             </div>
         </div>
     `;
@@ -504,8 +504,8 @@ function createStoryElement(story) {
 
 async function deleteStory(storyId) {
     if (typeof window.showDeleteModal === "function") {
-        window.showDeleteModal("Удалить эту историю?", () => performStoryDeletion(storyId));
-    } else if (confirm("Удалить эту историю?")) {
+        window.showDeleteModal(window.translations.delete_story_question, () => performStoryDeletion(storyId));
+    } else if (confirm(window.translations.delete_story_question)) {
         await performStoryDeletion(storyId);
     }
 }
@@ -522,7 +522,7 @@ async function performStoryDeletion(storyId) {
         });
         const result = await response.json();
         if (result.success) {
-            showNotification("История удалена", "success");
+            showNotification(window.translations.story_deleted, "success");
             const storyItem = document.querySelector(`.story-item[data-story-id="${storyId}"]`);
             const userStoriesList = storyItem?.closest(".stories-list");
             const userBlock = userStoriesList?.closest(".user-stories");
@@ -542,9 +542,9 @@ async function performStoryDeletion(storyId) {
                     emptyState.className = 'empty-state';
                     emptyState.innerHTML = `
                         <div class="empty-icon">📖</div>
-                        <h3>Нет активных историй</h3>
-                        <p>Истории появляются здесь, когда ваши подписки делятся моментами из жизни</p>
-                        <button class="btn-create-story" onclick="showStoryUpload()">✨ Создать первую историю</button>
+                        <h3>${window.translations.no_active_stories}</h3>
+                        <p>${window.translations.stories_appear_here}</p>
+                        <button class="btn-create-story" onclick="showStoryUpload()">✨ ${window.translations.create_first_story}</button>
                     `;
                     storiesSection.appendChild(emptyState);
                 }
@@ -553,10 +553,10 @@ async function performStoryDeletion(storyId) {
             // Закрываем fullscreen viewer если открыт
             closeFullscreenImage();
         } else {
-            showNotification(result.error || "Ошибка удаления", "error");
+            showNotification(result.error || window.translations.loading_error, "error");
         }
     } catch (error) {
-        showNotification("Ошибка сети", "error");
+        showNotification(window.translations.network_error, "error");
     }
 }
 
@@ -671,7 +671,7 @@ function showStoryContextMenu(e, storyId, isOwn) {
     menu.className = 'message-context-menu';
     menu.innerHTML = `
         <button class="context-menu-item delete-message-btn" onclick="deleteStoryFromContext(${storyId})">
-            🗑️ Удалить
+            🗑️ ${window.translations.delete}
         </button>
     `;
     
@@ -709,8 +709,8 @@ async function deleteStoryFromContext(storyId) {
     hideStoryContextMenu();
     
     if (typeof window.showDeleteModal === 'function') {
-        window.showDeleteModal('Удалить эту историю?', () => performStoryDeletion(storyId));
-    } else if (confirm('Удалить эту историю?')) {
+        window.showDeleteModal(window.translations.delete_this_story_question, () => performStoryDeletion(storyId));
+    } else if (confirm(window.translations.delete_this_story_question)) {
         await performStoryDeletion(storyId);
     }
 }
@@ -818,7 +818,7 @@ function updateFullscreenStory() {
         img.src = story.image_url;
     }
     if (counter) {
-        counter.textContent = `${story.author?.username || 'История'} ${currentStoryIndex + 1}/${currentUserStories.length}`;
+        counter.textContent = `${story.author?.username || window.translations.story} ${currentStoryIndex + 1}/${currentUserStories.length}`;
     }
 }
 

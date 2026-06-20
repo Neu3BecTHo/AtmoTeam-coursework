@@ -36,7 +36,7 @@ class PostController extends Controller
         
         $content = trim(Yii::$app->request->post('content', ''));
         if (empty($content)) {
-            return ApiValidator::error('Содержание поста обязательно');
+            return ApiValidator::error(Yii::t('app', 'Содержание поста обязательно'));
         }
 
         $post = new Post([
@@ -50,7 +50,7 @@ class PostController extends Controller
             return ['success' => true, 'post' => $post->toArray()];
         }
         
-        return ['success' => false, 'error' => 'Ошибка создания поста', 'errors' => $post->errors];
+        return ['success' => false, 'error' => Yii::t('app', 'Ошибка создания поста'), 'errors' => $post->errors];
     }
 
     public function actionModalContent($id)

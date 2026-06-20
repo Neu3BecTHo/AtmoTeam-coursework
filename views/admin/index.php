@@ -3,7 +3,7 @@
 use yii\helpers\Html;
 use yii\helpers\Url;
 
-$this->title = 'Админ-панель';
+$this->title = Yii::t('app','Админ-панель');
 
 /**
  * @var array $stats
@@ -19,16 +19,16 @@ $csrfToken = Yii::$app->request->csrfToken;
 
 <div class="admin-container">
     <div class="admin-header">
-        <h1 class="admin-title">🛠️ Админ-панель</h1>
-        <p class="admin-subtitle">Управление сайтом</p>
+        <h1 class="admin-title">🛠️ <?= Yii::t('app','Админ-панель') ?></h1>
+        <p class="admin-subtitle"><?= Yii::t('app','Управление сайтом') ?></p>
     </div>
 
     <!-- Навигация -->
     <nav class="admin-nav">
-        <a href="<?= Url::to(['/admin']) ?>" class="admin-nav-item active">📊 Обзор</a>
-        <a href="<?= Url::to(['/admin/users']) ?>" class="admin-nav-item">👥 Пользователи</a>
-        <a href="<?= Url::to(['/admin/posts']) ?>" class="admin-nav-item">📝 Посты</a>
-        <a href="<?= Url::to(['/admin/comments']) ?>" class="admin-nav-item">💬 Комментарии</a>
+        <a href="<?= Url::to(['/admin']) ?>" class="admin-nav-item active">📊 <?= Yii::t('app','Обзор') ?></a>
+        <a href="<?= Url::to(['/admin/users']) ?>" class="admin-nav-item">👥 <?= Yii::t('app','Пользователи') ?></a>
+        <a href="<?= Url::to(['/admin/posts']) ?>" class="admin-nav-item">📝 <?= Yii::t('app','Посты') ?></a>
+        <a href="<?= Url::to(['/admin/comments']) ?>" class="admin-nav-item">💬 <?= Yii::t('app','Комментарии') ?></a>
     </nav>
 
     <!-- Статистика -->
@@ -37,28 +37,28 @@ $csrfToken = Yii::$app->request->csrfToken;
             <div class="stat-icon">👥</div>
             <div class="stat-info">
                 <div class="stat-value"><?= number_format($stats['users']) ?></div>
-                <div class="stat-label">Пользователи</div>
+                <div class="stat-label"><?= Yii::t('app','Пользователи') ?></div>
             </div>
         </div>
         <div class="stat-card">
             <div class="stat-icon">📝</div>
             <div class="stat-info">
                 <div class="stat-value"><?= number_format($stats['posts']) ?></div>
-                <div class="stat-label">Посты</div>
+                <div class="stat-label"><?= Yii::t('app','Посты') ?></div>
             </div>
         </div>
         <div class="stat-card">
             <div class="stat-icon">💬</div>
             <div class="stat-info">
                 <div class="stat-value"><?= number_format($stats['comments']) ?></div>
-                <div class="stat-label">Комментарии</div>
+                <div class="stat-label"><?= Yii::t('app','Комментарии') ?></div>
             </div>
         </div>
         <div class="stat-card">
             <div class="stat-icon">🔔</div>
             <div class="stat-info">
                 <div class="stat-value"><?= number_format($stats['notifications']) ?></div>
-                <div class="stat-label">Уведомления</div>
+                <div class="stat-label"><?= Yii::t('app','Уведомления') ?></div>
             </div>
         </div>
     </div>
@@ -66,12 +66,12 @@ $csrfToken = Yii::$app->request->csrfToken;
     <!-- Последние пользователи -->
     <div class="admin-section">
         <div class="section-header">
-            <h2 class="section-title">👥 Последние пользователи</h2>
-            <a href="<?= Url::to(['/admin/users']) ?>" class="section-link">Все пользователи →</a>
+            <h2 class="section-title">👥 <?= Yii::t('app','Последние пользователи') ?></h2>
+            <a href="<?= Url::to(['/admin/users']) ?>" class="section-link"><?= Yii::t('app','Все пользователи') ?> →</a>
         </div>
         <div class="recent-users">
             <?php if (empty($recentUsers)): ?>
-                    <div class="empty-state">Нет пользователей</div>
+                    <div class="empty-state"><?= Yii::t('app','Нет пользователей') ?></div>
             <?php else: ?>
                     <?php foreach ($recentUsers as $user): ?>
                             <div class="recent-user-item" data-user-id="<?= $user->id ?>">
@@ -93,7 +93,7 @@ $csrfToken = Yii::$app->request->csrfToken;
                                     <button type="button" class="action-btn delete" 
                                             data-user-id="<?= $user->id ?>"
                                             data-username="<?= Html::encode($user->username) ?>"
-                                            title="Удалить пользователя">
+                                            title="<?= Yii::t('app','Удалить пользователя') ?>">
                                         🗑️
                                     </button>
                                 </div>
@@ -106,12 +106,12 @@ $csrfToken = Yii::$app->request->csrfToken;
     <!-- Последние посты -->
     <div class="admin-section">
         <div class="section-header">
-            <h2 class="section-title">📝 Последние посты</h2>
-            <a href="<?= Url::to(['/admin/posts']) ?>" class="section-link">Все посты →</a>
+            <h2 class="section-title">📝 <?= Yii::t('app','Последние посты') ?></h2>
+            <a href="<?= Url::to(['/admin/posts']) ?>" class="section-link"><?= Yii::t('app','Все посты') ?> →</a>
         </div>
         <div class="recent-posts">
             <?php if (empty($recentPosts)): ?>
-                    <div class="empty-state">Нет постов</div>
+                    <div class="empty-state"><?= Yii::t('app','Нет постов') ?></div>
             <?php else: ?>
                     <?php foreach ($recentPosts as $post): ?>
                             <div class="recent-post-item">
@@ -127,7 +127,7 @@ $csrfToken = Yii::$app->request->csrfToken;
                                         </a>
                                     </div>
                                     <div class="post-meta">
-                                        <span>👤 <?= Html::encode($post->user->username ?? 'Удалён') ?></span>
+                                        <span>👤 <?= Html::encode($post->user->username ?? Yii::t('app','Удалён')) ?></span>
                                         <span>💬 <?= $post->comments_count ?? 0 ?></span>
                                         <span>❤️ <?= $post->likes_count ?? 0 ?></span>
                                         <span>🕐 <?= date('d.m.Y H:i', $post->created_at) ?></span>
@@ -137,13 +137,13 @@ $csrfToken = Yii::$app->request->csrfToken;
                                     <a href="<?= Url::to(['/post/view', 'id' => $post->id]) ?>" 
                                        class="action-btn view"
                                        target="_blank"
-                                       title="Посмотреть пост">
+                                       title="<?= Yii::t('app','Посмотреть пост') ?>">
                                         👁️
                                     </a>
                                     <button type="button" class="action-btn delete" 
                                             data-post-id="<?= $post->id ?>"
                                             data-post-title="<?= Html::encode(mb_substr($post->content, 0, 50)) ?>"
-                                            title="Удалить пост">
+                                            title="<?= Yii::t('app','Удалить пост') ?>">
                                         🗑️
                                     </button>
                                 </div>
@@ -171,9 +171,9 @@ function postWithCsrf(url, data) {
 // ==================== Delete User ====================
 async function adminDeleteUser(userId, username) {
     if (typeof window.showDeleteModal !== 'function') {
-        if (!confirm(`Удалить пользователя "${username}"? Все его данные будут удалены безвозвратно!`)) return;
+        if (!confirm(`<?= Yii::t('app','Удалить пользователя "{username}"? Все его данные будут удалены безвозвратно!') ?>`.replace('{username}', username))) return;
     } else {
-        window.showDeleteModal(`Удалить пользователя "${username}"? Все его данные будут удалены безвозвратно!`, async () => {
+        window.showDeleteModal(`<?= Yii::t('app','Удалить пользователя "{username}"? Все его данные будут удалены безвозвратно!') ?>`.replace('{username}', username), async () => {
             await performUserDeletion(userId, username);
         });
         return;
@@ -186,27 +186,27 @@ async function performUserDeletion(userId, username) {
         const response = await postWithCsrf('<?= $deleteUserUrl ?>', { user_id: userId });
             const result = await response.json();
             if (result.success) {
-                window.showNotification?.('Пользователь удалён', 'success');
+                window.showNotification?.('<?= Yii::t('app','Пользователь удалён') ?>', 'success');
                 const userRow = document.querySelector(`.recent-user-item[data-user-id="${userId}"]`);
                 if (userRow) {
                     userRow.remove();
                 }
                 updateStatsAfterDeletion();
             } else {
-                window.showNotification?.(result.error || 'Ошибка удаления', 'error');
+                window.showNotification?.(result.error || '<?= Yii::t('app','Ошибка удаления') ?>', 'error');
             }
         } catch (error) {
             console.error(error);
-            window.showNotification?.('Ошибка удаления', 'error');
+            window.showNotification?.('<?= Yii::t('app','Ошибка удаления') ?>', 'error');
         }
     }
 
 // ==================== Delete Post ====================
 async function adminDeletePost(postId, postTitle) {
     if (typeof window.showDeleteModal !== 'function') {
-        if (!confirm(`Удалить пост "${postTitle}"?`)) return;
+        if (!confirm(`<?= Yii::t('app','Удалить пост "{postTitle}"?') ?>`.replace('{postTitle}', postTitle))) return;
     } else {
-        window.showDeleteModal(`Удалить пост "${postTitle}"?`, async () => {
+        window.showDeleteModal(`<?= Yii::t('app','Удалить пост "{postTitle}"?') ?>`.replace('{postTitle}', postTitle), async () => {
             await performPostDeletion(postId);
         });
         return;
@@ -234,7 +234,7 @@ async function performPostDeletion(postId) {
         const response = await postWithCsrf('<?= $deletePostUrl ?>', { post_id: postId });
         const result = await response.json();
         if (result.success) {
-            window.showNotification?.('Пост удалён', 'success');
+            window.showNotification?.('<?= Yii::t('app','Пост удалён') ?>', 'success');
             const postBtn = document.querySelector(`.action-btn.delete[data-post-id="${postId}"]`);
             if (postBtn) {
                 const postRow = postBtn.closest('.recent-post-item');
@@ -243,11 +243,11 @@ async function performPostDeletion(postId) {
 
             updateStatsAfterDeletion();
         } else {
-            window.showNotification?.(result.error || 'Ошибка удаления', 'error');
+            window.showNotification?.(result.error || '<?= Yii::t('app','Ошибка удаления') ?>', 'error');
         }
     } catch (error) {
         console.error(error);
-        window.showNotification?.('Ошибка удаления', 'error');
+        window.showNotification?.('<?= Yii::t('app','Ошибка удаления') ?>', 'error');
     }
 }
 

@@ -7,6 +7,7 @@ use yii\web\Response;
 use yii\filters\AccessControl;
 use yii\filters\VerbFilter;
 use app\components\ApiValidator;
+use app\components\RateLimiter;
 use app\models\Poll;
 use app\models\PollOption;
 use app\models\PollVote;
@@ -42,6 +43,11 @@ class PollController extends Controller
         $authCheck = ApiValidator::requireAuth();
         if ($authCheck !== true) {
             return $authCheck;
+        }
+
+        $rateLimitCheck = RateLimiter::checkApiLimit();
+        if ($rateLimitCheck !== true) {
+            return $rateLimitCheck;
         }
 
         $data = ApiValidator::getRequestData();
@@ -151,6 +157,11 @@ class PollController extends Controller
         $authCheck = ApiValidator::requireAuth();
         if ($authCheck !== true) {
             return $authCheck;
+        }
+
+        $rateLimitCheck = RateLimiter::checkApiLimit();
+        if ($rateLimitCheck !== true) {
+            return $rateLimitCheck;
         }
 
         $data = ApiValidator::getRequestData();

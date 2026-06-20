@@ -3,7 +3,7 @@
 use yii\helpers\Html;
 use yii\helpers\Url;
 
-$this->title = 'Пользователи - Админ-панель';
+$this->title = Yii::t('app','Пользователи - Админ-панель');
 
 /**
  * @var \app\models\User[] $users
@@ -31,37 +31,37 @@ foreach ($users as $user) {
 
 <div class="admin-container">
     <div class="admin-header">
-        <h1 class="admin-title">👥 Управление пользователями</h1>
-        <p class="admin-subtitle">Всего пользователей: <?= number_format(count($users)) ?></p>
-        <?= Html::a('← Назад', ['/admin/index'], ['class' => 'btn-back']) ?>
+        <h1 class="admin-title">👥 <?= Yii::t('app','Управление пользователями') ?></h1>
+        <p class="admin-subtitle"><?= Yii::t('app','Всего пользователей: {n}', ['n' => number_format(count($users))]) ?></p>
+        <?= Html::a('← ' . Yii::t('app','Назад'), ['/admin/index'], ['class' => 'btn-back']) ?>
     </div>
 
     <!-- Навигация админки -->
     <nav class="admin-nav">
-        <a href="<?= Url::to(['/admin']) ?>" class="admin-nav-item">📊 Обзор</a>
-        <a href="<?= Url::to(['/admin/users']) ?>" class="admin-nav-item active">👥 Пользователи</a>
-        <a href="<?= Url::to(['/admin/posts']) ?>" class="admin-nav-item">📝 Посты</a>
-        <a href="<?= Url::to(['/admin/comments']) ?>" class="admin-nav-item">💬 Комментарии</a>
+        <a href="<?= Url::to(['/admin']) ?>" class="admin-nav-item">📊 <?= Yii::t('app','Обзор') ?></a>
+        <a href="<?= Url::to(['/admin/users']) ?>" class="admin-nav-item active">👥 <?= Yii::t('app','Пользователи') ?></a>
+        <a href="<?= Url::to(['/admin/posts']) ?>" class="admin-nav-item">📝 <?= Yii::t('app','Посты') ?></a>
+        <a href="<?= Url::to(['/admin/comments']) ?>" class="admin-nav-item">💬 <?= Yii::t('app','Комментарии') ?></a>
     </nav>
 
     <!-- Быстрая статистика -->
     <div class="quick-stats">
-        <div class="quick-stat active"><span>✅ Активных</span><strong><?= $activeCount ?></strong></div>
-        <div class="quick-stat blocked"><span>🔒 Заблокированных</span><strong><?= $blockedCount ?></strong></div>
-        <div class="quick-stat private"><span>🔐 Закрытых</span><strong><?= $privateCount ?></strong></div>
+        <div class="quick-stat active"><span>✅ <?= Yii::t('app','Активных') ?></span><strong><?= $activeCount ?></strong></div>
+        <div class="quick-stat blocked"><span>🔒 <?= Yii::t('app','Заблокированных') ?></span><strong><?= $blockedCount ?></strong></div>
+        <div class="quick-stat private"><span>🔐 <?= Yii::t('app','Закрытых') ?></span><strong><?= $privateCount ?></strong></div>
         <?php if ($adminCount > 0): ?>
-            <div class="quick-stat admin"><span>👑 Администраторов</span><strong><?= $adminCount ?></strong></div>
+            <div class="quick-stat admin"><span>👑 <?= Yii::t('app','Администраторов') ?></span><strong><?= $adminCount ?></strong></div>
         <?php endif; ?>
     </div>
 
     <!-- Таблица пользователей -->
     <div class="admin-section">
-        <div class="section-header">
-            <h3 class="section-title">👥 Список пользователей</h3>
+            <div class="section-header">
+            <h3 class="section-title">👥 <?= Yii::t('app','Список пользователей') ?></h3>
             <div class="section-actions">
-                <input type="text" id="userSearch" class="search-input" placeholder="🔎 Поиск по имени или email..."
+                <input type="text" id="userSearch" class="search-input" placeholder="<?= Yii::t('app','🔎 Поиск по имени или email...') ?>"
                     style="width: 250px;">
-                <button class="btn-refresh" onclick="location.reload()">🔄 Обновить</button>
+                <button class="btn-refresh" onclick="location.reload()"><?= Yii::t('app','🔄 Обновить') ?></button>
             </div>
         </div>
 
@@ -69,13 +69,13 @@ foreach ($users as $user) {
             <table class="admin-table" id="users-table">
                 <thead>
                     <tr>
-                        <th>👤 Пользователь</th>
-                        <th>📧 Email</th>
-                        <th>📅 Регистрация</th>
-                        <th>📊 Статус</th>
-                        <th>📝 Посты</th>
-                        <th>👥 Подписчики</th>
-                        <th>⚙️ Действия</th>
+                        <th>👤 <?= Yii::t('app','Пользователь') ?></th>
+                        <th>📧 <?= Yii::t('app','Email') ?></th>
+                        <th>📅 <?= Yii::t('app','Регистрация') ?></th>
+                        <th>📊 <?= Yii::t('app','Статус') ?></th>
+                        <th>📝 <?= Yii::t('app','Посты') ?></th>
+                        <th>👥 <?= Yii::t('app','Подписчики') ?></th>
+                        <th>⚙️ <?= Yii::t('app','Действия') ?></th>
                     </tr>
                 </thead>
                 <tbody id="users-tbody">
@@ -119,13 +119,13 @@ foreach ($users as $user) {
                             <td>
                                 <div class="status-cell">
                                     <?php if ($user->username === 'admin'): ?>
-                                        <span class="status-badge admin">👑 Администратор</span>
+                                        <span class="status-badge admin">👑 <?= Yii::t('app','Администратор') ?></span>
                                     <?php elseif ($user->is_blocked ?? false): ?>
-                                        <span class="status-badge blocked">🔒 Заблокирован</span>
+                                        <span class="status-badge blocked">🔒 <?= Yii::t('app','Заблокирован') ?></span>
                                     <?php elseif ($user->is_private ?? false): ?>
-                                        <span class="status-badge private">🔐 Закрытый</span>
+                                        <span class="status-badge private">🔐 <?= Yii::t('app','Закрытый') ?></span>
                                     <?php else: ?>
-                                        <span class="status-badge active">✅ Активен</span>
+                                        <span class="status-badge active">✅ <?= Yii::t('app','Активен') ?></span>
                                     <?php endif; ?>
                                 </div>
                             </td>
@@ -144,22 +144,22 @@ foreach ($users as $user) {
                             <td>
                                 <div class="user-actions">
                                     <a href="<?= Url::to(['/profile/view', 'id' => $user->id]) ?>" class="action-btn view"
-                                        target="_blank" title="Посмотреть профиль">👁️</a>
+                                        target="_blank" title="<?= Yii::t('app','Посмотреть профиль') ?>">👁️</a>
 
                                     <?php if ($user->username !== 'admin'): ?>
                                         <?php if ($user->is_blocked ?? false): ?>
                                             <button type="button" class="action-btn unblock" data-user-id="<?= $user->id ?>"
                                                 data-username="<?= Html::encode($user->username) ?>"
-                                                title="Разблокировать">🔓</button>
+                                                title="<?= Yii::t('app','Разблокировать') ?>">🔓</button>
                                         <?php else: ?>
                                             <button type="button" class="action-btn block" data-user-id="<?= $user->id ?>"
                                                 data-username="<?= Html::encode($user->username) ?>"
-                                                title="Заблокировать">🔒</button>
+                                                title="<?= Yii::t('app','Заблокировать') ?>">🔒</button>
                                         <?php endif; ?>
 
                                         <button type="button" class="action-btn delete" data-user-id="<?= $user->id ?>"
                                             data-username="<?= Html::encode($user->username) ?>"
-                                            title="Удалить пользователя">🗑️</button>
+                                            title="<?= Yii::t('app','Удалить пользователя') ?>">🗑️</button>
                                     <?php endif; ?>
                                 </div>
                             </td>
@@ -172,9 +172,9 @@ foreach ($users as $user) {
 </div>
 
 <?php
-$blockUserUrl = Url::to(['/api/admin/block-user']);
-$unblockUserUrl = Url::to(['/api/admin/unblock-user']);
-$deleteUserUrl = Url::to(['/api/admin/delete-user']);
+$blockUserUrl = Url::to(['/admin/block-user']);
+$unblockUserUrl = Url::to(['/admin/unblock-user']);
+$deleteUserUrl = Url::to(['/admin/delete-user']);
 $csrfToken = Yii::$app->request->csrfToken;
 
 $script = <<<JS

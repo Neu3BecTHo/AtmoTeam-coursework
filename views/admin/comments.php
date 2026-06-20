@@ -3,9 +3,9 @@
 use yii\helpers\Html;
 use yii\helpers\Url;
 
-$this->title = 'Комментарии - Админ-панель';
-$deleteCommentUrl = Url::to(['/api/admin/delete-comment']);
-$blockUserUrl = Url::to(['/api/admin/block-user']);
+$this->title = Yii::t('app','Комментарии - Админ-панель');
+$deleteCommentUrl = Url::to(['/admin/delete-comment']);
+$blockUserUrl = Url::to(['/admin/block-user']);
 $csrfToken = Yii::$app->request->csrfToken;
 $themeCss = <<<CSS
 :root {
@@ -723,15 +723,15 @@ $uniqueAuthors = count(array_unique(array_map(fn($c) => $c->user_id, $comments))
 
 <div class="admin-container">
     <div class="admin-header">
-        <h1 class="admin-title">💬 Управление комментариями</h1>
-        <p class="admin-subtitle">Всего комментариев: <?= number_format(count($comments)) ?></p>
-        <?= Html::a('← Назад', ['/admin/index'], ['class' => 'btn-back']) ?>
+        <h1 class="admin-title">💬 <?= Yii::t('app','Управление комментариями') ?></h1>
+        <p class="admin-subtitle"><?= Yii::t('app','Всего комментариев: {n}', ['n' => number_format(count($comments))]) ?></p>
+        <?= Html::a('← ' . Yii::t('app','Назад'), ['/admin/index'], ['class' => 'btn-back']) ?>
     </div>
 
     <!-- Кнопка переключения темы -->
     <div style="display: flex; justify-content: flex-end;">
         <button onclick="toggleTheme()" class="theme-toggle">
-            🌓 Сменить тему
+            🌓 <?= Yii::t('app','Сменить тему') ?>
         </button>
     </div>
 
@@ -739,30 +739,30 @@ $uniqueAuthors = count(array_unique(array_map(fn($c) => $c->user_id, $comments))
         <!-- Фильтры -->
         <div class="admin-section">
             <div class="section-header">
-                <h3 class="section-title">🔍 Фильтры</h3>
+                <h3 class="section-title">🔍 <?= Yii::t('app','Фильтры') ?></h3>
             </div>
             <div class="filters-container">
                 <div class="filter-group">
-                    <label class="filter-label">📅 Период:</label>
+                    <label class="filter-label">📅 <?= Yii::t('app','Период') ?>:</label>
                     <select class="filter-select" id="periodFilter">
-                        <option value="all">Все время</option>
-                        <option value="today">Сегодня</option>
-                        <option value="week">За неделю</option>
-                        <option value="month">За месяц</option>
+                        <option value="all"><?= Yii::t('app','Все время') ?></option>
+                        <option value="today"><?= Yii::t('app','Сегодня') ?></option>
+                        <option value="week"><?= Yii::t('app','За неделю') ?></option>
+                        <option value="month"><?= Yii::t('app','За месяц') ?></option>
                     </select>
                 </div>
                 <div class="filter-group">
-                    <label class="filter-label">🏷️ Статус:</label>
+                    <label class="filter-label">🏷️ <?= Yii::t('app','Статус') ?>:</label>
                     <select class="filter-select" id="statusFilter">
-                        <option value="all">Все</option>
-                        <option value="normal">Обычные</option>
-                        <option value="edited">Отредактированные</option>
-                        <option value="reported">С жалобами</option>
+                        <option value="all"><?= Yii::t('app','Все') ?></option>
+                        <option value="normal"><?= Yii::t('app','Обычные') ?></option>
+                        <option value="edited"><?= Yii::t('app','Отредактированные') ?></option>
+                        <option value="reported"><?= Yii::t('app','С жалобами') ?></option>
                     </select>
                 </div>
                 <div class="filter-group">
-                    <label class="filter-label">🔎 Поиск:</label>
-                    <input type="text" class="filter-input" id="searchFilter" placeholder="Текст комментария...">
+                    <label class="filter-label">🔎 <?= Yii::t('app','Поиск') ?>:</label>
+                    <input type="text" class="filter-input" id="searchFilter" placeholder="<?= Yii::t('app','Текст комментария...') ?>">
                 </div>
             </div>
         </div>
@@ -770,9 +770,9 @@ $uniqueAuthors = count(array_unique(array_map(fn($c) => $c->user_id, $comments))
         <!-- Таблица комментариев -->
         <div class="admin-section">
             <div class="section-header">
-                <h3 class="section-title">📋 Список комментариев</h3>
+                <h3 class="section-title">📋 <?= Yii::t('app','Список комментариев') ?></h3>
                 <div class="section-actions">
-                    <button class="btn-refresh" onclick="location.reload()">🔄 Обновить</button>
+                    <button class="btn-refresh" onclick="location.reload()">🔄 <?= Yii::t('app','Обновить') ?></button>
                 </div>
             </div>
 
@@ -780,12 +780,12 @@ $uniqueAuthors = count(array_unique(array_map(fn($c) => $c->user_id, $comments))
                 <table class="admin-table" id="comments-table">
                     <thead>
                         <tr>
-                            <th>👤 Автор</th>
-                            <th>💬 Комментарий</th>
-                            <th>📝 Пост</th>
-                            <th>📅 Дата</th>
-                            <th>📊 Статус</th>
-                            <th>⚙️ Действия</th>
+                            <th>👤 <?= Yii::t('app','Автор') ?></th>
+                            <th>💬 <?= Yii::t('app','Комментарий') ?></th>
+                            <th>📝 <?= Yii::t('app','Пост') ?></th>
+                            <th>📅 <?= Yii::t('app','Дата') ?></th>
+                            <th>📊 <?= Yii::t('app','Статус') ?></th>
+                            <th>⚙️ <?= Yii::t('app','Действия') ?></th>
                         </tr>
                     </thead>
                     <tbody id="comments-tbody">
@@ -793,7 +793,7 @@ $uniqueAuthors = count(array_unique(array_map(fn($c) => $c->user_id, $comments))
                             <tr>
                                 <td colspan="6" class="empty-state">
                                     <div class="empty-icon">💬</div>
-                                    <p>Комментариев не найдено</p>
+                                    <p><?= Yii::t('app','Комментариев не найдено') ?></p>
                                 </td>
                             </tr>
                         <?php else: ?>
@@ -826,7 +826,7 @@ $uniqueAuthors = count(array_unique(array_map(fn($c) => $c->user_id, $comments))
                                             <div class="comment-text"><?= nl2br(Html::encode($comment->content)) ?></div>
                                             <?php if ($comment->updated_at > $comment->created_at): ?>
                                                 <div class="comment-edited">
-                                                    <span class="edited-badge">✏️ Отредактирован</span>
+                                                    <span class="edited-badge">✏️ <?= Yii::t('app','Отредактирован') ?></span>
                                                     <span class="edited-date"><?= date('d.m.Y H:i', $comment->updated_at) ?></span>
                                                 </div>
                                             <?php endif; ?>
@@ -867,9 +867,9 @@ $uniqueAuthors = count(array_unique(array_map(fn($c) => $c->user_id, $comments))
                                     <td>
                                         <div class="status-cell">
                                             <?php if ($comment->updated_at > $comment->created_at): ?>
-                                                <span class="status-badge edited">✏️ Изменен</span>
+                                                <span class="status-badge edited">✏️ <?= Yii::t('app','Изменен') ?></span>
                                             <?php else: ?>
-                                                <span class="status-badge normal">✅ Обычный</span>
+                                                <span class="status-badge normal">✅ <?= Yii::t('app','Обычный') ?></span>
                                             <?php endif; ?>
                                         </div>
                                     </td>
@@ -879,14 +879,14 @@ $uniqueAuthors = count(array_unique(array_map(fn($c) => $c->user_id, $comments))
                                         <div class="actions-cell">
                                             <button type="button" class="action-btn view"
                                                 onclick="viewPost(<?= $comment->post_id ?>)"
-                                                title="Посмотреть пост">👁️</button>
+                                                title="<?= Yii::t('app','Посмотреть пост') ?>">👁️</button>
                                             <button type="button" class="action-btn edit"
-                                                onclick="editComment(<?= $comment->id ?>)" title="Редактировать">✏️</button>
+                                                onclick="editComment(<?= $comment->id ?>)" title="<?= Yii::t('app','Редактировать') ?>">✏️</button>
                                             <button type="button" class="action-btn delete"
-                                                data-comment-id="<?= $comment->id ?>" title="Удалить">🗑️</button>
+                                                data-comment-id="<?= $comment->id ?>" title="<?= Yii::t('app','Удалить') ?>">🗑️</button>
                                             <button type="button" class="action-btn block"
                                                 onclick="blockUser(<?= $comment->user_id ?>)"
-                                                title="Заблокировать автора">🔒</button>
+                                                title="<?= Yii::t('app','Заблокировать автора') ?>">🔒</button>
                                         </div>
                                     </td>
                                 </tr>
@@ -899,34 +899,34 @@ $uniqueAuthors = count(array_unique(array_map(fn($c) => $c->user_id, $comments))
 
         <!-- Статистика -->
         <div class="stats-section">
-            <h3 class="section-title">📊 Статистика комментариев</h3>
+            <h3 class="section-title">📊 <?= Yii::t('app','Статистика комментариев') ?></h3>
             <div class="stats-grid">
                 <div class="stat-card">
                     <div class="stat-icon">📈</div>
                     <div class="stat-info">
                         <div class="stat-value" id="stats-today"><?= number_format($todayCount) ?></div>
-                        <div class="stat-label">За сегодня</div>
+                        <div class="stat-label"><?= Yii::t('app','За сегодня') ?></div>
                     </div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-icon">✏️</div>
                     <div class="stat-info">
                         <div class="stat-value" id="stats-edited"><?= number_format($editedCount) ?></div>
-                        <div class="stat-label">Отредактировано</div>
+                        <div class="stat-label"><?= Yii::t('app','Отредактировано') ?></div>
                     </div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-icon">⚠️</div>
                     <div class="stat-info">
                         <div class="stat-value" id="stats-reported"><?= number_format($reportedCount) ?></div>
-                        <div class="stat-label">С жалобами</div>
+                        <div class="stat-label"><?= Yii::t('app','С жалобами') ?></div>
                     </div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-icon">👥</div>
                     <div class="stat-info">
                         <div class="stat-value" id="stats-unique"><?= number_format($uniqueAuthors) ?></div>
-                        <div class="stat-label">Уникальных авторов</div>
+                        <div class="stat-label"><?= Yii::t('app','Уникальных авторов') ?></div>
                     </div>
                 </div>
             </div>
@@ -993,41 +993,41 @@ $uniqueAuthors = count(array_unique(array_map(fn($c) => $c->user_id, $comments))
     }
 
     async function deleteComment(commentId) {
-        if (!confirm('Удалить этот комментарий?')) return;
-        try {
-            const response = await postWithCsrf('<?= $deleteCommentUrl ?>', { comment_id: commentId });
-            const result = await response.json();
-            if (result.success) {
-                alert('✅ Комментарий удалён');
-                const row = document.querySelector('.comment-row[data-comment-id="' + commentId + '"]');
-                if (row) row.remove();
-                filterComments();
-            } else {
-                alert('❌ ' + (result.error || 'Ошибка удаления'));
+    if (!confirm('Удалить этот комментарий?')) return;
+    try {
+        const response = await postWithCsrf('<?= $deleteCommentUrl ?>', { comment_id: commentId });
+                const result = await response.json();
+                if (result.success) {
+                    showNotification('Комментарий удалён', 'success');
+                    const row = document.querySelector('.comment-row[data-comment-id="' + commentId + '"]');
+                    if (row) row.remove();
+                    filterComments();
+                } else {
+                    showNotification(result.error || 'Ошибка удаления', 'error');
+                }
+            } catch (error) {
+                showNotification('Ошибка удаления', 'error');
             }
-        } catch (error) {
-            alert('❌ Ошибка удаления');
         }
-    }
 
-    async function blockUser(userId) {
-        if (!confirm('Заблокировать этого пользователя на сайте?')) return;
-        try {
-            const response = await postWithCsrf('<?= $blockUserUrl ?>', { user_id: userId });
-            const result = await response.json();
-            if (result.success) {
-                alert('✅ Пользователь заблокирован');
-                location.reload();
-            } else {
-                alert('❌ ' + (result.error || 'Ошибка блокировки'));
+        async function blockUser(userId) {
+            if (!confirm('Заблокировать этого пользователя?')) return;
+            try {
+                const response = await postWithCsrf('<?= $blockUserUrl ?>', { user_id: userId });
+                const result = await response.json();
+                if (result.success) {
+                    showNotification('Пользователь заблокирован', 'success');
+                    location.reload();
+                } else {
+                    showNotification(result.error || 'Ошибка блокировки', 'error');
+                }
+            } catch (error) {
+                showNotification('Ошибка блокировки', 'error');
             }
-        } catch (error) {
-            alert('❌ Ошибка блокировки');
         }
-    }
 
     function editComment(commentId) {
-        alert('✏️ Функция редактирования комментариев будет добавлена позже');
+        alert('✏️ <?= Yii::t('app','Функция редактирования комментариев будет добавлена позже') ?>');
     }
 
     function viewPost(postId) {

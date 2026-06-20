@@ -42,7 +42,7 @@ class Post extends ActiveRecord
         return [
             [['content'], 'required', 'when' => function ($model) {
                 return empty($model->imageFiles) && !Yii::$app->request->post('poll_question');
-            }, 'message' => 'Введите текст поста или добавьте изображение/опрос'],
+            }, 'message' => Yii::t('app', 'Введите текст поста или добавьте изображение/опрос')],
             [['content'], 'string', 'max' => 5000],
             [['user_id', 'likes_count', 'comments_count'], 'integer'],
             [['imageFiles'], 'file',
@@ -58,12 +58,12 @@ class Post extends ActiveRecord
     {
         return [
             'id' => 'ID',
-            'user_id' => 'Автор',
-            'content' => 'Содержание',
-            'image' => 'Изображение',
-            'likes_count' => 'Лайки',
-            'comments_count' => 'Комментарии',
-            'created_at' => 'Создан',
+            'user_id' => Yii::t('app', 'Автор'),
+            'content' => Yii::t('app', 'Содержание'),
+            'image' => Yii::t('app', 'Изображение'),
+            'likes_count' => Yii::t('app', 'Лайки'),
+            'comments_count' => Yii::t('app', 'Комментарии'),
+            'created_at' => Yii::t('app', 'Создан'),
         ];
     }
 
@@ -142,14 +142,7 @@ class Post extends ActiveRecord
 
     public function getTimeAgo(): string
     {
-        $diff = time() - $this->created_at;
-        
-        if ($diff < 60) return 'только что';
-        if ($diff < 3600) return floor($diff / 60) . ' мин. назад';
-        if ($diff < 86400) return floor($diff / 3600) . ' ч. назад';
-        if ($diff < 2592000) return floor($diff / 86400) . ' дн. назад';
-        
-        return date('d.m.Y', $this->created_at);
+        return \app\components\TimeAgoHelper::format((int) $this->created_at);
     }
 
     public function updateStats()

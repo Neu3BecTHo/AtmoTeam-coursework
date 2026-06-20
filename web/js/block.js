@@ -16,17 +16,18 @@ async function loadBlockedUsers() {
             blockedUsers = data.blocked_users;
             renderBlockedUsers();
         } else if (data.error) {
-            renderEmptyState('Ошибка загрузки');
+            renderEmptyState(window.t('loading_error'));
         } else {
             renderEmptyState();
         }
     } catch (error) {
-        renderEmptyState('Ошибка загрузки');
+        renderEmptyState(window.t('loading_error'));
     }
 }
 
 // ==================== Render ====================
-function renderEmptyState(message = 'У вас нет заблокированных пользователей') {
+function renderEmptyState(message) {
+    if (message === undefined) message = window.t('no_blocked_users');
     const container = document.getElementById('blocked-users-container');
     if (!container) return;
     container.innerHTML = `
@@ -59,9 +60,9 @@ function createUserCard(user) {
         <img class="user-avatar" src="${escapeHtml(user.avatar)}" alt="${escapeHtml(user.username)}">
         <div class="user-info">
             <div class="user-name">${escapeHtml(user.username)}</div>
-            <div class="user-email">Заблокирован ${getTimeAgo(user.blocked_at)}</div>
+            <div class="user-email">${window.t('blocked_at', { time: getTimeAgo(user.blocked_at) })}</div>
         </div>
-        <button class="btn-unblock" data-user-id="${user.id}" data-username="${escapeHtml(user.username)}" title="Разблокировать">
+        <button class="btn-unblock" data-user-id="${user.id}" data-username="${escapeHtml(user.username)}" title="${window.t('unblock_title')}">
             🔓
         </button>
     `;
@@ -72,12 +73,12 @@ function createUserCard(user) {
 async function unblockUser(userId, username) {
     if (typeof showDeleteModal !== 'function') {
         if (typeof showNotification === 'function') {
-            showNotification('Не загружены скрипты интерфейса', 'error');
+            showNotification(window.t('scripts_not_loaded_short'), 'error');
         }
         return;
     }
 
-    showDeleteModal(`Разблокировать пользователя ${username}?`, async () => {
+    showDeleteModal(window.t('unblock_user_question', { username }), async () => {
         try {
             const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
             const headers = { 'Content-Type': 'application/json' };
@@ -93,12 +94,12 @@ async function unblockUser(userId, username) {
             if (result.success) {
                 blockedUsers = blockedUsers.filter(u => u.id !== userId);
                 renderBlockedUsers();
-                showNotification(`Пользователь ${username} разблокирован`, 'success');
+                showNotification(window.t('user_unblocked', { username }), 'success');
             } else {
-                showNotification(result.error || 'Ошибка разблокировки', 'error');
+                showNotification(result.error || window.t('unblock_error'), 'error');
             }
         } catch (error) {
-            showNotification('Ошибка разблокировки', 'error');
+            showNotification(window.t('unblock_error'), 'error');
         }
     });
 }
@@ -107,12 +108,12 @@ async function unblockUser(userId, username) {
 function getTimeAgo(timestamp) {
     const diff = Math.floor(Date.now() / 1000) - timestamp;
 
-    if (diff < 60) return 'только что';
-    if (diff < 3600) return Math.floor(diff / 60) + ' мин. назад';
-    if (diff < 86400) return Math.floor(diff / 3600) + ' ч. назад';
-    if (diff < 2592000) return Math.floor(diff / 86400) + ' дн. назад';
+    if (diff < 60) return window.t('just_now');
+    if (diff < 3600) return Math.floor(diff / 60) + ' ' + window.t('minutes_ago');
+    if (diff < 86400) return Math.floor(diff / 3600) + ' ' + window.t('hours_ago');
+    if (diff < 2592000) return Math.floor(diff / 86400) + ' ' + window.t('days_ago');
 
-    return new Date(timestamp * 1000).toLocaleDateString();
+    return new Date(timestamp * 1000).toLocaleDateString(document.documentElement.lang || undefined);
 }
 
 // ==================== Event Delegation ====================

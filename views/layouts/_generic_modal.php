@@ -2,25 +2,40 @@
 <div id="generic-modal" class="modal-overlay hidden">
     <div class="modal-content">
         <div class="modal-header">
-            <h3 class="modal-title" id="generic-modal-title">⚠️ Уведомление</h3>
+            <h3 class="modal-title" id="generic-modal-title"><?= Yii::t('app','⚠️ Предупреждение') ?></h3>
             <button class="modal-close" onclick="hideGenericModal()">&times;</button>
         </div>
         <div class="modal-body">
             <div class="modal-icon" id="generic-modal-icon"></div>
-            <p id="generic-modal-text">Сообщение</p>
+            <p id="generic-modal-text"><?= Yii::t('app','Сообщение') ?></p>
             <div id="generic-modal-details" class="modal-details hidden">
                 <pre id="generic-modal-details-text"></pre>
             </div>
         </div>
         <div class="modal-footer">
-            <button class="btn-secondary" id="generic-modal-cancel" onclick="hideGenericModal()">Закрыть</button>
-            <button class="btn-primary" id="generic-modal-confirm" style="display: none;">Подтвердить</button>
-            <button class="btn-danger" id="generic-modal-danger" style="display: none;">Удалить</button>
+            <button class="btn-secondary" id="generic-modal-cancel" onclick="hideGenericModal()"><?= Yii::t('app','Закрыть') ?></button>
+            <button class="btn-primary" id="generic-modal-confirm" style="display: none;"><?= Yii::t('app','Подтвердить') ?></button>
+            <button class="btn-danger" id="generic-modal-danger" style="display: none;"><?= Yii::t('app','Удалить') ?></button>
         </div>
     </div>
 </div>
 
 <script>
+// Translations for modal defaults (available to JS)
+const MODAL_TRANSLATIONS = <?= json_encode([
+    'title' => Yii::t('app','Уведомление'),
+    'cancelText' => Yii::t('app','Отмена'),
+    'closeText' => Yii::t('app','Закрыть'),
+    'confirmText' => Yii::t('app','Подтвердить'),
+    'dangerText' => Yii::t('app','Удалить'),
+    'deleteConfirm' => Yii::t('app','Вы уверены, что хотите удалить этот элемент?'),
+    'errorTitle' => Yii::t('app','❌ Ошибка'),
+    'successTitle' => Yii::t('app','✅ Успешно'),
+    'warningTitle' => Yii::t('app','⚠️ Предупреждение'),
+    'confirmTitle' => Yii::t('app','❓ Подтверждение'),
+    'deletionTitle' => Yii::t('app','🗑️ Удаление')
+], JSON_UNESCAPED_UNICODE) ?>;
+
 let genericModalCallback = null;
 
 function showGenericModal(options = {}) {
@@ -34,21 +49,19 @@ function showGenericModal(options = {}) {
     const details = document.getElementById('generic-modal-details');
     const detailsText = document.getElementById('generic-modal-details-text');
     
-    // Default values
-    const {
-        title: modalTitle = 'Уведомление',
-        message = '',
-        type = 'info',
-        showCancel = true,
-        cancelText = 'Закрыть',
-        showConfirm = false,
-        confirmText = 'Подтвердить',
-        confirmCallback = null,
-        showDanger = false,
-        dangerText = 'Удалить',
-        dangerCallback = null,
-        details: modalDetails = null
-    } = options;
+    // Default values (use translations from PHP via MODAL_TRANSLATIONS)
+    const modalTitle = options.title || MODAL_TRANSLATIONS.title;
+    const message = options.message || '';
+    const type = options.type || 'info';
+    const showCancel = (options.showCancel !== undefined) ? options.showCancel : true;
+    const cancelText = options.cancelText || MODAL_TRANSLATIONS.closeText;
+    const showConfirm = options.showConfirm || false;
+    const confirmText = options.confirmText || MODAL_TRANSLATIONS.confirmText;
+    const confirmCallback = options.confirmCallback || null;
+    const showDanger = options.showDanger || false;
+    const dangerText = options.dangerText || MODAL_TRANSLATIONS.dangerText;
+    const dangerCallback = options.dangerCallback || null;
+    const modalDetails = options.details || null;
     
     // Set content
     title.textContent = modalTitle;
@@ -119,7 +132,7 @@ function hideGenericModal() {
 // Shortcut functions
 function showErrorModal(message, details = null) {
     showGenericModal({
-        title: '❌ Ошибка',
+        title: MODAL_TRANSLATIONS.errorTitle,
         message: message,
         type: 'error',
         details: details
@@ -128,7 +141,7 @@ function showErrorModal(message, details = null) {
 
 function showSuccessModal(message) {
     showGenericModal({
-        title: '✅ Успешно',
+        title: MODAL_TRANSLATIONS.successTitle,
         message: message,
         type: 'success'
     });
@@ -136,7 +149,7 @@ function showSuccessModal(message) {
 
 function showWarningModal(message) {
     showGenericModal({
-        title: '⚠️ Предупреждение',
+        title: MODAL_TRANSLATIONS.warningTitle,
         message: message,
         type: 'warning'
     });
@@ -144,26 +157,26 @@ function showWarningModal(message) {
 
 function showConfirmModal(message, onConfirm, options = {}) {
     showGenericModal({
-        title: options.title || '❓ Подтверждение',
+        title: options.title || MODAL_TRANSLATIONS.confirmTitle,
         message: message,
         type: options.type || 'question',
         showCancel: true,
-        cancelText: options.cancelText || 'Отмена',
+        cancelText: options.cancelText || MODAL_TRANSLATIONS.cancelText,
         showConfirm: true,
-        confirmText: options.confirmText || 'Подтвердить',
+        confirmText: options.confirmText || MODAL_TRANSLATIONS.confirmText,
         confirmCallback: onConfirm
     });
 }
 
 function showDeleteModal(message, onConfirm) {
     showGenericModal({
-        title: '🗑️ Удаление',
-        message: message || 'Вы уверены, что хотите удалить этот элемент?',
+        title: MODAL_TRANSLATIONS.deletionTitle,
+        message: message || MODAL_TRANSLATIONS.deleteConfirm,
         type: 'warning',
         showCancel: true,
-        cancelText: 'Отмена',
+        cancelText: MODAL_TRANSLATIONS.cancelText,
         showDanger: true,
-        dangerText: 'Удалить',
+        dangerText: MODAL_TRANSLATIONS.dangerText,
         dangerCallback: onConfirm
     });
 }

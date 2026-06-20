@@ -56,12 +56,12 @@ class StoryController extends Controller
             ->one();
 
         if (!$story) {
-            throw new NotFoundHttpException('История не найдена или истекла');
+            throw new NotFoundHttpException(Yii::t('app', 'История не найдена или истекла'));
         }
 
         $userId = Yii::$app->user->id;
         if ($story->user_id !== $userId && !Follow::isFollowing($userId, $story->user_id)) {
-            throw new NotFoundHttpException('Доступ запрещен');
+            throw new NotFoundHttpException(Yii::t('app', 'Доступ запрещен'));
         }
 
         return $this->renderPartial('view', ['story' => $story]);
@@ -146,13 +146,13 @@ class StoryController extends Controller
         $storyId = $data['story_id'] ?? Yii::$app->request->get('id');
 
         if (!$storyId) {
-            return ApiValidator::error('ID истории не указан');
+            return ApiValidator::error(Yii::t('app', 'ID истории не указан'));
         }
 
         $story = Story::findOne(['id' => $storyId, 'user_id' => Yii::$app->user->id]);
 
         if (!$story) {
-            return ApiValidator::error('История не найдена');
+            return ApiValidator::error(Yii::t('app', 'История не найдена'));
         }
 
         $imagePath = Yii::getAlias('@webroot/uploads/stories/' . $story->image);
@@ -161,10 +161,10 @@ class StoryController extends Controller
         }
 
         if ($story->delete()) {
-            return ['success' => true, 'message' => 'История удалена'];
+            return ['success' => true, 'message' => Yii::t('app', 'История удалена')];
         }
 
-        return ['success' => false, 'error' => 'Ошибка удаления'];
+        return ['success' => false, 'error' => Yii::t('app', 'Ошибка удаления')];
     }
 
     public function actionGetStories()
@@ -198,12 +198,12 @@ class StoryController extends Controller
 
         $userId = Yii::$app->request->get('user_id');
         if (!$userId) {
-            return ['success' => false, 'error' => 'Не указан пользователь'];
+            return ['success' => false, 'error' => Yii::t('app', 'Не указан пользователь')];
         }
 
         $currentUserId = Yii::$app->user->id;
         if ($currentUserId != $userId && !Follow::isFollowing($currentUserId, $userId)) {
-            return ['success' => false, 'error' => 'Доступ запрещён'];
+            return ['success' => false, 'error' => Yii::t('app', 'Доступ запрещён')];
         }
 
         $stories = Story::find()

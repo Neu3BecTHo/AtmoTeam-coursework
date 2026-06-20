@@ -46,7 +46,7 @@ class ProfileController extends Controller
 
         $user = User::findOne($id);
         if (!$user) {
-            throw new NotFoundHttpException('Пользователь не найден');
+            throw new NotFoundHttpException(Yii::t('app', 'Пользователь не найден'));
         }
 
         $viewerId = Yii::$app->user->isGuest ? null : Yii::$app->user->id;
@@ -54,7 +54,7 @@ class ProfileController extends Controller
             if (Yii::$app->user->isGuest) {
                 return $this->redirect(['/site/login']);
             }
-            throw new NotFoundHttpException('Профиль приватный или недоступен');
+            throw new NotFoundHttpException(Yii::t('app', 'Профиль приватный или недоступен'));
         }
 
         $stats = [
@@ -111,14 +111,14 @@ class ProfileController extends Controller
             }
             
             if ($user->save()) {
-                Yii::$app->session->setFlash('success', 'Профиль обновлен');
+                Yii::$app->session->setFlash('success', Yii::t('app', 'Профиль обновлен'));
                 return $this->redirect(['view', 'id' => $user->id]);
             } else {
                 $errors = [];
                 foreach ($user->getErrors() as $attr => $msgs) {
                     $errors = array_merge($errors, (array)$msgs);
                 }
-                Yii::$app->session->setFlash('error', 'Ошибка: ' . implode(', ', $errors));
+                Yii::$app->session->setFlash('error', Yii::t('app', 'Ошибка: {error}', ['error' => implode(', ', $errors)]));
             }
         }
 
@@ -153,7 +153,7 @@ class ProfileController extends Controller
         Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
         
         if (Yii::$app->user->isGuest) {
-            return ['success' => false, 'error' => 'Необходимо авторизоваться'];
+            return ['success' => false, 'error' => Yii::t('app', 'Необходимо авторизоваться')];
         }
         
         $currentUser = Yii::$app->user->identity;
@@ -171,7 +171,7 @@ class ProfileController extends Controller
             return ['success' => true, 'following' => true, 'followers_count' => $userToFollow->getFollowers()->count()];
         }
         
-        return ['success' => false, 'error' => 'Ошибка подписки'];
+        return ['success' => false, 'error' => Yii::t('app', 'Ошибка подписки')];
     }
 
     public function actionUnfollow($id)
@@ -179,7 +179,7 @@ class ProfileController extends Controller
         Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
         
         if (Yii::$app->user->isGuest) {
-            return ['success' => false, 'error' => 'Необходимо авторизоваться'];
+            return ['success' => false, 'error' => Yii::t('app', 'Необходимо авторизоваться')];
         }
         
         $currentUser = Yii::$app->user->identity;
@@ -192,7 +192,7 @@ class ProfileController extends Controller
             return ['success' => true, 'following' => false, 'followers_count' => $user ? $user->getFollowers()->count() : 0];
         }
         
-        return ['success' => false, 'error' => 'Ошибка отписки'];
+        return ['success' => false, 'error' => Yii::t('app', 'Ошибка отписки')];
     }
 
     public function actionDeleteAccount()
@@ -200,7 +200,7 @@ class ProfileController extends Controller
         Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
         
         if (Yii::$app->user->isGuest) {
-            return ['success' => false, 'error' => 'Необходимо авторизоваться'];
+            return ['success' => false, 'error' => Yii::t('app', 'Необходимо авторизоваться')];
         }
         
         $userId = Yii::$app->user->id;
@@ -213,16 +213,16 @@ class ProfileController extends Controller
         // Проверка пароля (опционально, для безопасности)
         $password = Yii::$app->request->post('password');
         if ($password && !$user->validatePassword($password)) {
-            return ['success' => false, 'error' => 'Неверный пароль'];
+            return ['success' => false, 'error' => Yii::t('app', 'Неверный пароль')];
         }
         
         // Удаляем пользователя со всем содержимым
         if ($user->deleteWithContent()) {
             Yii::$app->user->logout();
-            return ['success' => true, 'message' => 'Аккаунт удалён'];
+            return ['success' => true, 'message' => Yii::t('app', 'Аккаунт удалён')];
         }
         
-        return ['success' => false, 'error' => 'Ошибка при удалении аккаунта'];
+        return ['success' => false, 'error' => Yii::t('app', 'Ошибка при удалении аккаунта')];
     }
 
     public function actionBlock()
@@ -234,6 +234,11 @@ class ProfileController extends Controller
             return $authCheck;
         }
 
+        $rateLimitCheck = RateLimiter::checkApiLimit();
+        if ($rateLimitCheck !== true) {
+            return $rateLimitCheck;
+        }
+
         $data = ApiValidator::getRequestData();
         $blockedUserId = $data['user_id'] ?? Yii::$app->request->post('user_id');
         
@@ -243,19 +248,19 @@ class ProfileController extends Controller
         }
         
         if ($blockedUserId == Yii::$app->user->id) {
-            return ['success' => false, 'error' => 'Нельзя заблокировать себя'];
+            return ['success' => false, 'error' => Yii::t('app', 'Нельзя заблокировать себя')];
         }
         
         $currentUser = User::findOne(Yii::$app->user->id);
         if ($currentUser->hasBlocked($blockedUserId)) {
-            return ['success' => false, 'error' => 'Пользователь уже заблокирован'];
+            return ['success' => false, 'error' => Yii::t('app', 'Пользователь уже заблокирован')];
         }
         
         if ($currentUser->blockUser($blockedUserId)) {
-            return ['success' => true, 'message' => 'Пользователь заблокирован'];
+            return ['success' => true, 'message' => Yii::t('app', 'Пользователь заблокирован')];
         }
         
-        return ['success' => false, 'error' => 'Ошибка блокировки'];
+        return ['success' => false, 'error' => Yii::t('app', 'Ошибка блокировки')];
     }
 
     public function actionUnblock()
@@ -267,6 +272,11 @@ class ProfileController extends Controller
             return $authCheck;
         }
 
+        $rateLimitCheck = RateLimiter::checkApiLimit();
+        if ($rateLimitCheck !== true) {
+            return $rateLimitCheck;
+        }
+
         $data = ApiValidator::getRequestData();
         $unblockedUserId = $data['user_id'] ?? Yii::$app->request->post('user_id');
         
@@ -276,19 +286,19 @@ class ProfileController extends Controller
         }
         
         if ($unblockedUserId == Yii::$app->user->id) {
-            return ['success' => false, 'error' => 'Нельзя разблокировать себя'];
+            return ['success' => false, 'error' => Yii::t('app', 'Нельзя разблокировать себя')];
         }
         
         $currentUser = User::findOne(Yii::$app->user->id);
         if (!$currentUser->hasBlocked($unblockedUserId)) {
-            return ['success' => false, 'error' => 'Пользователь не заблокирован'];
+            return ['success' => false, 'error' => Yii::t('app', 'Пользователь не заблокирован')];
         }
         
         if ($currentUser->unblockUser($unblockedUserId)) {
-            return ['success' => true, 'message' => 'Пользователь разблокирован'];
+            return ['success' => true, 'message' => Yii::t('app', 'Пользователь разблокирован')];
         }
         
-        return ['success' => false, 'error' => 'Ошибка разблокировки'];
+        return ['success' => false, 'error' => Yii::t('app', 'Ошибка разблокировки')];
     }
 
     public function actionSaved($id = null)
@@ -399,7 +409,7 @@ class ProfileController extends Controller
     {
         $post = Post::findOne($id);
         if (!$post) {
-            throw new \yii\web\NotFoundHttpException('Пост не найден');
+            throw new \yii\web\NotFoundHttpException(Yii::t('app', 'Пост не найден'));
         }
         
         // Возвращаем только HTML, без layout

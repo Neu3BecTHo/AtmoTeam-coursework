@@ -29,7 +29,7 @@ function sharePost() {
         navigator.share({ title: document.title, url }).catch(() => {});
     } else {
         navigator.clipboard.writeText(url).then(() => {
-            showNotification('Ссылка скопирована!', 'success');
+            showNotification(window.t('link_copied'), 'success');
         }).catch(() => {
             const input = document.createElement('input');
             input.value = url;
@@ -37,7 +37,7 @@ function sharePost() {
             input.select();
             document.execCommand('copy');
             document.body.removeChild(input);
-            showNotification('Ссылка скопирована!', 'success');
+            showNotification(window.t('link_copied'), 'success');
         });
     }
 }
@@ -56,11 +56,11 @@ async function submitComment(postId) {
     const ta = document.getElementById('comment-input');
     const content = ta?.value.trim();
     if (!content) {
-        showNotification('Напишите комментарий', 'error');
+        showNotification(window.t('write_comment'), 'error');
         return;
     }
     if (!window.currentUserId) {
-        showNotification('Войдите, чтобы оставить комментарий', 'error');
+        showNotification(window.t('login_to_comment'), 'error');
         return;
     }
 
@@ -73,14 +73,13 @@ async function submitComment(postId) {
             if (charCounter) charCounter.textContent = '0/1000';
             location.reload();
         } else {
-            showNotification(data.error || 'Ошибка', 'error');
+            showNotification(data.error || window.t('error'), 'error');
         }
     } catch (error) {
-        showNotification('Ошибка сети', 'error');
+        showNotification(window.t('network_error'), 'error');
     }
 }
 
-// ==================== Exports ====================
 window.sharePost = sharePost;
 window.focusComment = focusComment;
 window.submitComment = submitComment;

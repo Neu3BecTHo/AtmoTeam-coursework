@@ -1,5 +1,4 @@
 <?php
-
 use app\assets\AppAsset;
 use app\widgets\Alert;
 use yii\helpers\Html;
@@ -12,7 +11,10 @@ use yii\helpers\Url;
 
 AppAsset::register($this);
 
-$this->title = "AtmoTeam - современная социальная сеть для общения, обмена фото и видео, создания постов и историй";
+// Include JavaScript translations
+echo $this->render('_translations');
+
+$this->title = Yii::t('app', 'AtmoTeam - современная социальная сеть для общения, обмена фото и видео, создания постов и историй');
 
 $this->registerCsrfMetaTags();
 $this->registerMetaTag(['charset' => Yii::$app->charset], 'charset');
@@ -28,8 +30,8 @@ $this->registerMetaTag(['name' => 'theme-color', 'content' => '#3b82f6', 'media'
 $this->registerMetaTag(['name' => 'theme-color', 'content' => '#1e293b', 'media' => '(prefers-color-scheme: dark)']);
 
 // Open Graph
-$ogTitle = $this->title ? Html::encode($this->title) . ' | AtmoTeam' : 'AtmoTeam Social';
-$ogDescription = $this->params['meta_description'] ?? 'Современная социальная сеть для общения, обмена фото и видео';
+$ogTitle = $this->title ? Html::encode($this->title) . ' | AtmoTeam' : Yii::t('app', 'AtmoTeam Social');
+$ogDescription = $this->params['meta_description'] ?? Yii::t('app', 'Современная социальная сеть для общения, обмена фото и видео');
 $ogImage = Yii::getAlias('@web/svg/logo.svg');
 $ogUrl = Url::to('', true);
 
@@ -39,7 +41,7 @@ $this->registerMetaTag(['property' => 'og:image', 'content' => $ogImage]);
 $this->registerMetaTag(['property' => 'og:url', 'content' => $ogUrl]);
 $this->registerMetaTag(['property' => 'og:type', 'content' => 'website']);
 $this->registerMetaTag(['property' => 'og:site_name', 'content' => 'AtmoTeam']);
-$this->registerMetaTag(['property' => 'og:locale', 'content' => 'ru_RU']);
+$this->registerMetaTag(['property' => 'og:locale', 'content' => Yii::$app->language]);
 
 // Twitter Card
 $this->registerMetaTag(['name' => 'twitter:card', 'content' => 'summary']);
@@ -91,6 +93,77 @@ $navAvatar = $currentUser ? ($currentUser->avatar ?: 'https://api.dicebear.com/7
         body {
             transition: background-color 0.2s ease;
         }
+        
+        /* Language dropdown styles */
+        .nav-lang-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: inherit;
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+            padding: var(--space-2) var(--space-3);
+            font-size: var(--text-base);
+            transition: background-color 0.2s ease;
+        }
+        
+        .nav-lang-btn:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        
+        .language-dropdown .nav-dropdown-menu {
+            min-width: 150px;
+        }
+        
+        .language-dropdown .dropdown-item.active {
+            background-color: var(--color-primary);
+            color: white;
+        }
+        
+        .mobile-nav-language {
+            position: relative;
+        }
+        
+        .mobile-language-menu {
+            display: none;
+            background-color: var(--color-bg-secondary);
+            border-radius: var(--radius-md);
+            margin-left: var(--space-6);
+            box-shadow: var(--shadow-lg);
+        }
+        
+        .mobile-language-menu.show {
+            display: block;
+        }
+        
+        .mobile-dropdown-item {
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+            padding: var(--space-3) var(--space-4);
+            color: inherit;
+            text-decoration: none;
+            transition: background-color 0.2s ease;
+        }
+        
+        .mobile-dropdown-item:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        
+        .mobile-dropdown-item.active {
+            background-color: var(--color-primary);
+            color: white;
+        }
+        
+        .mobile-dropdown-arrow {
+            margin-left: auto;
+            transition: transform 0.2s ease;
+        }
+        
+        .mobile-nav-language.open .mobile-dropdown-arrow {
+            transform: rotate(180deg);
+        }
     </style>
 </head>
 
@@ -112,9 +185,9 @@ $navAvatar = $currentUser ? ($currentUser->avatar ?: 'https://api.dicebear.com/7
             </div>
 
             <!-- Кнопка меню (аватарка) для мобильных -->
-            <button class="mobile-menu-btn" onclick="toggleMobileMenu()" aria-label="Меню">
-                <?php if (!Yii::$app->user->isGuest): ?>
-                    <img src="<?= $navAvatar ?>" class="mobile-menu-avatar" alt="Меню">
+            <button class="mobile-menu-btn" onclick="toggleMobileMenu()" aria-label="<?= Yii::t('app','Меню') ?>">
+                <?php  if (!Yii::$app->user->isGuest): ?>
+                    <img src="<?= $navAvatar ?>" class="mobile-menu-avatar" alt="<?= Yii::t('app','Меню') ?>">
                 <?php else: ?>
                     <span class="mobile-menu-burger-icon">☰</span>
                 <?php endif; ?>
@@ -122,17 +195,27 @@ $navAvatar = $currentUser ? ($currentUser->avatar ?: 'https://api.dicebear.com/7
 
             <nav class="header-nav">
                 <ul class="nav-list">
-                    <li><a href="<?= Url::to(['feed/index']) ?>" class="nav-link">🏠 Лента</a></li>
-                    <li><a href="<?= Url::to(['search/index']) ?>" class="nav-link">🔍 Поиск</a></li>
+                    <li class="nav-dropdown language-dropdown">
+                        <button class="nav-lang-btn" onclick="toggleLanguageMenu()" aria-label="<?= Yii::t('app','Язык') ?>">
+                            🌐 <span class="current-lang"><?= Yii::$app->language === 'ru-RU' ? 'RU' : 'EN' ?></span>
+                            <span class="nav-dropdown-arrow">▼</span>
+                        </button>
+                        <div class="nav-dropdown-menu" id="language-menu">
+                            <a href="<?= Url::to(['site/language', 'lang' => 'ru-RU']) ?>" class="dropdown-item <?= Yii::$app->language === 'ru-RU' ? 'active' : '' ?>">🇷🇺 <?= Yii::t('app', 'Русский') ?></a>
+                            <a href="<?= Url::to(['site/language', 'lang' => 'en-US']) ?>" class="dropdown-item <?= Yii::$app->language === 'en-US' ? 'active' : '' ?>">🇺🇸 <?= Yii::t('app', 'English') ?></a>
+                        </div>
+                    </li>
+                    <li><a href="<?= Url::to(['feed/index']) ?>" class="nav-link">🏠 <?= Yii::t('app','Лента') ?></a></li>
+                    <li><a href="<?= Url::to(['search/index']) ?>" class="nav-link">🔍 <?= Yii::t('app','Поиск') ?></a></li>
 
                     <?php if (!Yii::$app->user->isGuest): ?>
                         <?php
                         $unreadMessages = \app\models\Message::getUnreadCount(Yii::$app->user->id);
                         ?>
-                        <li><a href="<?= Url::to(['story/index']) ?>" class="nav-link">📸 Истории</a></li>
-                        <li>
-                            <a href="<?= Url::to(['message/index']) ?>" class="nav-link">
-                                💬 Сообщения
+                        <li><a href="<?= Url::to(['story/index']) ?>" class="nav-link">📸 <?= Yii::t('app','Истории') ?></a></li>
+                            <li>
+                                <a href="<?= Url::to(['message/index']) ?>" class="nav-link">
+                                    💬 <?= Yii::t('app','Сообщения') ?>
                                 <?php if ($unreadMessages > 0): ?>
                                     <span class="nav-badge messages-badge"><?= $unreadMessages ?></span>
                                 <?php endif; ?>
@@ -141,32 +224,32 @@ $navAvatar = $currentUser ? ($currentUser->avatar ?: 'https://api.dicebear.com/7
                         <!-- Кнопка уведомлений -->
                         <li class="nav-notification">
                             <button class="nav-notification-link" onclick="toggleNotifications(event)"
-                                aria-label="Уведомления">
+                                aria-label="<?= Yii::t('app','Уведомления') ?>">
                                 🔔
                                 <span id="notification-badge" class="nav-badge" style="display: none;">0</span>
                             </button>
                         </li>
                         <li class="nav-dropdown">
-                            <button class="nav-user-menu" onclick="toggleUserMenu()" aria-label="Меню пользователя">
-                                <img src="<?= $navAvatar ?>" class="nav-avatar" alt="Аватар">
+                            <button class="nav-user-menu" onclick="toggleUserMenu()" aria-label="<?= Yii::t('app','Меню пользователя') ?>">
+                                <img src="<?= $navAvatar ?>" class="nav-avatar" alt="<?= Yii::t('app','Аватар') ?>">
                                 <span class="nav-dropdown-arrow">▼</span>
                             </button>
                             <div class="nav-dropdown-menu" id="user-menu">
-                                <a href="<?= Url::to(['profile/view']) ?>" class="dropdown-item">👤 Мой профиль</a>
-                                <a href="<?= Url::to(['profile/edit']) ?>" class="dropdown-item">✏️ Редактировать</a>
+                                <a href="<?= Url::to(['profile/view']) ?>" class="dropdown-item">👤 <?= Yii::t('app','Мой профиль') ?></a>
+                                <a href="<?= Url::to(['profile/edit']) ?>" class="dropdown-item">✏️ <?= Yii::t('app','Редактировать') ?></a>
                                 <?php if (Yii::$app->user->can('accessAdminPanel')): ?>
                                     <div class="dropdown-divider"></div>
                                     <a href="<?= Url::to(['admin/index']) ?>" class="dropdown-item admin-link">⚙️
-                                        Админ-панель</a>
+                                        <?= Yii::t('app','Админ-панель') ?></a>
                                 <?php endif; ?>
                                 <div class="dropdown-divider"></div>
                                 <?= Html::beginForm(['site/logout'], 'post', ['class' => 'dropdown-item logout-link-form']) ?>
-                                <button type="submit" style="background: none; border: none; cursor: pointer; width: 100%; text-align: left; color: inherit; display: flex; align-items: center; gap: var(--space-2);">🚪 Выйти</button>
+                                <button type="submit" style="background: none; border: none; cursor: pointer; width: 100%; text-align: left; color: inherit; display: flex; align-items: center; gap: var(--space-2);">🚪 <?= Yii::t('app','Выйти') ?></button>
                                 <?= Html::endForm() ?>
                             </div>
                         </li>
                     <?php else: ?>
-                        <li><a href="<?= Url::to(['site/login']) ?>" class="nav-link btn-login">🔐 <span>Войти</span></a></li>
+                        <li><a href="<?= Url::to(['site/login']) ?>" class="nav-link btn-login">🔐 <span><?= Yii::t('app','Войти') ?></span></a></li>
                     <?php endif; ?>
                 </ul>
             </nav>
@@ -178,19 +261,28 @@ $navAvatar = $currentUser ? ($currentUser->avatar ?: 'https://api.dicebear.com/7
         <div class="mobile-menu-content" onclick="event.stopPropagation()">
             <div class="mobile-menu-header">
                 <div class="mobile-menu-user">
-                    <img src="<?= $navAvatar ?>" class="mobile-menu-avatar-large" alt="Аватар">
-                    <span class="site-title">Меню</span>
+                    <img src="<?= $navAvatar ?>" class="mobile-menu-avatar-large" alt="<?= Yii::t('app','Аватар') ?>">
+                    <span class="site-title"><?= Yii::t('app','Меню') ?></span>
                 </div>
                 <button class="mobile-menu-close" onclick="closeMobileMenu()">&times;</button>
             </div>
             <ul class="mobile-nav-list">
-                <li><a href="<?= Url::to(['feed/index']) ?>" class="mobile-nav-link" onclick="closeMobileMenu()">🏠 Лента</a></li>
-                <li><a href="<?= Url::to(['search/index']) ?>" class="mobile-nav-link" onclick="closeMobileMenu()">🔍 Поиск</a></li>
+                <li class="mobile-nav-language">
+                    <button class="mobile-nav-link" onclick="toggleMobileLanguageMenu()" style="background: none; border: none; cursor: pointer; width: 100%; text-align: left; color: inherit; display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-4); font-size: var(--text-base);">
+                        🌐 <?= Yii::t('app','Язык') ?> <span class="mobile-dropdown-arrow">▼</span>
+                    </button>
+                    <div class="mobile-language-menu" id="mobile-language-menu">
+                        <a href="<?= Url::to(['site/language', 'lang' => 'ru-RU']) ?>" class="mobile-dropdown-item <?= Yii::$app->language === 'ru-RU' ? 'active' : '' ?>" onclick="closeMobileMenu()">🇷🇺 <?= Yii::t('app', 'Русский') ?></a>
+                        <a href="<?= Url::to(['site/language', 'lang' => 'en-US']) ?>" class="mobile-dropdown-item <?= Yii::$app->language === 'en-US' ? 'active' : '' ?>" onclick="closeMobileMenu()">🇺🇸 <?= Yii::t('app', 'English') ?></a>
+                    </div>
+                </li>
+                <li><a href="<?= Url::to(['feed/index']) ?>" class="mobile-nav-link" onclick="closeMobileMenu()">🏠 <?= Yii::t('app','Лента') ?></a></li>
+                <li><a href="<?= Url::to(['search/index']) ?>" class="mobile-nav-link" onclick="closeMobileMenu()">🔍 <?= Yii::t('app','Поиск') ?></a></li>
                 <?php if (!Yii::$app->user->isGuest): ?>
-                    <li><a href="<?= Url::to(['story/index']) ?>" class="mobile-nav-link" onclick="closeMobileMenu()">📸 Истории</a></li>
+                    <li><a href="<?= Url::to(['story/index']) ?>" class="mobile-nav-link" onclick="closeMobileMenu()">📸 <?= Yii::t('app','Истории') ?></a></li>
                     <li>
                         <a href="<?= Url::to(['message/index']) ?>" class="mobile-nav-link" onclick="closeMobileMenu()">
-                            💬 Сообщения
+                            💬 <?= Yii::t('app','Сообщения') ?>
                             <?php
                             $unreadMessages = \app\models\Message::getUnreadCount(Yii::$app->user->id);
                             if ($unreadMessages > 0): ?>
@@ -200,22 +292,22 @@ $navAvatar = $currentUser ? ($currentUser->avatar ?: 'https://api.dicebear.com/7
                     </li>
                     <li>
                         <button class="mobile-nav-link mobile-notification-btn" onclick="toggleMobileNotifications()" style="background: none; border: none; cursor: pointer; width: 100%; text-align: left; color: inherit; display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-4); font-size: var(--text-base);">
-                            🔔 Уведомления
+                            🔔 <?= Yii::t('app','Уведомления') ?>
                             <span id="mobile-notification-badge" class="nav-badge" style="display: none;">0</span>
                         </button>
                     </li>
-                    <li><a href="<?= Url::to(['profile/view']) ?>" class="mobile-nav-link" onclick="closeMobileMenu()">👤 Мой профиль</a></li>
-                    <li><a href="<?= Url::to(['profile/edit']) ?>" class="mobile-nav-link" onclick="closeMobileMenu()">✏️ Редактировать</a></li>
+                        <li><a href="<?= Url::to(['profile/view']) ?>" class="mobile-nav-link" onclick="closeMobileMenu()">👤 <?= Yii::t('app','Мой профиль') ?></a></li>
+                    <li><a href="<?= Url::to(['profile/edit']) ?>" class="mobile-nav-link" onclick="closeMobileMenu()">✏️ <?= Yii::t('app','Редактировать') ?></a></li>
                     <?php if (Yii::$app->user->can('accessAdminPanel')): ?>
-                        <li><a href="<?= Url::to(['admin/index']) ?>" class="mobile-nav-link" onclick="closeMobileMenu()">⚙️ Админ-панель</a></li>
+                        <li><a href="<?= Url::to(['admin/index']) ?>" class="mobile-nav-link" onclick="closeMobileMenu()">⚙️ <?= Yii::t('app','Админ-панель') ?></a></li>
                     <?php endif; ?>
-                    <li>
+                        <li>
                         <?= Html::beginForm(['site/logout'], 'post', ['class' => 'mobile-nav-link logout-link']) ?>
-                        <button type="submit" onclick="closeMobileMenu()" style="background: none; border: none; cursor: pointer; width: 100%; text-align: left; color: inherit; display: flex; align-items: center; gap: var(--space-3);">🚪 Выйти</button>
+                        <button type="submit" onclick="closeMobileMenu()" style="background: none; border: none; cursor: pointer; width: 100%; text-align: left; color: inherit; display: flex; align-items: center; gap: var(--space-3);">🚪 <?= Yii::t('app','Выйти') ?></button>
                         <?= Html::endForm() ?>
                     </li>
                 <?php else: ?>
-                    <li><a href="<?= Url::to(['site/login']) ?>" class="mobile-nav-link" onclick="closeMobileMenu()">🔐 Войти</a></li>
+                    <li><a href="<?= Url::to(['site/login']) ?>" class="mobile-nav-link" onclick="closeMobileMenu()">🔐 <?= Yii::t('app','Войти') ?></a></li>
                 <?php endif; ?>
             </ul>
         </div>
@@ -246,12 +338,12 @@ $navAvatar = $currentUser ? ($currentUser->avatar ?: 'https://api.dicebear.com/7
 
     <?php if (!Yii::$app->user->isGuest): ?>
         <div class="notification-dropdown" id="notification-dropdown">
-            <div class="notification-header">
-                <h3>🔔 Уведомления</h3>
-                <button class="btn-mark-all-read" onclick="markAllNotificationsRead()">Прочитать все</button>
+                <div class="notification-header">
+                <h3>🔔 <?= Yii::t('app','Уведомления') ?></h3>
+                <button class="btn-mark-all-read" onclick="markAllNotificationsRead()"><?= Yii::t('app','Прочитать все') ?></button>
             </div>
             <div class="notification-list" id="notification-list">
-                <div class="notification-empty">Загрузка...</div>
+                <div class="notification-empty"><?= Yii::t('app','Загрузка...') ?></div>
             </div>
         </div>
     <?php endif; ?>
@@ -263,11 +355,11 @@ $navAvatar = $currentUser ? ($currentUser->avatar ?: 'https://api.dicebear.com/7
     <div id="post-modal" class="modal-overlay hidden">
         <div class="modal-content post-modal-content">
             <div class="modal-header">
-                <h3 class="modal-title">📝 Пост</h3>
+                <h3 class="modal-title">📝 <?= Yii::t('app','Пост') ?></h3>
                 <button class="modal-close" onclick="closePostModal()">&times;</button>
             </div>
             <div id="post-modal-body" class="post-modal-body">
-                <div class="loading-spinner">Загрузка...</div>
+                <div class="loading-spinner"><?= Yii::t('app','Загрузка...') ?></div>
             </div>
         </div>
     </div>

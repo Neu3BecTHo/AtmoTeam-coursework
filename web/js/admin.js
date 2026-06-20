@@ -3,7 +3,7 @@
 function adminCall(action, data, confirmMessage, successMessage) {
     if (typeof showDeleteModal !== 'function' || typeof postWithCsrf !== 'function') {
         if (typeof showNotification === 'function') {
-            showNotification('Не загружены скрипты интерфейса (common.js)', 'error');
+            showNotification(window.t('scripts_not_loaded'), 'error');
         }
         return;
     }
@@ -15,11 +15,11 @@ function adminCall(action, data, confirmMessage, successMessage) {
                 showNotification(successMessage, 'success');
                 return true;
             } else {
-                showNotification(result.error || 'Ошибка', 'error');
+                showNotification(result.error || window.t('error'), 'error');
                 return false;
             }
         } catch (error) {
-            showNotification('Ошибка', 'error');
+            showNotification(window.t('error'), 'error');
             return false;
         }
     });
@@ -45,8 +45,8 @@ async function adminDeletePost(postId) {
     const result = await adminCall(
         '/api/admin/delete-post',
         { post_id: postId },
-        'Удалить этот пост?',
-        'Пост удален'
+        window.t('delete_post_question_admin'),
+        window.t('post_deleted_admin')
     );
     if (result) adminRemoveRow(`.btn-delete-post[data-post-id="${postId}"]`, '.recent-post-item, .post-row, tr.post-row');
 }
@@ -55,8 +55,8 @@ async function adminDeleteUser(userId) {
     const result = await adminCall(
         '/api/admin/delete-user',
         { user_id: userId },
-        'Удалить этого пользователя? Все его данные будут удалены!',
-        'Пользователь удален'
+        window.t('delete_user_question_admin'),
+        window.t('user_deleted_admin')
     );
     if (result) adminRemoveRow(`.btn-delete-user[data-user-id="${userId}"], .btn-delete[data-user-id="${userId}"]`, '.user-row, tr.user-row');
 }
@@ -65,8 +65,8 @@ async function adminDeleteComment(commentId) {
     const result = await adminCall(
         '/api/admin/delete-comment',
         { comment_id: commentId },
-        'Удалить этот комментарий?',
-        'Комментарий удален'
+        window.t('delete_comment_question_admin'),
+        window.t('comment_deleted_admin')
     );
     if (result) adminRemoveRow(`.btn-delete-comment[data-comment-id="${commentId}"]`, '.comment-row, tr.comment-row');
 }
@@ -75,8 +75,8 @@ async function adminBlockSiteUser(userId) {
     await adminCall(
         '/api/admin/block-user',
         { user_id: userId },
-        'Заблокировать этого пользователя на сайте?',
-        'Пользователь заблокирован'
+        window.t('block_user_site_question'),
+        window.t('block_user_success')
     );
     location.reload();
 }
@@ -85,8 +85,8 @@ async function adminUnblockSiteUser(userId) {
     await adminCall(
         '/api/admin/unblock-user',
         { user_id: userId },
-        'Разблокировать этого пользователя?',
-        'Пользователь разблокирован'
+        window.t('unblock_user_site_question'),
+        window.t('unblock_user_success')
     );
     location.reload();
 }

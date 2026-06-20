@@ -13,7 +13,7 @@ AppAsset::register($this);
  * @var \app\models\User $currentUser
  */
 
-$this->title = 'Диалог с ' . Html::encode($otherUser->username);
+$this->title = Yii::t('app', 'Диалог с') . ' ' . Html::encode($otherUser->username);
 $this->registerCssFile('@web/css/message.css');
 
 $currentUserId = Yii::$app->user->id;
@@ -35,10 +35,10 @@ $otherAvatar = $otherUser->avatar ?: 'https://api.dicebear.com/7.x/avataaars/svg
             </a>
             <div class="dialogue-info">
                 <h1 class="dialogue-title"><?= $otherUsername ?></h1>
-                <p class="dialogue-subtitle">Личные сообщения</p>
+                <p class="dialogue-subtitle"><?= Yii::t('app', 'Личные сообщения') ?></p>
             </div>
             <a href="<?= Url::to(['/message/index']) ?>" class="btn-back">
-                ← К списку диалогов
+                ← <?= Yii::t('app', 'К списку диалогов') ?>
             </a>
         </div>
     </div>
@@ -49,8 +49,8 @@ $otherAvatar = $otherUser->avatar ?: 'https://api.dicebear.com/7.x/avataaars/svg
                 <?php if (empty($messages)): ?>
                     <div class="empty-state">
                         <div class="empty-icon">💬</div>
-                        <p>Начните диалог с <?= $otherUsername ?></p>
-                        <p class="empty-hint">Напишите первое сообщение</p>
+                        <p><?= Yii::t('app', 'Начните диалог с') ?> <?= $otherUsername ?></p>
+                        <p class="empty-hint"><?= Yii::t('app', 'Напишите первое сообщение') ?></p>
                     </div>
                 <?php else: ?>
                     <?php foreach ($messages as $message): 
@@ -76,7 +76,7 @@ $otherAvatar = $otherUser->avatar ?: 'https://api.dicebear.com/7.x/avataaars/svg
                                         <div class="message-image-bubble">
                                             <img class="message-image-content" 
                                                 src="<?= Html::encode($imageUrls[0]) ?>" 
-                                                alt="Изображение"
+                                                alt="<?= Yii::t('app', 'Изображение') ?>"
                                                 loading="lazy">
                                         </div>
                                     <?php else: ?>
@@ -84,7 +84,7 @@ $otherAvatar = $otherUser->avatar ?: 'https://api.dicebear.com/7.x/avataaars/svg
                                             <?php foreach ($imageUrls as $index => $imageUrl): ?>
                                                 <img class="grouped-image" 
                                                     src="<?= Html::encode($imageUrl) ?>" 
-                                                    alt="Изображение <?= $index + 1 ?>"
+                                                    alt="<?= Yii::t('app', 'Изображение') ?> <?= $index + 1 ?>"
                                                     loading="lazy">
                                             <?php endforeach; ?>
                                         </div>
@@ -103,13 +103,13 @@ $otherAvatar = $otherUser->avatar ?: 'https://api.dicebear.com/7.x/avataaars/svg
             <div class="message-form">
                 <div id="message-image-preview" class="message-image-preview"></div>
                 <div class="message-input-container">
-                    <button class="btn-upload-image" id="btn-upload-image" type="button" title="Загрузить изображение">
+                    <button class="btn-upload-image" id="btn-upload-image" type="button" title="<?= Yii::t('app', 'Загрузить изображение') ?>">
                         📷
                     </button>
                     <input type="file" id="message-image-input" accept="image/*" multiple style="display: none;">
                     <textarea id="message-input" 
                               class="message-input"
-                              placeholder="Напишите сообщение... 📝😊"
+                              placeholder="<?= Yii::t('app', 'Напишите сообщение... 📝😊') ?>"
                               maxlength="1000"
                               data-receiver-id="<?= $otherUserId ?>"
                               rows="1"
@@ -117,7 +117,7 @@ $otherAvatar = $otherUser->avatar ?: 'https://api.dicebear.com/7.x/avataaars/svg
                               autocorrect="off"
                               autocapitalize="off"
                               spellcheck="false"></textarea>
-                    <button id="send-message-btn" class="btn-send-message" type="button" title="Отправить">
+                    <button id="send-message-btn" class="btn-send-message" type="button" title="<?= Yii::t('app', 'Отправить') ?>">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20">
                             <line x1="22" y1="2" x2="11" y2="13"></line>
                             <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>

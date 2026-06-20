@@ -7,6 +7,7 @@ use yii\web\Controller;
 use yii\web\Response;
 use yii\filters\AccessControl;
 use app\components\ApiValidator;
+use app\components\RateLimiter;
 use app\models\User;
 use app\models\Block;
 
@@ -56,6 +57,11 @@ class BlockController extends Controller
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
         
+        $rateLimitCheck = RateLimiter::checkApiLimit();
+        if ($rateLimitCheck !== true) {
+            return $rateLimitCheck;
+        }
+        
         $data = ApiValidator::getRequestData();
         $blockedUserId = $data['user_id'] ?? Yii::$app->request->post('user_id');
         
@@ -83,6 +89,11 @@ class BlockController extends Controller
     public function actionUnblock()
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
+        
+        $rateLimitCheck = RateLimiter::checkApiLimit();
+        if ($rateLimitCheck !== true) {
+            return $rateLimitCheck;
+        }
         
         $data = ApiValidator::getRequestData();
         $blockedUserId = $data['user_id'] ?? Yii::$app->request->post('user_id');

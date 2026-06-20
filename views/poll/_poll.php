@@ -8,7 +8,7 @@ $isGuest = Yii::$app->user->isGuest;
 $hasVoted = !$isGuest && $poll->hasUserVoted($userId);
 $userVotes = $hasVoted ? $poll->getUserVotes($userId) : [];
 $totalVotes = $poll->getTotalVotes();
-$allowMultiple = (int)($poll->multiple_votes ?? 0) === 1;  // ← исправлено
+$allowMultiple = (int)($poll->multiple_votes ?? 0) === 1;
 $inputType = $allowMultiple ? 'checkbox' : 'radio';
 $postIdValue = (int)($postId ?? 0);
 ?>
@@ -36,9 +36,9 @@ $postIdValue = (int)($postId ?? 0);
                     <div class="poll-widget-results">
                         <div class="poll-widget-bar" style="width: <?= $percentage ?>%"></div>
                         <span class="poll-widget-percentage"><?= $percentage ?>%</span>
-                        <span class="poll-widget-votes"><?= number_format($votesCount) ?> гол.</span>
+                        <span class="poll-widget-votes"><?= number_format($votesCount) ?> <?= Yii::t('app', 'гол.') ?></span>
                         <?php if ($isChecked): ?>
-                            <span class="poll-widget-checked">✓ Ваш голос</span>
+                            <span class="poll-widget-checked"><?= Yii::t('app', '✓ Ваш голос') ?></span>
                         <?php endif; ?>
                     </div>
                 <?php endif; ?>
@@ -47,21 +47,21 @@ $postIdValue = (int)($postId ?? 0);
     </div>
     
     <div class="poll-widget-footer">
-        <span class="poll-widget-total">📊 <?= number_format($totalVotes) ?> гол.</span>
+        <span class="poll-widget-total">📊 <?= number_format($totalVotes) ?> <?= Yii::t('app', 'гол.') ?></span>
         
         <?php if (!$isGuest): ?>
             <?php if (!$hasVoted): ?>
                 <button class="poll-widget-vote-btn" onclick="submitPollVote(<?= $poll->id ?>, <?= $postIdValue ?>)">
-                    🗳️ Голосовать
+                    <?= Yii::t('app', '🗳️ Голосовать') ?>
                 </button>
             <?php else: ?>
                 <button class="poll-widget-cancel-btn" onclick="cancelPollVote(<?= $poll->id ?>, <?= $postIdValue ?>)">
-                    🔄 Отменить
+                    <?= Yii::t('app', '🔄 Отменить') ?>
                 </button>
             <?php endif; ?>
         <?php else: ?>
             <div class="poll-widget-login">
-                <a href="<?= Url::to(['site/login']) ?>">Войдите</a>, чтобы голосовать
+                <a href="<?= Url::to(['site/login']) ?>"><?= Yii::t('app', 'Войдите') ?></a><?= Yii::t('app', ', чтобы голосовать') ?>
             </div>
         <?php endif; ?>
     </div>

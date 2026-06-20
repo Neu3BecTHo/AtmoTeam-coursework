@@ -19,9 +19,9 @@ $isGuest = Yii::$app->user->isGuest;
 $username = Html::encode($user->username);
 $avatar = $user->getAvatarUrl();
 $isEmpty = empty($users);
-$titleLower = $title === 'Подписчики' ? 'подписчиков' : 'подписок';
-$emptyIcon = $title === 'Подписчики' ? '👥' : '📋';
-$emptyMessage = "Пока нет {$titleLower}";
+$titleLower = $title === Yii::t('app','Подписчики') ? Yii::t('app','подписчиков') : Yii::t('app','подписок');
+$emptyIcon = $title === Yii::t('app','Подписчики') ? '👥' : '📋';
+$emptyMessage = Yii::t('app','Пока нет') . " {$titleLower}";
 
 ?>
 
@@ -36,7 +36,7 @@ $emptyMessage = "Пока нет {$titleLower}";
                 <h1 class="profile-name"><?= $username ?></h1>
                 <p class="profile-bio"><?= Html::encode($title) ?></p>
                 <a href="<?= Url::to(['/profile/view', 'id' => $user->id]) ?>" class="btn-back">
-                    ← Назад к профилю
+                    ← <?= Yii::t('app','Назад к профилю') ?>
                 </a>
             </div>
         </div>
@@ -47,13 +47,13 @@ $emptyMessage = "Пока нет {$titleLower}";
             <div class="empty-state">
                 <div class="empty-icon"><?= $emptyIcon ?></div>
                 <h3 class="empty-title"><?= $emptyMessage ?></h3>
-                <?php if ($title === 'Подписчики'): ?>
-                    <p class="empty-description">Когда кто-то подпишется на вас, они появятся здесь</p>
+                <?php if ($title === Yii::t('app','Подписчики')): ?>
+                    <p class="empty-description"><?= Yii::t('app','Когда кто-то подпишется на вас, они появятся здесь') ?></p>
                 <?php else: ?>
-                    <p class="empty-description">Когда вы подпишетесь на кого-то, они появятся здесь</p>
+                    <p class="empty-description"><?= Yii::t('app','Когда вы подпишетесь на кого-то, они появятся здесь') ?></p>
                 <?php endif; ?>
                 <a href="<?= Url::to(['/search/index']) ?>" class="btn-primary">
-                    🔍 Найти пользователей
+                    🔍 <?= Yii::t('app','Найти пользователей') ?>
                 </a>
             </div>
         <?php else: ?>
@@ -81,9 +81,9 @@ $emptyMessage = "Пока нет {$titleLower}";
                                     data-user-id="<?= $u->id ?>"
                                     data-username="<?= $uUsername ?>"
                                     data-following="<?= $isFollowing ? 'true' : 'false' ?>"
-                                    title="<?= $isFollowing ? "Отписаться от {$uUsername}" : "Подписаться на {$uUsername}" ?>">
+                                    title="<?= $isFollowing ? Yii::t('app','Отписаться от') . " {$uUsername}" : Yii::t('app','Подписаться на') . " {$uUsername}" ?>">
                                 <span class="btn-icon"><?= $isFollowing ? '🔓' : '🔔' ?></span>
-                                <span class="btn-text"><?= $isFollowing ? 'Отписаться' : 'Подписаться' ?></span>
+                                <span class="btn-text"><?= $isFollowing ? Yii::t('app','Отписаться') : Yii::t('app','Подписаться') ?></span>
                             </button>
                         <?php endif; ?>
                     </div>

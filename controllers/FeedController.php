@@ -168,23 +168,23 @@ class FeedController extends Controller
 
         // Проверяем, что есть хоть что-то
         if (empty($content) && !$hasImages && empty($pollQuestion)) {
-            return ApiValidator::error('Заполните хотя бы одно поле: текст, изображение или опрос');
+            return ApiValidator::error(Yii::t('app', 'Заполните хотя бы одно поле: текст, изображение или опрос'));
         }
 
         // Проверка ошибок загрузки файлов
         if ($hasImages && isset($_FILES['images']['error'][0]) && $_FILES['images']['error'][0] !== UPLOAD_ERR_OK) {
             $errorCode = $_FILES['images']['error'][0];
             $errorMessages = [
-                UPLOAD_ERR_INI_SIZE => 'Файл превышает upload_max_filesize (настройка PHP)',
-                UPLOAD_ERR_FORM_SIZE => 'Файл превышает MAX_FILE_SIZE (HTML-форма)',
-                UPLOAD_ERR_PARTIAL => 'Файл загружен частично',
-                UPLOAD_ERR_NO_FILE => 'Файл не загружен',
-                UPLOAD_ERR_NO_TMP_DIR => 'Отсутствует временная папка',
-                UPLOAD_ERR_CANT_WRITE => 'Не удалось записать файл',
-                UPLOAD_ERR_EXTENSION => 'Расширение PHP остановило загрузку',
+                UPLOAD_ERR_INI_SIZE => Yii::t('app', 'Файл превышает upload_max_filesize (настройка PHP)'),
+                UPLOAD_ERR_FORM_SIZE => Yii::t('app', 'Файл превышает MAX_FILE_SIZE (HTML-форма)'),
+                UPLOAD_ERR_PARTIAL => Yii::t('app', 'Файл загружен частично'),
+                UPLOAD_ERR_NO_FILE => Yii::t('app', 'Файл не загружен'),
+                UPLOAD_ERR_NO_TMP_DIR => Yii::t('app', 'Отсутствует временная папка'),
+                UPLOAD_ERR_CANT_WRITE => Yii::t('app', 'Не удалось записать файл'),
+                UPLOAD_ERR_EXTENSION => Yii::t('app', 'Расширение PHP остановило загрузку'),
             ];
-            $errorMsg = $errorMessages[$errorCode] ?? 'Неизвестная ошибка загрузки';
-            return ApiValidator::error("Ошибка загрузки изображения: $errorMsg");
+            $errorMsg = $errorMessages[$errorCode] ?? Yii::t('app', 'Неизвестная ошибка загрузки');
+            return ApiValidator::error(Yii::t('app', 'Ошибка загрузки изображения: {error}', ['error' => $errorMsg]));
         }
 
         $post = new Post([
@@ -201,7 +201,7 @@ class FeedController extends Controller
         Yii::info("Received " . count($post->imageFiles) . " image files", 'post');
 
         if ($post->imageFiles && !$post->validate()) {
-            return ApiValidator::error('Некорректное изображение: ' . implode(', ', $post->getErrors('imageFiles')));
+            return ApiValidator::error(Yii::t('app', 'Некорректное изображение: {errors}', ['errors' => implode(', ', $post->getErrors('imageFiles'))]));
         }
 
         // Обработка опроса
@@ -261,7 +261,7 @@ class FeedController extends Controller
             return ['success' => true, 'post' => $postData];
         }
 
-        return ApiValidator::error('Ошибка сохранения поста: ' . json_encode($post->errors));
+        return ApiValidator::error(Yii::t('app', 'Ошибка сохранения поста'));
     }
 
     public function actionLike()
@@ -446,7 +446,7 @@ class FeedController extends Controller
     public function actionDeleteComment()
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
-        
+
         $authCheck = ApiValidator::requireAuth();
         if ($authCheck !== true) {
             return $authCheck;
@@ -454,22 +454,32 @@ class FeedController extends Controller
 
         $data = ApiValidator::getRequestData();
         $commentId = $data['comment_id'] ?? Yii::$app->request->post('comment_id');
-        
+
         $comment = Comment::findOne($commentId);
-        
+
         if (!$comment) {
             return ['success' => false, 'error' => 'Комментарий не найден'];
         }
-        
+
         if ($comment->user_id !== Yii::$app->user->id) {
             return ['success' => false, 'error' => 'Нет прав для удаления'];
         }
-        
+
         $postId = $comment->post_id;
-        
-        // Удаляем изображения комментария если есть
-        $this->deleteCommentImages($comment);
-        
+
+        // Удаляем изображения комментария если есть (проверяем существование метода)
+        if (method_exists($comment, 'getImageUrls')) {
+            $this->deleteCommentImages($comment);
+        }
+
+        // Проверяем поле image напрямую
+        if (!empty($comment->image)) {
+            $fullPath = Yii::getAlias('@webroot') . $comment->image;
+            if (file_exists($fullPath)) {
+                @unlink($fullPath);
+            }
+        }
+
         if ($comment->delete()) {
             $post = Post::findOne($postId);
             if ($post) {
@@ -477,7 +487,7 @@ class FeedController extends Controller
             }
             return ['success' => true];
         }
-        
+
         return ['success' => false, 'error' => 'Ошибка удаления'];
     }
 
@@ -486,6 +496,11 @@ class FeedController extends Controller
      */
     private function deleteCommentImages($comment)
     {
+        // Проверяем, существует ли метод getImageUrls
+        if (!method_exists($comment, 'getImageUrls')) {
+            return;
+        }
+
         $imageUrls = $comment->getImageUrls();
         if (empty($imageUrls)) {
             return;

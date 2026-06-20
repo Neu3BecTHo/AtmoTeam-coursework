@@ -58,14 +58,14 @@ class Notification extends ActiveRecord
     {
         return [
             'id' => 'ID',
-            'user_id' => 'Пользователь',
-            'type' => 'Тип',
-            'from_user_id' => 'От кого',
-            'post_id' => 'Пост',
-            'comment_id' => 'Комментарий',
-            'message' => 'Сообщение',
-            'is_read' => 'Прочитано',
-            'created_at' => 'Дата',
+            'user_id' => Yii::t('app', 'Пользователь'),
+            'type' => Yii::t('app', 'Тип'),
+            'from_user_id' => Yii::t('app', 'От кого'),
+            'post_id' => Yii::t('app', 'Пост'),
+            'comment_id' => Yii::t('app', 'Комментарий'),
+            'message' => Yii::t('app', 'Сообщение'),
+            'is_read' => Yii::t('app', 'Прочитано'),
+            'created_at' => Yii::t('app', 'Дата'),
         ];
     }
 
@@ -107,7 +107,7 @@ class Notification extends ActiveRecord
 
     private static function generateMessage($type, $fromUserId)
     {
-        $fromUsername = $fromUserId ? User::findOne($fromUserId)?->username : 'Кто-то';
+        $fromUsername = $fromUserId ? User::findOne($fromUserId)?->username : Yii::t('app', 'Кто-то');
 
         $messages = [
             self::TYPE_LIKE => $fromUsername . ' лайкнул(а) ваш пост',
@@ -193,12 +193,6 @@ class Notification extends ActiveRecord
 
     private function getTimeAgo()
     {
-        $diff = time() - $this->created_at;
-        
-        if ($diff < 60) return 'только что';
-        if ($diff < 3600) return floor($diff / 60) . ' мин. назад';
-        if ($diff < 86400) return floor($diff / 3600) . ' ч. назад';
-        
-        return date('d.m.Y', $this->created_at);
+        return \app\components\TimeAgoHelper::format((int) $this->created_at);
     }
 }

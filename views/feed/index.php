@@ -2,7 +2,7 @@
 
 use yii\helpers\Html;
 
-$this->title = 'Лента новостей';
+$this->title = Yii::t('app','Лента новостей');
 
 // Регистрация CSS
 $this->registerCssFile('@web/css/feed.css');
@@ -14,7 +14,7 @@ $this->registerJsFile('@web/js/story.js', ['depends' => [\yii\web\JqueryAsset::c
 
 $currentUserId = Yii::$app->user->id;
 $currentUser = Yii::$app->user->identity;
-$currentUsername = $currentUser ? $currentUser->username : 'Гость';
+$currentUsername = $currentUser ? $currentUser->username : Yii::t('app', 'Гость');
 $currentAvatar = $currentUser ? $currentUser->getAvatarUrl() : 'https://api.dicebear.com/7.x/avataaars/svg?seed=0';
 $feedType = Yii::$app->user->isGuest ? 'explore' : 'following';
 $type = Yii::$app->request->get('type', 'following');
@@ -30,11 +30,11 @@ window.feedType = <?= json_encode($feedType) ?>;
 
 <div class="feed-container">
     <div class="feed-header">
-        <h1 class="feed-title">📱 Лента новостей</h1>
+        <h1 class="feed-title"><?= Yii::t('app', '📱 Лента новостей') ?></h1>
         <div class="feed-filters">
-            <button class="feed-filter <?= $type === 'all' ? 'active' : '' ?>" data-type="all">🌍 Все</button>
-            <button class="feed-filter <?= $type === 'following' ? 'active' : '' ?>" data-type="following">👥 Подписки</button>
-            <button class="feed-filter <?= $type === 'popular' ? 'active' : '' ?>" data-type="popular">🔥 Популярное</button>
+            <button class="feed-filter <?= $type === 'all' ? 'active' : '' ?>" data-type="all"><?= Yii::t('app','🌍 Все') ?></button>
+            <button class="feed-filter <?= $type === 'following' ? 'active' : '' ?>" data-type="following"><?= Yii::t('app','👥 Подписки') ?></button>
+            <button class="feed-filter <?= $type === 'popular' ? 'active' : '' ?>" data-type="popular"><?= Yii::t('app','🔥 Популярное') ?></button>
         </div>
     </div>
 
@@ -45,10 +45,10 @@ window.feedType = <?= json_encode($feedType) ?>;
         <?php else: ?>
             <div class="guest-notice">
                 <div class="guest-notice-icon">🔒</div>
-                <p>Войдите или зарегистрируйтесь, чтобы публиковать посты и ставить лайки</p>
+                <p><?= Yii::t('app', 'Войдите или зарегистрируйтесь, чтобы публиковать посты и ставить лайки') ?></p>
                 <div class="guest-notice-actions">
-                    <a href="/login" class="btn btn-primary">Войти</a>
-                    <a href="/register" class="btn btn-secondary">Регистрация</a>
+                    <a href="/login" class="btn btn-primary"><?= Yii::t('app','Войти') ?></a>
+                    <a href="/register" class="btn btn-secondary"><?= Yii::t('app','Регистрация') ?></a>
                 </div>
             </div>
         <?php endif; ?>

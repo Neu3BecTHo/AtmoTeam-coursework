@@ -123,9 +123,12 @@ async function handleApiRequest(request) {
     } catch (error) {
         if (cachedResponse) return cachedResponse;
         
+        const offlineError = request.headers.get('Accept-Language')?.startsWith('en')
+            ? 'No internet connection'
+            : 'Отсутствует подключение к интернету';
         return new Response(JSON.stringify({
             success: false,
-            error: 'Отсутствует подключение к интернету',
+            error: offlineError,
             offline: true
         }), {
             status: 503,
@@ -181,11 +184,19 @@ function getOfflinePage() {
         <body>
             <div class="offline-container">
                 <div class="offline-icon">📱</div>
-                <h1>Офлайн режим</h1>
-                <p>Отсутствует подключение к интернету</p>
-                <p>Некоторые функции могут быть недоступны</p>
-                <button class="btn" onclick="window.location.reload()">Обновить страницу</button>
+                <h1 id="offline-title"></h1>
+                <p id="offline-msg"></p>
+                <p id="offline-hint"></p>
+                <button class="btn" onclick="window.location.reload()" id="offline-btn"></button>
             </div>
+            <script>
+                const en = (navigator.language || '').startsWith('en');
+                document.getElementById('offline-title').textContent = en ? 'Offline mode' : 'Офлайн режим';
+                document.getElementById('offline-msg').textContent = en ? 'No internet connection' : 'Отсутствует подключение к интернету';
+                document.getElementById('offline-hint').textContent = en ? 'Some features may be unavailable' : 'Некоторые функции могут быть недоступны';
+                document.getElementById('offline-btn').textContent = en ? 'Refresh page' : 'Обновить страницу';
+                document.title = en ? 'Offline mode' : 'Офлайн режим';
+            </script>
         </body>
         </html>
     `, {

@@ -156,11 +156,11 @@ function showEmptyStateForGuest() {
   container.innerHTML = `
         <div class="guest-notice" style="text-align: center; padding: var(--space-10);">
             <div class="guest-notice-icon" style="font-size: 48px; margin-bottom: var(--space-4);">🔒</div>
-            <p style="font-size: var(--text-lg); color: var(--text-primary); margin-bottom: var(--space-4);">Войдите, чтобы увидеть ленту</p>
-            <p style="color: var(--text-secondary); margin-bottom: var(--space-6);">Публикуйте посты, ставьте лайки и общайтесь с друзьями</p>
+            <p style="font-size: var(--text-lg); color: var(--text-primary); margin-bottom: var(--space-4);">${window.t('login_to_see_feed')}</p>
+            <p style="color: var(--text-secondary); margin-bottom: var(--space-6);">${window.t('publish_likes_friends')}</p>
             <div class="guest-notice-actions" style="display: flex; gap: var(--space-3); justify-content: center;">
-                <a href="/login" class="btn btn-primary">Войти</a>
-                <a href="/register" class="btn btn-secondary">Регистрация</a>
+                <a href="/login" class="btn btn-primary">${window.t('login')}</a>
+                <a href="/register" class="btn btn-secondary">${window.t('register')}</a>
             </div>
         </div>
     `;
@@ -175,7 +175,7 @@ function showEmptyState() {
   if (!container) return;
   if (container.querySelectorAll(".post-card").length > 0) return;
   container.innerHTML =
-    '<div class="empty-state"><div class="empty-icon">📝</div><p>Нет постов</p></div>';
+    '<div class="empty-state"><div class="empty-icon">📝</div><p>' + window.t('no_posts') + '</p></div>';
 }
 
 // ==================== Add Post to Feed ====================
@@ -307,7 +307,7 @@ async function openPostModal(postId) {
   if (!modal || !body) return;
   modal.classList.remove("hidden");
   modal.classList.add("show");
-  body.innerHTML = '<div class="loading-spinner">Загрузка...</div>';
+  body.innerHTML = '<div class="loading-spinner">' + window.t('loading') + '</div>';
   try {
     const response = await fetch(`/post/modal-content?id=${postId}`);
     body.innerHTML = await response.text();
@@ -317,7 +317,7 @@ async function openPostModal(postId) {
     initCommentForm(postId);
   } catch (error) {
     console.error("Error loading post:", error);
-    body.innerHTML = '<p class="error-message">Ошибка загрузки поста</p>';
+    body.innerHTML = '<p class="error-message">' + window.t('post_load_error') + '</p>';
   }
 }
 
@@ -475,8 +475,8 @@ function addCommentToModal(data) {
       <div class="comment-author">
         <img src="${data.author?.avatar || ''}" class="comment-avatar" alt="">
         <div class="comment-author-info">
-          <a href="/profile/view?id=${data.author?.id}" class="comment-author-name">${escapeHtml(data.author?.username || 'Пользователь')}</a>
-          <span class="comment-time">${data.timeAgo || 'только что'}</span>
+          <a href="/profile/view?id=${data.author?.id}" class="comment-author-name">${escapeHtml(data.author?.username || window.t('user'))}</a>
+          <span class="comment-time">${data.timeAgo || window.t('just_now')}</span>
         </div>
       </div>
       <div class="comment-content">${escapeHtml(data.content)}</div>
@@ -547,7 +547,7 @@ async function compressImage(file) {
         canvas.toBlob(
           (blob) => {
             if (!blob) {
-              reject(new Error("Не удалось создать Blob"));
+              reject(new Error(window.t('blob_creation_error')));
               return;
             }
             // Сохраняем исходное имя, но меняем расширение на .webp (если надо)
@@ -565,9 +565,9 @@ async function compressImage(file) {
           quality,
         );
       };
-      img.onerror = () => reject(new Error("Ошибка загрузки изображения"));
+      img.onerror = () => reject(new Error(window.t('image_loading_error')));
     };
-    reader.onerror = () => reject(new Error("Ошибка чтения файла"));
+    reader.onerror = () => reject(new Error(window.t('file_reading_error')));
   });
 }
 
@@ -610,7 +610,7 @@ function updateTotalSizeWarning() {
   }
   if (selectedImages.length > 0 && totalSize > MAX_TOTAL_SIZE) {
     warningEl.style.display = "block";
-    warningEl.innerHTML = `⚠️ Общий размер изображений (${totalSizeMB} МБ) превышает лимит ${MAX_TOTAL_SIZE / (1024 * 1024)} МБ. Пожалуйста, удалите некоторые файлы.`;
+    warningEl.innerHTML = '⚠️ ' + window.t('image_size_warning', { size: totalSizeMB, limit: MAX_TOTAL_SIZE / (1024 * 1024) });
     warningEl.style.color = "#ef4444";
   } else {
     warningEl.style.display = "none";
@@ -698,8 +698,8 @@ function removePoll() {
   if (multiple) multiple.checked = false;
   const options = document.getElementById("poll-options");
   if (options) {
-    options.innerHTML = `<div class="poll-option-input"><input type="text" class="option-input" placeholder="Вариант ответа 1..."><button type="button" class="btn-remove-option" onclick="removeOption(this)">✕</button></div>
-                            <div class="poll-option-input"><input type="text" class="option-input" placeholder="Вариант ответа 2..."><button type="button" class="btn-remove-option" onclick="removeOption(this)">✕</button></div>`;
+    options.innerHTML = `<div class="poll-option-input"><input type="text" class="option-input" placeholder="${window.t('poll_option_1')}"><button type="button" class="btn-remove-option" onclick="removeOption(this)">✕</button></div>
+                            <div class="poll-option-input"><input type="text" class="option-input" placeholder="${window.t('poll_option_2')}"><button type="button" class="btn-remove-option" onclick="removeOption(this)">✕</button></div>`;
     // Добавляем обработчики на новые инпуты
     options.querySelectorAll(".option-input").forEach(input => {
       input.addEventListener("input", updatePublishButton);
@@ -713,7 +713,7 @@ function addPollOption() {
   if (!options) return;
   const current = options.querySelectorAll(".poll-option-input").length;
   if (current >= 10) {
-    showNotification("Максимум 10 вариантов", "error");
+    showNotification(window.t('max_poll_options'), "error");
     return;
   }
   const div = document.createElement("div");
@@ -721,7 +721,7 @@ function addPollOption() {
   const input = document.createElement("input");
   input.type = "text";
   input.className = "option-input";
-  input.placeholder = `Вариант ответа ${current + 1}...`;
+  input.placeholder = window.t('poll_option_n', { n: current + 1 });
   const removeBtn = document.createElement("button");
   removeBtn.type = "button";
   removeBtn.className = "btn-remove-option";
@@ -738,7 +738,7 @@ function removeOption(btn) {
   const options = document.getElementById("poll-options");
   if (!options) return;
   if (options.querySelectorAll(".poll-option-input").length <= 2) {
-    showNotification("Минимум 2 варианта", "error");
+    showNotification(window.t('min_poll_options'), "error");
     return;
   }
   btn.closest(".poll-option-input").remove();
@@ -793,10 +793,7 @@ async function publishPost() {
   const pollData = getPollData();
 
   if (!content && images.length === 0 && !pollData) {
-    showNotification(
-      "Заполните хотя бы одно поле: текст, изображение или опрос",
-      "error",
-    );
+    showNotification(window.t('fill_at_least_one_field'), "error");
     return;
   }
 
@@ -805,7 +802,7 @@ async function publishPost() {
   const totalSize = images.reduce((sum, img) => sum + img.size, 0);
   if (images.length > 0 && totalSize > MAX_TOTAL_SIZE) {
     showNotification(
-      `Общий размер изображений (${(totalSize / 1024 / 1024).toFixed(2)} МБ) превышает лимит 7 МБ. Удалите часть файлов.`,
+      window.t('image_total_size_exceeds', { size: (totalSize / 1024 / 1024).toFixed(2) }),
       "error",
     );
     return;
@@ -814,7 +811,7 @@ async function publishPost() {
   const btnPublish = document.getElementById("btn-publish");
   if (btnPublish) {
     btnPublish.disabled = true;
-    btnPublish.textContent = "⏳ Публикация...";
+    btnPublish.textContent = window.t('publishing');
   }
 
   try {
@@ -845,7 +842,7 @@ async function publishPost() {
       if (charCount) charCount.textContent = "0/5000";
       removeSelectedImages();
       removePoll();
-      showNotification("Пост опубликован!", "success");
+      showNotification(window.t('post_published'), "success");
 
       if (data.post && typeof addPostToFeed === "function") {
         addPostToFeed(data.post, true);
@@ -855,15 +852,15 @@ async function publishPost() {
         location.reload();
       }
     } else {
-      showNotification(data.error || "Ошибка публикации", "error");
+      showNotification(data.error || window.t('publish_error'), "error");
     }
   } catch (error) {
     console.error("Publish error:", error);
-    showNotification("Ошибка публикации", "error");
+    showNotification(window.t('publish_error'), "error");
   } finally {
     if (btnPublish) {
       btnPublish.disabled = false;
-      btnPublish.textContent = "📤 Опубликовать";
+      btnPublish.textContent = window.t('publish_button');
     }
   }
 }
@@ -927,6 +924,7 @@ window.addPollOption = addPollOption;
 window.removeOption = removeOption;
 window.removeImagePreview = removeImagePreview;
 window.removeSelectedImages = removeSelectedImages;
+window.removeAllSelectedImages = removeSelectedImages;
 window.getPollData = getPollData;
 window.updatePublishButton = updatePublishButton;
 window.publishPost = publishPost;

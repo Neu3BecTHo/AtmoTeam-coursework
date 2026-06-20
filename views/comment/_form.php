@@ -11,17 +11,17 @@ if (!Yii::$app->user->isGuest):
 ?>
 
 <div class="comment-form" data-post-id="<?= $postIdValue ?>">
-    <img src="<?= Html::encode($currentAvatar) ?>" class="comment-avatar" alt="Ваш аватар">
+    <img src="<?= Html::encode($currentAvatar) ?>" class="comment-avatar" alt="<?= Yii::t('app','Ваш аватар') ?>">
     <div class="comment-form__wrapper">
         <textarea class="comment-form__input modal-comment-input" 
-                  placeholder="Написать комментарий..." 
+                  placeholder="<?= Yii::t('app','Написать комментарий...') ?>" 
                   rows="1" 
                   maxlength="1000"></textarea>
         <div class="comment-form__footer">
             <span class="comment-form__counter">0</span>
             <span class="comment-form__counter-max">/1000</span>
             <button class="comment-form__btn modal-comment-submit" data-post-id="<?= $postIdValue ?>">
-                📤 Отправить
+                📤 <?= Yii::t('app','Отправить') ?>
             </button>
         </div>
     </div>

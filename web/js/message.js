@@ -24,8 +24,8 @@ async function postJson(url, payload) {
 }
 function formatTime(timestamp, withDate = true) {
     const date = new Date(timestamp * 1000);
-    if (withDate) return date.toLocaleString("ru-RU", { day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" });
-    return date.toLocaleTimeString("ru-RU", { hour:"2-digit", minute:"2-digit" });
+    if (withDate) return date.toLocaleString(document.documentElement.lang || undefined, { day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" });
+    return date.toLocaleTimeString(document.documentElement.lang || undefined, { hour:"2-digit", minute:"2-digit" });
 }
 function scrollToBottom() {
     const container = document.getElementById("messages-container");
@@ -74,7 +74,7 @@ async function compressImage(file) {
                 let mime = "image/webp", quality = MSG_WEBP_QUALITY;
                 if (!canvas.toBlob) { mime = "image/jpeg"; quality = MSG_JPEG_QUALITY; }
                 canvas.toBlob((blob) => {
-                    if (!blob) reject(new Error("Не удалось создать Blob"));
+                    if (!blob) reject(new Error(window.t('blob_creation_error')));
                     else {
                         let newName = file.name;
                         if (mime === "image/webp" && !newName.endsWith(".webp")) newName = newName.replace(/\.(jpe?g|png)$/i, ".webp");
@@ -83,9 +83,9 @@ async function compressImage(file) {
                     }
                 }, mime, quality);
             };
-            img.onerror = () => reject(new Error("Ошибка загрузки изображения"));
+            img.onerror = () => reject(new Error(window.t('image_loading_error')));
         };
-        reader.onerror = () => reject(new Error("Ошибка чтения файла"));
+        reader.onerror = () => reject(new Error(window.t('file_reading_error')));
     });
 }
 async function handleImageSelection() {
@@ -100,7 +100,7 @@ async function handleImageSelection() {
             preview.innerHTML = selectedImageFiles.map((_, i) => `
                 <div class="message-image-preview-item">
                     <img data-index="${i}" src="" alt="Preview">
-                    <button class="btn-remove-image" onclick="removeImageMessage(${i})" title="Удалить">×</button>
+                    <button class="btn-remove-image" onclick="removeImageMessage(${i})" title="${window.t('delete')}">×</button>
                 </div>
             `).join('');
             selectedImageFiles.forEach((file, i) => {
@@ -130,7 +130,7 @@ function removeImageMessage(index) {
             preview.innerHTML = selectedImageFiles.map((_, i) => `
                 <div class="message-image-preview-item">
                     <img data-index="${i}" src="" alt="Preview">
-                    <button class="btn-remove-image" onclick="removeImageMessage(${i})" title="Удалить">×</button>
+                    <button class="btn-remove-image" onclick="removeImageMessage(${i})" title="${window.t('delete')}">×</button>
                 </div>
             `).join('');
             selectedImageFiles.forEach((file, i) => {
@@ -151,7 +151,7 @@ async function sendMessage() {
     const content = input?.value.trim() || "";
     if (!content && selectedImageFiles.length === 0) return;
     if ([...content].length > 1000) {
-        showNotification("Сообщение слишком длинное (максимум 1000 символов)", "error");
+        showNotification(window.t('message_too_long'), "error");
         return;
     }
     if (selectedImageFiles.length > 0) await sendImageMessage(content);
@@ -172,10 +172,10 @@ async function sendTextMessage(plainText) {
             document.getElementById("message-input").value = "";
             scrollToBottom();
         } else {
-            showNotification(result.error || "Ошибка отправки", "error");
+            showNotification(result.error || window.t('send_error'), "error");
         }
     } catch (error) {
-        showNotification("Ошибка отправки", "error");
+        showNotification(window.t('send_error'), "error");
     }
 }
 
@@ -194,11 +194,11 @@ async function sendImageMessage(content) {
                 localStorage.setItem('sent_messages', JSON.stringify(sentMessages));
             }
             await addMessageToChat(result.message, true, content || '');
-            showNotification("Сообщение отправлено", "success");
+            showNotification(window.t('message_sent'), "success");
         } else {
-            showNotification(result.error || "Ошибка отправки", "error");
+            showNotification(result.error || window.t('send_error'), "error");
         }
-    } catch (error) { showNotification("Ошибка отправки", "error"); }
+    } catch (error) { showNotification(window.t('send_error'), "error"); }
     selectedImageFiles = [];
     const input = document.getElementById("message-input");
     const imageInput = document.getElementById("message-image-input");
@@ -316,11 +316,11 @@ async function pollMessages() {
 }
 function formatDialogueTime(timestamp) {
     const diff = Math.floor(Date.now()/1000) - timestamp;
-    if (diff < 60) return 'только что';
-    if (diff < 3600) return `${Math.floor(diff/60)} мин. назад`;
-    if (diff < 86400) return `${Math.floor(diff/3600)} ч. назад`;
-    if (diff < 2592000) return `${Math.floor(diff/86400)} дн. назад`;
-    return new Date(timestamp*1000).toLocaleDateString('ru-RU');
+    if (diff < 60) return window.t('just_now');
+    if (diff < 3600) return `${Math.floor(diff/60)} ${window.t('minutes_ago')}`;
+    if (diff < 86400) return `${Math.floor(diff/3600)} ${window.t('hours_ago')}`;
+    if (diff < 2592000) return `${Math.floor(diff/86400)} ${window.t('days_ago')}`;
+    return new Date(timestamp*1000).toLocaleDateString(document.documentElement.lang || undefined);
 }
 async function updateDialoguesList() {
     if (window.location.pathname !== "/message") return;
@@ -330,7 +330,7 @@ async function updateDialoguesList() {
         const container = document.querySelector('.dialogues-container');
         if (!container) return;
         if (!data.success || !data.dialogues?.length) {
-            container.innerHTML = '<div class="empty-state"><div class="empty-icon">💬</div><p>У вас пока нет сообщений</p><a href="/search" class="btn-find-users">Найти пользователей</a></div>';
+            container.innerHTML = '<div class="empty-state"><div class="empty-icon">💬</div><p>' + window.t('no_messages') + '</p><a href="/search" class="btn-find-users">' + window.t('find_users') + '</a></div>';
             return;
         }
         let list = container.querySelector('.dialogues-list');
@@ -350,7 +350,7 @@ async function updateDialoguesList() {
                         <div class="dialogue-user">${escapeHtml(d.user.username)}</div>
                         <div class="dialogue-time">${formatDialogueTime(d.last_message_time)}</div>
                     </div>
-                    <div class="dialogue-preview">${escapeHtml(d.last_message || "Начните диалог...")}</div>
+                    <div class="dialogue-preview">${escapeHtml(d.last_message || window.t('start_dialogue'))}</div>
                     ${d.unread_count > 0 ? `<span class="unread-badge">${d.unread_count}</span>` : ''}
                 </div>
             </div>
@@ -527,7 +527,7 @@ function showContextMenu(e, messageId, isOwn) {
     menu.className = 'message-context-menu';
     menu.innerHTML = `
         <button class="context-menu-item delete-message-btn" onclick="deleteMessage(${messageId})">
-            🗑️ Удалить
+            🗑️ ${window.t('delete')}
         </button>
     `;
     
@@ -559,12 +559,12 @@ async function deleteMessage(messageId) {
     
     // Используем кастомную модалку вместо browser confirm
     if (typeof window.showDeleteModal === 'function') {
-        window.showDeleteModal('Удалить это сообщение?', async () => {
+        window.showDeleteModal(window.t('delete_message_question'), async () => {
             try {
                 const response = await postJson('/api/message/delete', { message_id: messageId });
                 
                 if (response.success) {
-                    showNotification('Сообщение удалено', 'success');
+                    showNotification(window.t('message_deleted'), 'success');
                     
                     // Удаляем сообщение из DOM
                     const messageEl = document.querySelector(`.message[data-message-id="${messageId}"]`);
@@ -579,22 +579,22 @@ async function deleteMessage(messageId) {
                     delete sentMessages[messageId];
                     localStorage.setItem('sent_messages', JSON.stringify(sentMessages));
                 } else {
-                    showNotification(response.error || 'Ошибка удаления', 'error');
+                    showNotification(response.error || window.t('error_deleting'), 'error');
                 }
             } catch (error) {
                 console.error('Delete message error:', error);
-                showNotification('Ошибка удаления', 'error');
+                showNotification(window.t('error_deleting'), 'error');
             }
         });
     } else {
         // Fallback если showDeleteModal недоступна
-        if (!confirm('Удалить это сообщение?')) return;
+        if (!confirm(window.t('delete_message_question'))) return;
         
         try {
             const response = await postJson('/api/message/delete', { message_id: messageId });
             
             if (response.success) {
-                showNotification('Сообщение удалено', 'success');
+                showNotification(window.t('message_deleted'), 'success');
                 
                 const messageEl = document.querySelector(`.message[data-message-id="${messageId}"]`);
                 if (messageEl) {
@@ -607,11 +607,11 @@ async function deleteMessage(messageId) {
                 delete sentMessages[messageId];
                 localStorage.setItem('sent_messages', JSON.stringify(sentMessages));
             } else {
-                showNotification(response.error || 'Ошибка удаления', 'error');
+                showNotification(response.error || window.t('error_deleting'), 'error');
             }
         } catch (error) {
             console.error('Delete message error:', error);
-            showNotification('Ошибка удаления', 'error');
+            showNotification(window.t('error_deleting'), 'error');
         }
     }
 }

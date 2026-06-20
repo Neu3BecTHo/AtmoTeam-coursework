@@ -35,9 +35,9 @@ $isFollowing = $isCurrentUser ? Follow::isFollowing($currentUser->id, $user->id)
                 data-user-id="<?= $user->id ?>"
                 data-username="<?= $username ?>"
                 data-following="<?= $isFollowing ? 'true' : 'false' ?>"
-                title="<?= $isFollowing ? 'Отписаться от ' . $username : 'Подписаться на ' . $username ?>">
+                title="<?= $isFollowing ? Yii::t('app', 'Отписаться от {username}', ['username' => $username]) : Yii::t('app', 'Подписаться на {username}', ['username' => $username]) ?>">
             <span class="btn-icon"><?= $isFollowing ? '🔓' : '🔔' ?></span>
-            <span class="btn-text"><?= $isFollowing ? 'Отписаться' : 'Подписаться' ?></span>
+            <span class="btn-text"><?= $isFollowing ? Yii::t('app', 'Отписаться') : Yii::t('app', 'Подписаться') ?></span>
         </button>
     <?php endif; ?>
 </div>

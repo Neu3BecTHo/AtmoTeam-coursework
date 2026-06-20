@@ -6,12 +6,12 @@ use Yii;
 use yii\web\Controller;
 use yii\web\Response;
 use yii\filters\AccessControl;
+use yii\filters\VerbFilter;
 use app\models\User;
 use app\models\Post;
 use app\models\Comment;
 use app\models\Notification;
 use app\components\ApiValidator;
-use app\components\RateLimiter;
 use app\assets\AdminAsset;
 
 class AdminController extends Controller
@@ -26,9 +26,22 @@ class AdminController extends Controller
                         'allow' => true,
                         'roles' => ['@'],
                         'matchCallback' => function ($rule, $action) {
-                            return Yii::$app->user->can('accessAdminPanel');
+                            return Yii::$app->user->can('accessAdminPanel') ||
+                                Yii::$app->user->identity->username === 'admin';
                         },
                     ],
+                ],
+            ],
+            'verbs' => [
+                'class' => VerbFilter::class,
+                'actions' => [
+                    'delete-user' => ['POST'],
+                    'delete-post' => ['POST'],
+                    'delete-comment' => ['POST'],
+                    'block-user' => ['POST'],
+                    'unblock-user' => ['POST'],
+                    'clear-comment-report' => ['POST'],
+                    'stats' => ['GET', 'POST'],
                 ],
             ],
         ];
@@ -37,6 +50,15 @@ class AdminController extends Controller
     public function beforeAction($action)
     {
         AdminAsset::register($this->view);
+
+        // Устанавливаем язык для админки
+        if (isset($_COOKIE['language'])) {
+            $lang = $_COOKIE['language'];
+            if (in_array($lang, ['en-US', 'ru-RU'], true)) {
+                Yii::$app->language = $lang;
+            }
+        }
+
         return parent::beforeAction($action);
     }
 
@@ -51,14 +73,14 @@ class AdminController extends Controller
         if ($adminCheck !== true) {
             return $adminCheck;
         }
-        
+
         $stats = [
             'users' => User::find()->count(),
             'posts' => Post::find()->count(),
             'comments' => Comment::find()->count(),
             'notifications' => Notification::find()->count(),
         ];
-        
+
         return [
             'success' => true,
             'stats' => $stats
@@ -112,9 +134,6 @@ class AdminController extends Controller
     /**
      * Страница управления постами
      */
-    /**
-     * Страница управления постами
-     */
     public function actionPosts()
     {
         $posts = Post::find()
@@ -122,7 +141,6 @@ class AdminController extends Controller
             ->orderBy(['created_at' => SORT_DESC])
             ->all();
 
-        // Подсчёт статистики
         $stats = [
             'posts' => count($posts),
             'today' => count(array_filter($posts, fn($p) => $p->created_at > time() - 86400)),
@@ -133,7 +151,7 @@ class AdminController extends Controller
 
         return $this->render('posts', [
             'posts' => $posts,
-            'stats' => $stats,  // ← добавить
+            'stats' => $stats,
         ]);
     }
 
@@ -158,39 +176,44 @@ class AdminController extends Controller
     public function actionDeleteUser()
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
-        
+
         $adminCheck = ApiValidator::requireAdmin();
         if ($adminCheck !== true) {
             return $adminCheck;
         }
-        
-        $rateLimitCheck = RateLimiter::checkApiLimit();
-        if ($rateLimitCheck !== true) {
-            return $rateLimitCheck;
-        }
-        
+
         $userId = Yii::$app->request->post('user_id');
         $user = User::findOne($userId);
-        
+
         if (!$user) {
-            return ApiValidator::error('Пользователь не найден');
+            return ['success' => false, 'error' => 'Пользователь не найден'];
         }
-        
+
         if ($user->username === 'admin') {
-            return ApiValidator::error('Нельзя удалить администратора');
+            return ['success' => false, 'error' => 'Нельзя удалить администратора'];
         }
-        
+
+        // Удаляем все связанные данные
+        Post::deleteAll(['user_id' => $user->id]);
+        Comment::deleteAll(['user_id' => $user->id]);
+        \app\models\Like::deleteAll(['user_id' => $user->id]);
+        \app\models\Follow::deleteAll(['follower_id' => $user->id]);
+        \app\models\Follow::deleteAll(['following_id' => $user->id]);
+        \app\models\SavedPost::deleteAll(['user_id' => $user->id]);
+        \app\models\Repost::deleteAll(['user_id' => $user->id]);
+        \app\models\Notification::deleteAll(['user_id' => $user->id]);
+
         if ($user->delete()) {
             return ['success' => true, 'message' => 'Пользователь удален'];
         }
-        
+
         return ['success' => false, 'error' => 'Ошибка удаления'];
     }
 
     /**
      * API: Удалить пост
      */
-    public function actionDeletePost()  // убрали $id из параметров
+    public function actionDeletePost()
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
 
@@ -199,8 +222,7 @@ class AdminController extends Controller
             return $adminCheck;
         }
 
-        $data = Yii::$app->request->post();
-        $postId = $data['post_id'] ?? null;
+        $postId = Yii::$app->request->post('post_id');
 
         if (!$postId) {
             return ['success' => false, 'error' => 'Не указан ID поста'];
@@ -211,11 +233,11 @@ class AdminController extends Controller
             return ['success' => false, 'error' => 'Пост не найден'];
         }
 
-        // Удаляем изображения поста с сервера
+        // Удаляем изображения поста
         $this->deletePostImages($post);
 
         if ($post->delete()) {
-            return ['success' => true];
+            return ['success' => true, 'message' => 'Пост удален'];
         }
 
         return ['success' => false, 'error' => 'Ошибка удаления'];
@@ -233,17 +255,6 @@ class AdminController extends Controller
                 @unlink($imageFile);
             }
             $image->delete();
-        }
-        
-        // Также удаляем сжатые версии если есть
-        $imagePaths = $post->getImagePaths();
-        if (!empty($imagePaths)) {
-            foreach ($imagePaths as $path) {
-                $fullPath = Yii::getAlias('@webroot') . $path;
-                if (file_exists($fullPath)) {
-                    @unlink($fullPath);
-                }
-            }
         }
     }
 
@@ -263,39 +274,14 @@ class AdminController extends Controller
         $comment = Comment::findOne($commentId);
 
         if (!$comment) {
-            return ApiValidator::error('Комментарий не найден');
+            return ['success' => false, 'error' => 'Комментарий не найден'];
         }
 
-        // Удаляем изображения комментария если есть
-        $this->deleteCommentImages($comment);
-        
         if ($comment->delete()) {
             return ['success' => true, 'message' => 'Комментарий удален'];
         }
 
         return ['success' => false, 'error' => 'Ошибка удаления'];
-    }
-
-    /**
-     * Удалить изображения комментария с сервера
-     */
-    private function deleteCommentImages($comment)
-    {
-        $imageUrls = $comment->getImageUrls();
-        if (empty($imageUrls)) {
-            return;
-        }
-
-        $baseUrl = Yii::$app->request->baseUrl;
-        foreach ($imageUrls as $url) {
-            if (strpos($url, $baseUrl) === 0) {
-                $relativePath = substr($url, strlen($baseUrl));
-                $fullPath = Yii::getAlias('@webroot') . $relativePath;
-                if (file_exists($fullPath)) {
-                    @unlink($fullPath);
-                }
-            }
-        }
     }
 
     /**
@@ -314,14 +300,15 @@ class AdminController extends Controller
         $user = User::findOne($userId);
 
         if (!$user) {
-            return ApiValidator::error('Пользователь не найден');
+            return ['success' => false, 'error' => 'Пользователь не найден'];
         }
 
         if ($user->username === 'admin') {
-            return ApiValidator::error('Нельзя заблокировать администратора');
+            return ['success' => false, 'error' => 'Нельзя заблокировать администратора'];
         }
 
-        if ($user->updateAttributes(['is_blocked' => 1])) {
+        $user->is_blocked = 1;
+        if ($user->save()) {
             return ['success' => true, 'message' => 'Пользователь заблокирован'];
         }
 
@@ -344,10 +331,11 @@ class AdminController extends Controller
         $user = User::findOne($userId);
 
         if (!$user) {
-            return ApiValidator::error('Пользователь не найден');
+            return ['success' => false, 'error' => 'Пользователь не найден'];
         }
 
-        if ($user->updateAttributes(['is_blocked' => 0])) {
+        $user->is_blocked = 0;
+        if ($user->save()) {
             return ['success' => true, 'message' => 'Пользователь разблокирован'];
         }
 
@@ -370,10 +358,11 @@ class AdminController extends Controller
         $comment = Comment::findOne($commentId);
 
         if (!$comment) {
-            return ApiValidator::error('Комментарий не найден');
+            return ['success' => false, 'error' => 'Комментарий не найден'];
         }
 
-        if ($comment->updateAttributes(['is_reported' => 0])) {
+        $comment->is_reported = 0;
+        if ($comment->save()) {
             return ['success' => true, 'message' => 'Жалоба снята'];
         }
 

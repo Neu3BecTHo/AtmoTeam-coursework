@@ -2,7 +2,7 @@
 use yii\helpers\Html;
 
 if (!isset($comments) || empty($comments)) {
-    echo '<div class="empty-comments"><div class="empty-comments-icon">💬</div><p>Нет комментариев</p><p class="empty-hint">Будьте первым, кто оставит комментарий!</p></div>';
+    echo '<div class="empty-comments"><div class="empty-comments-icon">💬</div><p>' . Yii::t('app','Нет комментариев') . '</p><p class="empty-hint">' . Yii::t('app','Будьте первым, кто оставит комментарий!') . '</p></div>';
     return;
 }
 
@@ -13,7 +13,7 @@ $currentUserId = Yii::$app->user->id;
     <?php foreach ($comments as $comment): 
         $cAvatar = $comment->user->avatar ?: 'https://api.dicebear.com/7.x/avataaars/svg?seed=' . $comment->user_id;
         $isAuthor = $currentUserId && $comment->user_id == $currentUserId;
-        $editedMark = $comment->updated_at && $comment->updated_at !== $comment->created_at ? '<span class="edited-mark">(ред.)</span>' : '';
+        $editedMark = $comment->updated_at && $comment->updated_at !== $comment->created_at ? '<span class="edited-mark">' . Yii::t('app','(ред.)') . '</span>' : '';
         $timeAgo = $comment->getTimeAgo();
     ?>
         <div class="comment-item" data-comment-id="<?= $comment->id ?>">
@@ -27,10 +27,10 @@ $currentUserId = Yii::$app->user->id;
                     </div>
                     <?php if ($isAuthor): ?>
                         <div class="comment-actions">
-                            <button class="btn-edit-comment" data-comment-id="<?= $comment->id ?>" data-post-id="<?= $comment->post_id ?>" title="Редактировать">
+                            <button class="btn-edit-comment" data-comment-id="<?= $comment->id ?>" data-post-id="<?= $comment->post_id ?>" title="<?= Yii::t('app','Редактировать') ?>">
                                 ✏️
                             </button>
-                            <button class="btn-delete-comment" data-comment-id="<?= $comment->id ?>" data-post-id="<?= $comment->post_id ?>" title="Удалить">
+                            <button class="btn-delete-comment" data-comment-id="<?= $comment->id ?>" data-post-id="<?= $comment->post_id ?>" title="<?= Yii::t('app','Удалить') ?>">
                                 🗑️
                             </button>
                         </div>

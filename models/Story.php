@@ -49,7 +49,7 @@ class Story extends ActiveRecord
                 'extensions' => ['jpg', 'jpeg', 'png', 'gif', 'webp'],
                 'maxSize' => 10 * 1024 * 1024,
                 'skipOnEmpty' => true,
-                'wrongExtension' => 'Неподдерживаемый формат. Допустимы: JPG, PNG, GIF, WEBP',
+                'wrongExtension' => Yii::t('app', 'Неподдерживаемый формат. Допустимы: JPG, PNG, GIF, WEBP'),
             ],
         ];
     }
@@ -58,12 +58,12 @@ class Story extends ActiveRecord
     {
         return [
             'id' => 'ID',
-            'user_id' => 'Пользователь',
-            'image' => 'Изображение истории',
-            'imageFile' => 'Файл истории',
-            'caption' => 'Подпись',
-            'expires_at' => 'Истекает через',
-            'created_at' => 'Дата создания',
+            'user_id' => Yii::t('app', 'Пользователь'),
+            'image' => Yii::t('app', 'Изображение истории'),
+            'imageFile' => Yii::t('app', 'Файл истории'),
+            'caption' => Yii::t('app', 'Подпись'),
+            'expires_at' => Yii::t('app', 'Истекает через'),
+            'created_at' => Yii::t('app', 'Дата создания'),
         ];
     }
 
@@ -115,17 +115,17 @@ class Story extends ActiveRecord
         $timeLeft = $this->expires_at - time();
         
         if ($timeLeft <= 0) {
-            return 'Истекло';
+            return Yii::t('app', 'Истекло');
         }
         
         $hours = floor($timeLeft / 3600);
         $minutes = floor(($timeLeft % 3600) / 60);
         
         if ($hours > 0) {
-            return $hours . 'ч ' . $minutes . 'м';
+            return $hours . Yii::t('app', 'ч') . ' ' . $minutes . Yii::t('app', 'м');
         }
         
-        return $minutes . 'м';
+        return $minutes . Yii::t('app', 'м');
     }
 
     public function getImageUrl(): ?string
@@ -143,13 +143,7 @@ class Story extends ActiveRecord
 
     public function getTimeAgo(): string
     {
-        $diff = time() - $this->created_at;
-        
-        if ($diff < 60) return 'только что';
-        if ($diff < 3600) return floor($diff / 60) . ' мин. назад';
-        if ($diff < 86400) return floor($diff / 3600) . ' ч. назад';
-        
-        return date('d.m.Y', $this->created_at);
+        return \app\components\TimeAgoHelper::format((int) $this->created_at);
     }
 
     public static function getFollowingStories($userId, $limit = 20)

@@ -8,6 +8,7 @@ use yii\web\Response;
 use yii\filters\AccessControl;
 use app\models\User;
 use app\components\ApiValidator;
+use app\components\RateLimiter;
 
 class UserController extends Controller
 {
@@ -52,11 +53,16 @@ class UserController extends Controller
             return $authCheck;
         }
         
+        $rateLimitCheck = RateLimiter::checkApiLimit();
+        if ($rateLimitCheck !== true) {
+            return $rateLimitCheck;
+        }
+        
         $data = ApiValidator::getRequestData();
         $publicKey = $data['public_key'] ?? null;
         
         if (!$publicKey || !is_string($publicKey)) {
-            return ['success' => false, 'error' => 'Неверный публичный ключ'];
+            return ['success' => false, 'error' => Yii::t('app', 'Неверный публичный ключ')];
         }
         
         $user = Yii::$app->user->identity;
@@ -67,7 +73,7 @@ class UserController extends Controller
             return ['success' => true];
         }
         
-        return ['success' => false, 'error' => 'Ошибка сохранения ключа'];
+        return ['success' => false, 'error' => Yii::t('app', 'Ошибка сохранения ключа')];
     }
     
     /**
@@ -77,13 +83,18 @@ class UserController extends Controller
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
         
+        $rateLimitCheck = RateLimiter::checkApiLimit();
+        if ($rateLimitCheck !== true) {
+            return $rateLimitCheck;
+        }
+        
         $user = User::findOne($id);
         if (!$user) {
-            return ['success' => false, 'error' => 'Пользователь не найден'];
+            return ['success' => false, 'error' => Yii::t('app', 'Пользователь не найден')];
         }
         
         if (Yii::$app->user->isGuest && !$user->canViewProfile(null)) {
-            return ['success' => false, 'error' => 'Доступ запрещён'];
+            return ['success' => false, 'error' => Yii::t('app', 'Доступ запрещён')];
         }
         
         return [

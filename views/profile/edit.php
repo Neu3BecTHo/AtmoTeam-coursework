@@ -9,7 +9,7 @@ use yii\widgets\ActiveForm;
  * @var \app\models\User $user
  */
 
-$this->title = 'Редактирование профиля';
+$this->title = Yii::t('app','Редактирование профиля');
 $this->registerCssFile('@web/css/auth.css');
 $this->registerJsFile('@web/js/profile.js', ['position' => \yii\web\View::POS_END]);
 
@@ -22,10 +22,10 @@ $username = Html::encode($user->username);
     <div class="edit-card">
         <div class="edit-header">
             <a href="<?= Url::to(['/profile/view', 'id' => $user->id]) ?>" class="btn-back">
-                ← Назад в профиль
+                ← <?= Yii::t('app','Назад в профиль') ?>
             </a>
-            <h1 class="edit-title">✏️ Редактирование профиля</h1>
-            <p class="edit-subtitle">Настройте свой профиль <?= $username ?></p>
+            <h1 class="edit-title">✏️ <?= Yii::t('app','Редактирование профиля') ?></h1>
+            <p class="edit-subtitle"><?= Yii::t('app','Настройте свой профиль') ?> <?= $username ?></p>
         </div>
         
         <?php $form = ActiveForm::begin([
@@ -41,7 +41,7 @@ $username = Html::encode($user->username);
 
         <div class="avatar-section">
             <div class="current-avatar">
-                <img src="<?= Html::encode($avatar) ?>" alt="Текущий аватар" id="avatar-preview">
+                <img src="<?= Html::encode($avatar) ?>" alt="<?= Yii::t('app','Текущий аватар') ?>" id="avatar-preview">
                 <div class="avatar-overlay">📸</div>
             </div>
             
@@ -50,21 +50,21 @@ $username = Html::encode($user->username);
                     <input type="file" id="avatar-input" name="User[avatarFile]" accept="image/*" style="display: none;" onchange="openAvatarCropper(this)">
                     <label for="avatar-input" class="file-upload-label">
                         <span class="label-icon">📷</span>
-                        <span class="label-text">Выбрать изображение</span>
+                        <span class="label-text"><?= Yii::t('app','Выбрать изображение') ?></span>
                     </label>
                 </div>
-                <p class="avatar-hint">JPG, PNG, GIF, WebP. Максимум 2MB</p>
+                <p class="avatar-hint"><?= Yii::t('app','JPG, PNG, GIF, WebP. Максимум 2MB') ?></p>
                 <input type="hidden" name="cropped_avatar" id="cropped-avatar-input">
             </div>
         </div>
         
         <!-- Остальные поля формы -->
         <div class="form-section">
-            <h3 class="section-title">👤 Основная информация</h3>
+            <h3 class="section-title">👤 <?= Yii::t('app','Основная информация') ?></h3>
             <div class="form-row">
                 <?= $form->field($user, 'username')->textInput([
                     'maxlength' => 32,
-                    'placeholder' => 'Ваше имя пользователя',
+                    'placeholder' => Yii::t('app','Ваше имя пользователя'),
                     'class' => 'form-input'
                 ]) ?>
             </div>
@@ -79,10 +79,10 @@ $username = Html::encode($user->username);
         </div>
 
         <div class="form-section">
-            <h3 class="section-title">📝 О себе</h3>
+            <h3 class="section-title">📝 <?= Yii::t('app','О себе') ?></h3>
             <?= $form->field($user, 'bio')->textarea([
                 'rows' => 4,
-                'placeholder' => 'Расскажите немного о себе...',
+                'placeholder' => Yii::t('app','Расскажите немного о себе...'),
                 'maxlength' => 500,
                 'class' => 'form-textarea',
                 'id' => 'bio-textarea'
@@ -93,9 +93,9 @@ $username = Html::encode($user->username);
         </div>
 
         <div class="form-section">
-            <h3 class="section-title">📍 Дополнительно</h3>
+            <h3 class="section-title">📍 <?= Yii::t('app','Дополнительно') ?></h3>
             <?= $form->field($user, 'location')->textInput([
-                'placeholder' => 'Город, страна',
+                'placeholder' => Yii::t('app','Город, страна'),
                 'class' => 'form-input'
             ]) ?>
             
@@ -105,27 +105,27 @@ $username = Html::encode($user->username);
             ]) ?>
             
             <div class="form-group privacy-group">
-                <label class="form-label">🔒 Приватность профиля</label>
+                <label class="form-label">🔒 <?= Yii::t('app','Приватность профиля') ?></label>
                 <div class="privacy-toggle">
                     <?= $form->field($user, 'is_private')->checkbox([
-                        'label' => 'Сделать профиль приватным',
+                        'label' => Yii::t('app','Сделать профиль приватным'),
                         'uncheck' => null,
                         'value' => 1,
                         'class' => 'checkbox-input'
                     ]) ?>
                     <div class="privacy-info">
                         <span class="info-icon">ℹ️</span>
-                        <small class="help-text">Приватный профиль виден только вашим подписчикам</small>
+                        <small class="help-text"><?= Yii::t('app','Приватный профиль виден только вашим подписчикам') ?></small>
                     </div>
                 </div>
             </div>
         </div>
         
         <div class="form-section password-section">
-            <h3 class="section-title">🔐 Смена пароля</h3>
-            <p class="help-text">Оставьте пустым, если не хотите менять пароль</p>
+            <h3 class="section-title">🔐 <?= Yii::t('app','Смена пароля') ?></h3>
+            <p class="help-text"><?= Yii::t('app','Оставьте пустым, если не хотите менять пароль') ?></p>
             <?= $form->field($user, 'newPassword')->passwordInput([
-                'placeholder' => 'Новый пароль (минимум 6 символов)',
+                'placeholder' => Yii::t('app','Новый пароль (минимум 6 символов)'),
                 'class' => 'form-input',
                 'id' => 'new-password'
             ])->label(false) ?>
@@ -137,9 +137,9 @@ $username = Html::encode($user->username);
 
         <div class="form-actions">
             <a href="<?= Url::to(['/profile/view', 'id' => $user->id]) ?>" class="btn-secondary">
-                ❌ Отмена
+                ❌ <?= Yii::t('app','Отмена') ?>
             </a>
-            <?= Html::submitButton('💾 Сохранить изменения', ['class' => 'btn-primary']) ?>
+            <?= Html::submitButton('💾 ' . Yii::t('app','Сохранить изменения'), ['class' => 'btn-primary']) ?>
         </div>
 
         <?php ActiveForm::end(); ?>
@@ -148,38 +148,38 @@ $username = Html::encode($user->username);
     <div class="danger-zone-header">
         <div class="danger-zone-icon">⚠️</div>
         <div class="danger-zone-title">
-            <h3>Опасная зона</h3>
-            <p>Удаление аккаунта — необратимое действие</p>
+            <h3><?= Yii::t('app','Опасная зона') ?></h3>
+            <p><?= Yii::t('app','Удаление аккаунта — необратимое действие') ?></p>
         </div>
     </div>
     <div class="danger-zone-content">
         <div class="danger-zone-info">
             <div class="info-item">
                 <span class="info-icon">🗑️</span>
-                <span>Все ваши посты, комментарии и лайки будут удалены</span>
+                <span><?= Yii::t('app','Все ваши посты, комментарии и лайки будут удалены') ?></span>
             </div>
             <div class="info-item">
                 <span class="info-icon">💬</span>
-                <span>Все диалоги и сообщения будут безвозвратно удалены</span>
+                <span><?= Yii::t('app','Все диалоги и сообщения будут безвозвратно удалены') ?></span>
             </div>
             <div class="info-item">
                 <span class="info-icon">📸</span>
-                <span>Фотографии и аватар будут удалены с сервера</span>
+                <span><?= Yii::t('app','Фотографии и аватар будут удалены с сервера') ?></span>
             </div>
             <div class="info-item">
                 <span class="info-icon">👥</span>
-                <span>Подписчики и подписки будут потеряны</span>
+                <span><?= Yii::t('app','Подписчики и подписки будут потеряны') ?></span>
             </div>
         </div>
         <div class="danger-zone-warning">
             <div class="warning-icon">⚠️</div>
             <div class="warning-text">
-                <strong>Это действие нельзя отменить!</strong>
-                <span>Все ваши данные будут удалены безвозвратно</span>
+                <strong><?= Yii::t('app','Это действие нельзя отменить!') ?></strong>
+                <span><?= Yii::t('app','Все ваши данные будут удалены безвозвратно') ?></span>
             </div>
         </div>
         <button class="btn-delete-account" id="delete-account-btn">
-            🗑️ Удалить аккаунт навсегда
+            🗑️ <?= Yii::t('app','Удалить аккаунт навсегда') ?>
         </button>
     </div>
 </div>
@@ -190,25 +190,25 @@ $username = Html::encode($user->username);
 <div id="avatar-crop-modal" class="modal-overlay hidden">
     <div class="modal-content crop-dialog">
         <div class="modal-header">
-            <h3 class="modal-title">📸 Обрезка аватарки</h3>
-            <button class="modal-close" onclick="closeAvatarCropper()" aria-label="Закрыть">&times;</button>
+            <h3 class="modal-title">📸 <?= Yii::t('app','Обрезка аватарки') ?></h3>
+            <button class="modal-close" onclick="closeAvatarCropper()" aria-label="<?= Yii::t('app','Закрыть') ?>">&times;</button>
         </div>
         <div class="modal-body crop-body">
             <div class="crop-container">
                 <canvas id="crop-canvas" width="320" height="320"></canvas>
             </div>
             <div class="crop-hint">
-                <span>🖱️ Перетащите изображение для перемещения</span>
-                <span>🔍 Используйте ползунок для масштаба</span>
+                <span>🖱️ <?= Yii::t('app','Перетащите изображение для перемещения') ?></span>
+                <span>🔍 <?= Yii::t('app','Используйте ползунок для масштаба') ?></span>
             </div>
             <div class="crop-controls">
-                <label class="crop-label">🔍 Масштаб</label>
+                <label class="crop-label">🔍 <?= Yii::t('app','Масштаб') ?></label>
                 <input type="range" id="crop-scale" min="0.5" max="3" step="0.05" value="1">
             </div>
         </div>
         <div class="modal-footer">
-            <button class="btn-secondary" onclick="closeAvatarCropper()">❌ Отмена</button>
-            <button class="btn-primary" onclick="applyAvatarCrop()">✅ Применить</button>
+            <button class="btn-secondary" onclick="closeAvatarCropper()">❌ <?= Yii::t('app','Отмена') ?></button>
+            <button class="btn-primary" onclick="applyAvatarCrop()">✅ <?= Yii::t('app','Применить') ?></button>
         </div>
     </div>
 </div>

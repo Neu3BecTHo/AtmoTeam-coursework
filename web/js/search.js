@@ -66,13 +66,13 @@ function showSuggestions() {
     }
     
     container.innerHTML = `
-        <div class="suggestions-title">Популярные запросы</div>
+        <div class="suggestions-title">${window.translations.popular_searches}</div>
         <div class="suggestion-tags">
             <button class="suggestion-tag" onclick="quickSearch('admin')">admin</button>
-            <button class="suggestion-tag" onclick="quickSearch('привет')">привет</button>
-            <button class="suggestion-tag" onclick="quickSearch('тест')">тест</button>
-            <button class="suggestion-tag" onclick="quickSearch('новости')">новости</button>
-            <button class="suggestion-tag" onclick="quickSearch('фото')">фото</button>
+            <button class="suggestion-tag" onclick="quickSearch('hello')">hello</button>
+            <button class="suggestion-tag" onclick="quickSearch('test')">test</button>
+            <button class="suggestion-tag" onclick="quickSearch('news')">news</button>
+            <button class="suggestion-tag" onclick="quickSearch('photo')">photo</button>
         </div>
     `;
     container.style.display = 'block';
@@ -107,7 +107,7 @@ function renderLiveResults(data, query) {
     const total = users.length + posts.length;
     
     if (total === 0) {
-        container.innerHTML = '<div class="live-search-empty">Ничего не найдено</div>';
+        container.innerHTML = '<div class="live-search-empty">' + window.translations.nothing_found + '</div>';
         container.style.display = 'block';
         return;
     }
@@ -115,7 +115,7 @@ function renderLiveResults(data, query) {
     let html = '';
     
     if (users.length > 0) {
-        html += '<div class="live-search-section"><div class="live-search-section-title">Пользователи</div>';
+        html += '<div class="live-search-section"><div class="live-search-section-title">' + window.translations.users + '</div>';
         users.slice(0, 5).forEach(user => {
             const avatar = user.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`;
             html += `
@@ -129,7 +129,7 @@ function renderLiveResults(data, query) {
     }
     
     if (posts.length > 0) {
-        html += '<div class="live-search-section"><div class="live-search-section-title">Посты</div>';
+        html += '<div class="live-search-section"><div class="live-search-section-title">' + window.translations.posts + '</div>';
         posts.slice(0, 3).forEach(post => {
             const preview = post.content ? post.content.substring(0, 60) : '';
             html += `
@@ -141,7 +141,7 @@ function renderLiveResults(data, query) {
         html += '</div>';
     }
     
-    html += `<a href="/search?q=${encodeURIComponent(query)}" class="live-search-all">Показать все результаты →</a>`;
+    html += '<a href="/search?q=${encodeURIComponent(query)}" class="live-search-all">' + window.translations.show_all_results + '</a>';
     container.innerHTML = html;
     container.style.display = 'block';
 }

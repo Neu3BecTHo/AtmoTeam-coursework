@@ -4,7 +4,7 @@ use yii\helpers\Html;
 use yii\helpers\Url;
 use yii\widgets\ActiveForm;
 
-$this->title = 'Регистрация';
+$this->title = Yii::t('app', 'Регистрация');
 $this->registerCssFile('@web/css/auth.css');
 
 ?>
@@ -12,8 +12,8 @@ $this->registerCssFile('@web/css/auth.css');
 <div class="auth-container">
     <div class="auth-card">
         <div class="auth-icon">✨</div>
-        <h1 class="auth-title">🚀 Создать аккаунт</h1>
-        <p class="auth-subtitle">Присоединяйтесь к сообществу и делитесь моментами</p>
+        <h1 class="auth-title"><?= Yii::t('app', '🚀 Создать аккаунт') ?></h1>
+        <p class="auth-subtitle"><?= Yii::t('app', 'Присоединяйтесь к сообществу и делитесь моментами') ?></p>
 
         <?php $form = ActiveForm::begin([
             'id' => 'register-form',
@@ -27,7 +27,7 @@ $this->registerCssFile('@web/css/auth.css');
 
         <div class="form-group">
             <?= $form->field($model, 'username')->textInput([
-                'placeholder' => 'Придумайте имя пользователя',
+                'placeholder' => Yii::t('app', 'Придумайте имя пользователя'),
                 'autofocus' => true,
                 'autocomplete' => 'username'
             ]) ?>
@@ -35,7 +35,7 @@ $this->registerCssFile('@web/css/auth.css');
 
         <div class="form-group">
             <?= $form->field($model, 'email')->textInput([
-                'placeholder' => 'Ваш email',
+                'placeholder' => Yii::t('app', 'Ваш email'),
                 'type' => 'email',
                 'autocomplete' => 'email'
             ]) ?>
@@ -43,7 +43,7 @@ $this->registerCssFile('@web/css/auth.css');
 
         <div class="form-group">
             <?= $form->field($model, 'password')->passwordInput([
-                'placeholder' => 'Придумайте пароль (минимум 6 символов)',
+                'placeholder' => Yii::t('app', 'Придумайте пароль (минимум 6 символов)'),
                 'minlength' => 6,
                 'autocomplete' => 'new-password'
             ]) ?>
@@ -54,14 +54,14 @@ $this->registerCssFile('@web/css/auth.css');
         </div>
 
         <div class="form-actions">
-            <?= Html::submitButton('✨ Создать аккаунт', ['class' => 'btn btn-primary', 'name' => 'register-button']) ?>
+            <?= Html::submitButton(Yii::t('app', '✨ Создать аккаунт'), ['class' => 'btn btn-primary', 'name' => 'register-button']) ?>
         </div>
 
         <?php ActiveForm::end(); ?>
 
         <div class="auth-footer">
-            <p>Уже есть аккаунт? <a href="<?= Url::to(['/site/login']) ?>">🔐 Войти</a></p>
-            <p class="auth-footer-hint">Регистрируясь, вы соглашаетесь с правилами платформы</p>
+            <p><?= Yii::t('app', 'Уже есть аккаунт?') ?> <a href="<?= Url::to(['/site/login']) ?>"><?= Yii::t('app', '🔐 Войти') ?></a></p>
+            <p class="auth-footer-hint"><?= Yii::t('app', 'Регистрируясь, вы соглашаетесь с правилами платформы') ?></p>
         </div>
     </div>
 </div>
@@ -167,7 +167,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const width = (strength / 5) * 100;
         if (fill) fill.style.width = width + '%';
         
-        const messages = ['Очень слабый', 'Слабый', 'Средний', 'Хороший', 'Отличный'];
+        const messages = ['<?= Yii::t('app', 'Очень слабый') ?>', '<?= Yii::t('app', 'Слабый') ?>', '<?= Yii::t('app', 'Средний') ?>', '<?= Yii::t('app', 'Хороший') ?>', '<?= Yii::t('app', 'Отличный') ?>'];
         const colors = ['#ef4444', '#f59e0b', '#eab308', '#10b981', '#10b981'];
         
         if (fill) fill.style.background = colors[strength - 1] || '#ef4444';

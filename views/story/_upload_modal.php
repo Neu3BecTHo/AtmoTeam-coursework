@@ -6,15 +6,15 @@
 <div class="story-upload-modal" id="story-upload-modal">
     <div class="modal-content">
         <div class="modal-header">
-            <h3 class="modal-title">📸 Добавить историю</h3>
-            <button class="modal-close" onclick="hideStoryUpload()" aria-label="Закрыть">&times;</button>
+            <h3 class="modal-title">📸 <?= Yii::t('app', 'Добавить историю') ?></h3>
+            <button class="modal-close" onclick="hideStoryUpload()" aria-label="<?= Yii::t('app', 'Закрыть') ?>">&times;</button>
         </div>
         <div class="modal-body">
             <div class="upload-area" id="upload-area">
                 <div class="upload-placeholder">
                     <div class="upload-icon">📸</div>
-                    <p>Нажмите для выбора изображения</p>
-                    <p class="upload-hint">или перетащите файл сюда</p>
+                    <p><?= Yii::t('app', 'Нажмите для выбора изображения') ?></p>
+                    <p class="upload-hint"><?= Yii::t('app', 'или перетащите файл сюда') ?></p>
                 </div>
                 <input type="file" id="story-image-input" accept="image/*" style="display: none;">
                 <img id="preview-image" class="preview-image" style="display: none;">
@@ -22,16 +22,16 @@
             <div class="story-form" id="story-form" style="display: none;">
                 <textarea id="story-caption"
                           class="story-caption-input"
-                          placeholder="Добавьте подпись (необязательно)"
+                          placeholder="<?= Yii::t('app', 'Добавьте подпись (необязательно)') ?>"
                           maxlength="200"
                           rows="3"></textarea>
                 <div class="story-info">
                     <span class="info-icon">ℹ️</span>
-                    <span class="info-text">История будет доступна 24 часа</span>
+                    <span class="info-text"><?= Yii::t('app', 'История будет доступна 24 часа') ?></span>
                 </div>
                 <div class="form-actions">
-                    <button class="btn-cancel" onclick="hideStoryUpload()">Отмена</button>
-                    <button class="btn-upload" onclick="uploadStory()">Опубликовать</button>
+                    <button class="btn-cancel" onclick="hideStoryUpload()"><?= Yii::t('app', 'Отмена') ?></button>
+                    <button class="btn-upload" onclick="uploadStory()"><?= Yii::t('app', 'Опубликовать') ?></button>
                 </div>
             </div>
         </div>

@@ -48,7 +48,7 @@ $this->registerJsFile('@web/js/feed.js', ['position' => \yii\web\View::POS_END])
                 <h1 class="profile-name">
                     <?= $username ?>
                     <?php if ($isPrivate): ?>
-                        <span class="private-badge">🔒 Приватный</span>
+                        <span class="private-badge">🔒 <?= Yii::t('app','Приватный') ?></span>
                     <?php endif; ?>
                 </h1>
                 
@@ -69,19 +69,19 @@ $this->registerJsFile('@web/js/feed.js', ['position' => \yii\web\View::POS_END])
                     <div class="stat">
                         <a href="<?= Url::to(['/profile/view', 'id' => $user->id]) ?>" class="stat-link">
                             <span class="stat-value"><?= number_format($stats['posts_count']) ?></span>
-                            <span class="stat-label">постов</span>
+                            <span class="stat-label"><?= Yii::t('app','постов') ?></span>
                         </a>
                     </div>
                     <div class="stat">
                         <a href="<?= Url::to(['/profile/followers', 'id' => $user->id]) ?>" class="stat-link">
                             <span class="stat-value" id="followers-count"><?= number_format($stats['followers']) ?></span>
-                            <span class="stat-label">подписчиков</span>
+                            <span class="stat-label"><?= Yii::t('app','подписчиков') ?></span>
                         </a>
                     </div>
                     <div class="stat">
                         <a href="<?= Url::to(['/profile/following', 'id' => $user->id]) ?>" class="stat-link">
                             <span class="stat-value"><?= number_format($stats['following']) ?></span>
-                            <span class="stat-label">подписок</span>
+                            <span class="stat-label"><?= Yii::t('app','подписок') ?></span>
                         </a>
                     </div>
                 </div>
@@ -89,36 +89,36 @@ $this->registerJsFile('@web/js/feed.js', ['position' => \yii\web\View::POS_END])
                 <div class="profile-actions">
                     <?php if ($isOwner): ?>
                         <a href="<?= Url::to(['/profile/edit']) ?>" class="btn-edit-profile">
-                            ✏️ Редактировать
+                            ✏️ <?= Yii::t('app','Редактировать') ?>
                         </a>
                         <a href="<?= Url::to(['/block/list']) ?>" class="btn-blocked-users">
-                            🚫 Заблокированные
+                            🚫 <?= Yii::t('app','Заблокированные пользователи') ?>
                         </a>
                     <?php elseif (!Yii::$app->user->isGuest): ?>
                         <a href="<?= Url::to(['/message/dialogue', 'id' => $user->id]) ?>" class="btn-message">
-                            💬 Написать
+                            💬 <?= Yii::t('app','Написать') ?>
                         </a>
                         <button id="follow-btn" class="btn-follow <?= $isFollowing ? 'following' : '' ?>" 
                                 data-user-id="<?= $user->id ?>"
                                 data-username="<?= $username ?>">
                             <span class="btn-icon"><?= $isFollowing ? '🔓' : '🔔' ?></span>
-                            <span class="btn-text"><?= $isFollowing ? 'Отписаться' : 'Подписаться' ?></span>
+                            <span class="btn-text"><?= $isFollowing ? Yii::t('app','Отписаться') : Yii::t('app','Подписаться') ?></span>
                         </button>
                         <?php if ($isBlocked): ?>
                             <button id="block-btn" class="btn-block unblock" 
                                     data-user-id="<?= $user->id ?>"
                                     data-username="<?= $username ?>">
-                                ✅ Разблокировать
+                                ✅ <?= Yii::t('app','Разблокировать') ?>
                             </button>
                         <?php else: ?>
                             <button id="block-btn" class="btn-block" 
                                     data-user-id="<?= $user->id ?>"
                                     data-username="<?= $username ?>">
-                                🚫 Заблокировать
+                                🚫 <?= Yii::t('app','Заблокировать') ?>
                             </button>
                         <?php endif; ?>
                     <?php else: ?>
-                        <a href="<?= Url::to(['/site/login']) ?>" class="btn-follow">Подписаться</a>
+                        <a href="<?= Url::to(['/site/login']) ?>" class="btn-follow"><?= Yii::t('app','Подписаться') ?></a>
                     <?php endif; ?>
                 </div>
             </div>
@@ -126,15 +126,15 @@ $this->registerJsFile('@web/js/feed.js', ['position' => \yii\web\View::POS_END])
     </div>
 
     <div class="profile-tabs">
-        <button class="tab-btn active" data-tab="posts">📝 Посты</button>
+        <button class="tab-btn active" data-tab="posts">📝 <?= Yii::t('app','Посты') ?></button>
         <?php if ($isOwner): ?>
-            <button class="tab-btn" data-tab="saved">🔖 Сохранённые</button>
-            <button class="tab-btn" data-tab="reposts">🔄 Репосты</button>
+            <button class="tab-btn" data-tab="saved">🔖 <?= Yii::t('app','Сохранённые') ?></button>
+            <button class="tab-btn" data-tab="reposts">🔄 <?= Yii::t('app','Репосты') ?></button>
         <?php endif; ?>
-        <button class="tab-btn" data-tab="followers">👥 Подписчики</button>
-        <button class="tab-btn" data-tab="following">📋 Подписки</button>
+        <button class="tab-btn" data-tab="followers">👥 <?= Yii::t('app','Подписчики') ?></button>
+        <button class="tab-btn" data-tab="following">📋 <?= Yii::t('app','Подписки') ?></button>
         <?php if ($isOwner): ?>
-            <button class="tab-btn" data-tab="settings">⚙️ Настройки</button>
+            <button class="tab-btn" data-tab="settings">⚙️ <?= Yii::t('app','Настройки') ?></button>
         <?php endif; ?>
     </div>
 
@@ -216,17 +216,17 @@ $this->registerJsFile('@web/js/feed.js', ['position' => \yii\web\View::POS_END])
         <?php if ($isOwner): ?>
         <div class="tab-content" id="settings-tab" style="display: none;">
             <div class="settings-card">
-                <h3>⚙️ Быстрые ссылки</h3>
+                <h3>⚙️ <?= Yii::t('app','Настройки') ?></h3>
                 <a href="<?= Url::to(['/profile/edit']) ?>" class="settings-link">
-                    ✏️ Редактировать профиль
+                    ✏️ <?= Yii::t('app','Редактировать профиль') ?>
                 </a>
                 <a href="<?= Url::to(['/block/list']) ?>" class="settings-link">
-                    🚫 Заблокированные пользователи
+                    🚫 <?= Yii::t('app','Заблокированные пользователи') ?>
                 </a>
                 <div class="settings-divider"></div>
                 <?= Html::beginForm(['/site/logout'], 'post', ['class' => 'settings-link logout-form']) ?>
                 <button type="submit" style="background: none; border: none; cursor: pointer; width: 100%; text-align: left; color: inherit; display: flex; align-items: center; gap: 0;">
-                    🚪 Выйти из аккаунта
+                    🚪 <?= Yii::t('app','Выйти из аккаунта') ?>
                 </button>
                 <?= Html::endForm() ?>
             </div>
@@ -239,17 +239,17 @@ $this->registerJsFile('@web/js/feed.js', ['position' => \yii\web\View::POS_END])
 <div id="block-modal" class="modal-overlay hidden">
     <div class="modal-content">
         <div class="modal-header">
-            <h3 class="modal-title">🚫 Заблокировать пользователя</h3>
+            <h3 class="modal-title">🚫 <?= Yii::t('app','Заблокировать пользователя') ?></h3>
             <button class="modal-close" onclick="hideBlockModal()">&times;</button>
         </div>
         <div class="modal-body">
             <div class="modal-icon">⚠️</div>
-            <p>Вы уверены, что хотите заблокировать <strong id="block-modal-username"></strong>?</p>
-            <p class="modal-hint">Заблокированный пользователь не сможет видеть ваши посты, подписаться на вас или писать вам сообщения.</p>
+            <p><?= Yii::t('app','Вы уверены, что хотите заблокировать') ?> <strong id="block-modal-username"></strong>?</p>
+            <p class="modal-hint"><?= Yii::t('app','Заблокированный пользователь не сможет видеть ваши посты, подписаться на вас или писать вам сообщения.') ?></p>
         </div>
         <div class="modal-footer">
-            <button class="btn-secondary" onclick="hideBlockModal()">❌ Отмена</button>
-            <button class="btn-danger" id="block-confirm-btn">🚫 Заблокировать</button>
+            <button class="btn-secondary" onclick="hideBlockModal()">❌ <?= Yii::t('app','Отмена') ?></button>
+            <button class="btn-danger" id="block-confirm-btn">🚫 <?= Yii::t('app','Заблокировать') ?></button>
         </div>
     </div>
 </div>

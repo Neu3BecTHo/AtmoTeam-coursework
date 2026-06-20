@@ -9,6 +9,7 @@ use yii\web\Response;
 use yii\filters\VerbFilter;
 use app\models\LoginForm;
 use app\models\User;
+use yii\web\Cookie;
 
 class SiteController extends Controller
 {
@@ -100,5 +101,25 @@ class SiteController extends Controller
     {
         Yii::$app->user->logout();
         return $this->goHome();
+    }
+
+    public function actionLanguage($lang)
+    {
+        $allowed = ['en-US', 'ru-RU', 'ru_RU', 'en_US'];
+        if (!in_array($lang, $allowed, true)) {
+            return $this->goHome();
+        }
+
+        $lang = str_replace('_', '-', $lang);
+
+        setcookie('language', $lang, time() + 60 * 60 * 24 * 365, '/', '', false, true);
+
+        // Устанавливаем язык
+        Yii::$app->language = $lang;
+        Yii::$app->session->set('language', $lang);
+
+        // Возвращаемся на предыдущую страницу
+        $ref = Yii::$app->request->referrer;
+        return $this->redirect($ref ?: ['/']);
     }
 }

@@ -3,7 +3,7 @@
 use yii\helpers\Html;
 use yii\helpers\Url;
 
-$this->title = 'Посты - Админ-панель';
+$this->title = Yii::t('app','Посты - Админ-панель');
 
 /**
  * @var \app\models\Post[] $posts
@@ -18,43 +18,43 @@ $totalLikes = array_sum(array_map(fn($p) => $p->likes_count, $posts));
 
 <div class="admin-container">
     <div class="admin-header">
-        <h1 class="admin-title">📝 Управление постами</h1>
-        <p class="admin-subtitle">Всего постов: <?= number_format(count($posts)) ?></p>
-        <?= Html::a('← Назад', ['/admin/index'], ['class' => 'btn-back']) ?>
+        <h1 class="admin-title">📝 <?= Yii::t('app','Управление постами') ?></h1>
+        <p class="admin-subtitle"><?= Yii::t('app','Всего постов: {n}', ['n' => number_format(count($posts))]) ?></p>
+        <?= Html::a('← ' . Yii::t('app','Назад'), ['/admin/index'], ['class' => 'btn-back']) ?>
     </div>
 
     <div class="admin-content">
         <!-- Фильтры -->
         <div class="admin-section">
             <div class="section-header">
-                <h3 class="section-title">🔍 Фильтры</h3>
+                <h3 class="section-title">🔍 <?= Yii::t('app','Фильтры') ?></h3>
             </div>
             <div class="filters-container">
                 <div class="filter-group">
-                    <label class="filter-label">📅 Период:</label>
+                    <label class="filter-label">📅 <?= Yii::t('app','Период') ?>:</label>
                     <select class="filter-select" id="periodFilter">
-                        <option value="all">Все время</option>
-                        <option value="today">Сегодня</option>
-                        <option value="week">За неделю</option>
-                        <option value="month">За месяц</option>
+                        <option value="all"><?= Yii::t('app','Все время') ?></option>
+                        <option value="today"><?= Yii::t('app','Сегодня') ?></option>
+                        <option value="week"><?= Yii::t('app','За неделю') ?></option>
+                        <option value="month"><?= Yii::t('app','За месяц') ?></option>
                     </select>
                 </div>
                 <div class="filter-group">
-                    <label class="filter-label">📊 Сортировка:</label>
+                    <label class="filter-label">📊 <?= Yii::t('app','Сортировка') ?>:</label>
                     <select class="filter-select" id="sortFilter">
-                        <option value="newest">Новые</option>
-                        <option value="popular">Популярные</option>
-                        <option value="comments">Комментарии</option>
-                        <option value="likes">Лайки</option>
+                        <option value="newest"><?= Yii::t('app','Новые') ?></option>
+                        <option value="popular"><?= Yii::t('app','Популярные') ?></option>
+                        <option value="comments"><?= Yii::t('app','Комментарии') ?></option>
+                        <option value="likes"><?= Yii::t('app','Лайки') ?></option>
                     </select>
                 </div>
                 <div class="filter-group">
-                    <label class="filter-label">🏷️ Тип:</label>
+                    <label class="filter-label">🏷️ <?= Yii::t('app','Тип') ?>:</label>
                     <select class="filter-select" id="typeFilter">
-                        <option value="all">Все</option>
-                        <option value="text">Текст</option>
-                        <option value="image">С изображением</option>
-                        <option value="poll">С опросом</option>
+                        <option value="all"><?= Yii::t('app','Все') ?></option>
+                        <option value="text"><?= Yii::t('app','Текст') ?></option>
+                        <option value="image"><?= Yii::t('app','С изображением') ?></option>
+                        <option value="poll"><?= Yii::t('app','С опросом') ?></option>
                     </select>
                 </div>
             </div>
@@ -63,9 +63,9 @@ $totalLikes = array_sum(array_map(fn($p) => $p->likes_count, $posts));
         <!-- Таблица постов -->
         <div class="admin-section">
             <div class="section-header">
-                <h3 class="section-title">📋 Список постов</h3>
+                <h3 class="section-title">📋 <?= Yii::t('app','Список постов') ?></h3>
                 <div class="section-actions">
-                    <button class="btn-refresh" onclick="location.reload()">🔄 Обновить</button>
+                    <button class="btn-refresh" onclick="location.reload()">🔄 <?= Yii::t('app','Обновить') ?></button>
                 </div>
             </div>
 
@@ -73,12 +73,12 @@ $totalLikes = array_sum(array_map(fn($p) => $p->likes_count, $posts));
                 <table class="admin-table" id="posts-table">
                     <thead>
                         <tr>
-                            <th style="width: 180px;">👤 Автор</th>
-                            <th style="width: 35%;">💬 Содержание</th>
-                            <th style="width: 130px;">📅 Дата</th>
-                            <th style="width: 100px;">📊 Статистика</th>
-                            <th style="width: 100px;">🏷️ Тип</th>
-                            <th style="width: 110px;">⚙️ Действия</th>
+                            <th style="width: 180px;">👤 <?= Yii::t('app','Автор') ?></th>
+                            <th style="width: 35%;">💬 <?= Yii::t('app','Содержание') ?></th>
+                            <th style="width: 130px;">📅 <?= Yii::t('app','Дата') ?></th>
+                            <th style="width: 100px;">📊 <?= Yii::t('app','Статистика') ?></th>
+                            <th style="width: 100px;">🏷️ <?= Yii::t('app','Тип') ?></th>
+                            <th style="width: 110px;">⚙️ <?= Yii::t('app','Действия') ?></th>
                         </tr>
                     </thead>
                     <tbody id="posts-tbody">
@@ -111,7 +111,7 @@ $totalLikes = array_sum(array_map(fn($p) => $p->likes_count, $posts));
                                     </div>
                                     <?php if ($post->image): ?>
                                         <div class="post-image-preview">
-                                            <img src="<?= $post->image ?>" alt="Изображение поста">
+                                            <img src="<?= $post->image ?>" alt="<?= Yii::t('app','Изображение поста') ?>">
                                         </div>
                                     <?php endif; ?>
                                     <?php if ($post->poll): ?>
@@ -141,11 +141,11 @@ $totalLikes = array_sum(array_map(fn($p) => $p->likes_count, $posts));
                                     <?php if ($post->image && $post->poll): ?>
                                         <span class="type-badge combined">🖼️📊</span>
                                     <?php elseif ($post->image): ?>
-                                        <span class="type-badge image">🖼️ Изображение</span>
+                                        <span class="type-badge image">🖼️ <?= Yii::t('app','Изображение') ?></span>
                                     <?php elseif ($post->poll): ?>
-                                        <span class="type-badge poll">📊 Опрос</span>
+                                        <span class="type-badge poll">📊 <?= Yii::t('app','Опрос') ?></span>
                                     <?php else: ?>
-                                        <span class="type-badge text">📝 Текст</span>
+                                        <span class="type-badge text">📝 <?= Yii::t('app','Текст') ?></span>
                                     <?php endif; ?>
                                 </td>
 
@@ -153,12 +153,12 @@ $totalLikes = array_sum(array_map(fn($p) => $p->likes_count, $posts));
                                 <td style="width: 110px;">
                                     <div class="actions-cell">
                                         <button type="button" class="action-btn view" onclick="viewPost(<?= $post->id ?>)"
-                                            title="Посмотреть пост">👁️</button>
+                                            title="<?= Yii::t('app','Посмотреть пост') ?>">👁️</button>
                                         <button type="button" class="action-btn edit" onclick="editPost(<?= $post->id ?>)"
-                                            title="Редактировать">✏️</button>
+                                            title="<?= Yii::t('app','Редактировать') ?>">✏️</button>
                                         <button type="button" class="action-btn delete" data-post-id="<?= $post->id ?>"
                                             data-post-title="<?= Html::encode(mb_substr($post->content, 0, 50)) ?>"
-                                            title="Удалить пост">🗑️</button>
+                                            title="<?= Yii::t('app','Удалить пост') ?>">🗑️</button>
                                     </div>
                                 </td>
                             </tr>
@@ -171,7 +171,7 @@ $totalLikes = array_sum(array_map(fn($p) => $p->likes_count, $posts));
 </div>
 
 <?php
-$deletePostUrl = Url::to(['/api/admin/delete-post']);
+$deletePostUrl = Url::to(['/admin/delete-post']);
 $csrfToken = Yii::$app->request->csrfToken;
 
 $script = <<<JS
@@ -248,25 +248,25 @@ function filterPosts() {
 }
 
 async function deletePost(postId, postTitle) {
-    if (!confirm('Удалить пост "' + postTitle + '"?')) return;
+    if (!confirm('<?= Yii::t('app','Удалить пост "{postTitle}"?') ?>'.replace('{postTitle}', postTitle))) return;
     try {
         const response = await postWithCsrf('$deletePostUrl', { post_id: postId });
         const result = await response.json();
         if (result.success) {
-            alert('Пост удалён');
+            alert('<?= Yii::t('app','Пост удалён') ?>');
             const row = document.querySelector('.post-row[data-post-id="' + postId + '"]');
             if (row) row.remove();
             filterPosts();
         } else {
-            alert(result.error || 'Ошибка удаления');
+            alert(result.error || '<?= Yii::t('app','Ошибка удаления') ?>');
         }
     } catch (error) {
-        alert('Ошибка удаления');
+        alert('<?= Yii::t('app','Ошибка удаления') ?>');
     }
 }
 
 function editPost(postId) {
-    alert('Функция редактирования постов будет добавлена позже');
+    alert('<?= Yii::t('app','Функция редактирования постов будет добавлена позже') ?>');
 }
 
 function viewPost(postId) {

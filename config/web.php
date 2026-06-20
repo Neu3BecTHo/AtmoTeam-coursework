@@ -6,12 +6,13 @@ $db = require __DIR__ . '/db.php';
 $config = [
     'id' => 'basic',
     'basePath' => dirname(__DIR__),
-    'bootstrap' => ['log'],
+    'bootstrap' => ['log', 'app\components\LanguageComponent'],
     'aliases' => [
         '@bower' => '@vendor/bower-asset',
         '@npm'   => '@vendor/npm-asset',
     ],
-    'language' => 'ru_RU',
+    'language' => 'ru-RU', // ← ЖЕСТКО задайте язык по умолчанию
+    'sourceLanguage' => 'ru-RU',
     'timeZone' => 'Europe/Moscow',
     'components' => [
         'request' => [
@@ -42,6 +43,26 @@ $config = [
                 [
                     'class' => 'yii\log\FileTarget',
                     'levels' => ['error', 'warning'],
+                ],
+            ],
+        ],
+        'session' => [
+            'class' => 'yii\web\Session',
+            'cookieParams' => [
+                'httponly' => true,
+                'path' => '/',
+                'samesite' => 'Lax',
+            ],
+        ],
+        'i18n' => [
+            'translations' => [
+                'app*' => [
+                    'class' => 'yii\i18n\PhpMessageSource',
+                    'basePath' => '@app/messages',
+                    'sourceLanguage' => 'ru-RU',
+                    'fileMap' => [
+                        'app*' => 'app.php',
+                    ],
                 ],
             ],
         ],

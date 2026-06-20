@@ -10,7 +10,7 @@ use yii\helpers\Url;
  * @var \app\models\Comment[] $comments
  */
 
-$this->title = 'Пост от ' . $post->user->username;
+$this->title = Yii::t('app','Post by {username}', ['username' => $post->user->username]);
 
 // Подключаем стили
 $this->registerCssFile('@web/css/post.css');
@@ -259,20 +259,20 @@ $imageUrls = $post->getImageUrls();
 ?>
 
 <div class="post-detail-container">
-    <a href="<?= Url::to(['/feed/index']) ?>" class="btn-back">← Назад к ленте</a>
+    <a href="<?= Url::to(['/feed/index']) ?>" class="btn-back"><?= Yii::t('app','← Назад к ленте') ?></a>
 
     <?= $this->render('/post/_post_card', ['post' => $post]) ?>
 
     <div class="comments-section-full">
         <div class="comments-header">
-            <h3>💬 Комментарии <span class="comments-count-badge"><?= $commentsCount ?></span></h3>
+            <h3><?= Yii::t('app','💬 Комментарии') ?> <span class="comments-count-badge"><?= $commentsCount ?></span></h3>
         </div>
 
         <div id="comments-list" class="comments-list-full">
             <?php if (empty($comments)): ?>
                 <div class="empty-comments">
                     <div class="empty-comments-icon">💬</div>
-                    <p>Пока нет комментариев</p>
+                    <p><?= Yii::t('app','Пока нет комментариев') ?></p>
                 </div>
             <?php else: ?>
                 <?php foreach ($comments as $comment):
@@ -289,15 +289,15 @@ $imageUrls = $post->getImageUrls();
                                     class="comment-author-name"><?= Html::encode($comment->user->username) ?></a>
                                 <span class="comment-time"><?= Html::encode($timeAgo) ?></span>
                                 <?php if ($comment->updated_at > $comment->created_at): ?><span
-                                        class="edited-mark">(ред.)</span><?php endif; ?>
+                                        class="edited-mark"><?= Yii::t('app','(ред.)') ?></span><?php endif; ?>
                                 <?php if ($isAuthor): ?>
                                     <div class="comment-actions">
                                         <button class="btn-edit-comment"
                                             onclick="editComment(<?= $comment->id ?>, <?= $post->id ?>)"
-                                            title="Редактировать">✏️</button>
+                                            title="<?= Yii::t('app','Редактировать') ?>">✏️</button>
                                         <button class="btn-delete-comment"
                                             onclick="deleteComment(<?= $comment->id ?>, <?= $post->id ?>)"
-                                            title="Удалить">🗑️</button>
+                                            title="<?= Yii::t('app','Удалить') ?>">🗑️</button>
                                     </div>
                                 <?php endif; ?>
                             </div>
@@ -373,9 +373,9 @@ $imageUrls = $post->getImageUrls();
     function submitComment(postId) {
         const textarea = document.getElementById('comment-input');
         const content = textarea?.value.trim();
-        if (!content) { showNotification('Напишите комментарий', 'error'); return; }
+        if (!content) { showNotification(<?= json_encode(Yii::t('app','Напишите комментарий')) ?>, 'error'); return; }
         const submitBtn = document.querySelector('.btn-send');
-        if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = '⏳ Отправка...'; }
+        if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = window.t('sending'); }
         postWithCsrf('/api/comment/create', { post_id: postId, content })
             .then(r => r.json())
             .then(data => {
@@ -384,9 +384,9 @@ $imageUrls = $post->getImageUrls();
                     const counter = document.querySelector('.comment-char-counter');
                     if (counter) counter.textContent = '0/1000';
                     location.reload();
-                } else { showNotification(data.error || 'Ошибка', 'error'); }
+                } else { showNotification(data.error || window.t('error'), 'error'); }
             })
-            .catch(() => showNotification('Ошибка сети', 'error'))
-            .finally(() => { if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = '📤 Отправить'; } });
+            .catch(() => showNotification(window.t('network_error'), 'error'))
+            .finally(() => { if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = window.t('send'); } });
     }
 </script>

@@ -77,11 +77,11 @@ class Message extends ActiveRecord
     public function getTimeAgo()
     {
         $diff = time() - $this->created_at;
-        
-        if ($diff < 60) return 'только что';
-        if ($diff < 3600) return floor($diff / 60) . ' мин. назад';
-        if ($diff < 86400) return floor($diff / 3600) . ' ч. назад';
-        
+
+        if ($diff < 86400) {
+            return \app\components\TimeAgoHelper::format((int) $this->created_at, false);
+        }
+
         return date('d.m.Y H:i', $this->created_at);
     }
 

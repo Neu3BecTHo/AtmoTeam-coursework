@@ -3,17 +3,17 @@
 use yii\helpers\Html;
 use yii\helpers\Url;
 
-$this->title = 'Сообщения';
+$this->title = Yii::t('app','Сообщения');
 $this->registerCssFile('@web/css/message.css');
 $this->registerJsFile('@web/js/message.js', ['depends' => [\yii\web\JqueryAsset::class]]);
 
 function getTimeAgo($timestamp) {
     $diff = time() - (int)$timestamp;
     
-    if ($diff < 60) return 'только что';
-    if ($diff < 3600) return floor($diff / 60) . ' мин. назад';
-    if ($diff < 86400) return floor($diff / 3600) . ' ч. назад';
-    if ($diff < 2592000) return floor($diff / 86400) . ' дн. назад';
+    if ($diff < 60) return Yii::t('app', 'только что');
+    if ($diff < 3600) return floor($diff / 60) . ' ' . Yii::t('app', 'мин. назад');
+    if ($diff < 86400) return floor($diff / 3600) . ' ' . Yii::t('app', 'ч. назад');
+    if ($diff < 2592000) return floor($diff / 86400) . ' ' . Yii::t('app', 'дн. назад');
     
     return date('d.m.Y', $timestamp);
 }
@@ -21,8 +21,8 @@ function getTimeAgo($timestamp) {
 
 <div class="message-container">
     <div class="message-header">
-        <h1 class="message-title">💬 Сообщения</h1>
-        <p class="message-subtitle">Ваши диалоги с другими пользователями</p>
+        <h1 class="message-title">💬 <?= Yii::t('app', 'Сообщения') ?></h1>
+        <p class="message-subtitle"><?= Yii::t('app', 'Ваши диалоги с другими пользователями') ?></p>
     </div>
 
     <div class="message-content">
@@ -30,10 +30,10 @@ function getTimeAgo($timestamp) {
             <?php if (empty($dialogues)): ?>
                 <div class="empty-state">
                     <div class="empty-icon">💬</div>
-                    <p>У вас пока нет сообщений</p>
-                    <p class="empty-hint">Начните общение с другими пользователями</p>
+                    <p><?= Yii::t('app', 'У вас пока нет сообщений') ?></p>
+                    <p class="empty-hint"><?= Yii::t('app', 'Начните общение с другими пользователями') ?></p>
                     <a href="<?= Url::to(['/search/index']) ?>" class="btn-find-users">
-                        🔍 Найти пользователей
+                        🔍 <?= Yii::t('app', 'Найти пользователей') ?>
                     </a>
                 </div>
             <?php else: ?>
@@ -58,10 +58,10 @@ function getTimeAgo($timestamp) {
                                     </div>
                                 </div>
                                 <div class="dialogue-preview">
-                                    <?= Html::encode($dialogue['last_message'] ?? 'Начните диалог...') ?>
+                                    <?= Html::encode($dialogue['last_message'] ?? Yii::t('app', 'Начните диалог...')) ?>
                                 </div>
                                 <?php if (($dialogue['unread_count'] ?? 0) > 0): ?>
-                                    <span class="unread-badge" title="Непрочитанных: <?= $dialogue['unread_count'] ?>">
+                                    <span class="unread-badge" title="<?= Yii::t('app', 'Непрочитанных: {count}', ['count' => $dialogue['unread_count']]) ?>">
                                         <?= $dialogue['unread_count'] ?>
                                     </span>
                                 <?php endif; ?>

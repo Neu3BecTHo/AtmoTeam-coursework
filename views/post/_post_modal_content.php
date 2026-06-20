@@ -45,7 +45,7 @@ $imagesCount = count($imageUrls);
         <div class="post-modal__gallery gallery gallery--<?= $imagesCount > 1 ? 'multi' : 'single' ?>">
             <?php foreach ($imageUrls as $index => $url): ?>
                 <div class="gallery__item" onclick="openImageFullscreen('<?= Html::encode($url) ?>', <?= $imagesCount ?>, <?= $index ?>)">
-                    <img src="<?= Html::encode($url) ?>" alt="Изображение <?= $index + 1 ?>" loading="lazy">
+                    <img src="<?= Html::encode($url) ?>" alt="<?= Yii::t('app','Изображение') ?> <?= $index + 1 ?>" loading="lazy">
                 </div>
             <?php endforeach; ?>
         </div>
@@ -60,7 +60,7 @@ $imagesCount = count($imageUrls);
 
 <div class="post-modal__comments">
     <div class="comments-header">
-        <span>💬 Комментарии</span>
+        <span>💬 <?= Yii::t('app','Комментарии') ?></span>
         <span class="comments-header__count"><?= number_format($post->comments_count) ?></span>
     </div>
     <div id="modal-comments-list" class="comments-list"></div>

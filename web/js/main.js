@@ -30,7 +30,7 @@ function showAnimatedNotification(message, type = "info") {
   notification.innerHTML = `
         <span class="notification-icon">${getNotificationIcon(type)}</span>
         <span class="notification-text">${escapeHtml(message)}</span>
-        <button class="notification-close" aria-label="Закрыть уведомление">×</button>
+        <button class="notification-close" aria-label="${window.t('close_notification')}">×</button>
     `;
   container.appendChild(notification);
 
@@ -58,7 +58,8 @@ function closeNotification(notification) {
 // ==================== Loading Overlay ====================
 let loadingCount = 0;
 
-function showLoading(message = "Загрузка...") {
+function showLoading(message) {
+  if (message === undefined) message = window.t('loading');
   loadingCount++;
   let container = document.getElementById("loading-container");
   if (!container) {
@@ -103,16 +104,16 @@ async function fetchWithLoading(url, options = {}) {
 async function getErrorMessage(response) {
   try {
     const data = await response.clone().json();
-    return data.message || data.error || `Ошибка HTTP ${response.status}`;
+    return data.message || data.error || window.t('http_error', { status: response.status });
   } catch {
     const messages = {
-      401: "Требуется авторизация",
-      403: "Доступ запрещен",
-      404: "Ресурс не найден",
-      429: "Слишком много запросов",
-      500: "Ошибка сервера",
+      401: window.t('auth_required'),
+      403: window.t('access_denied'),
+      404: window.t('not_found'),
+      429: window.t('too_many_requests'),
+      500: window.t('server_error'),
     };
-    return messages[response.status] || `Ошибка HTTP ${response.status}`;
+    return messages[response.status] || window.t('http_error', { status: response.status });
   }
 }
 
@@ -148,6 +149,28 @@ function createThemeToggle() {
   btn.onclick = toggleTheme;
   document.body.appendChild(btn);
   setTheme(localStorage.getItem("theme") || "light");
+}
+
+// ==================== Language Menu ====================
+function toggleLanguageMenu(e) {
+  e?.preventDefault();
+  const menu = document.getElementById("language-menu");
+  if (!menu) return;
+  const isOpen = menu.classList.contains("show");
+  document
+    .querySelectorAll(".nav-dropdown-menu, .notification-dropdown")
+    .forEach((m) => m.classList.remove("show"));
+  if (!isOpen) menu.classList.add("show");
+}
+
+function toggleMobileLanguageMenu(e) {
+  e?.preventDefault();
+  const container = document.querySelector(".mobile-nav-language");
+  const menu = document.getElementById("mobile-language-menu");
+  if (!menu || !container) return;
+  const isOpen = menu.classList.contains("show");
+  menu.classList.toggle("show", !isOpen);
+  container.classList.toggle("open", !isOpen);
 }
 
 // ==================== User Menu ====================
@@ -212,7 +235,7 @@ async function loadNotifications() {
                         <img src="${n.from_user?.avatar || ""}" alt="">
                     </div>
                     <div class="notification-content">
-                        <div class="notification-title">${escapeHtml(n.from_user?.username || "Пользователь")}</div>
+                        <div class="notification-title">${escapeHtml(n.from_user?.username || window.t('user'))}</div>
                         <div class="notification-message">${escapeHtml(n.text)}</div>
                         <div class="notification-time">${n.timeAgo}</div>
                     </div>
@@ -222,12 +245,12 @@ async function loadNotifications() {
         .join("");
       updateNotificationBadge(data.unread_count || 0);
     } else {
-      list.innerHTML = '<div class="notification-empty">Нет уведомлений</div>';
+      list.innerHTML = '<div class="notification-empty">' + window.t('no_notifications') + '</div>';
       updateNotificationBadge(0);
     }
   } catch (e) {
     console.error(e);
-    list.innerHTML = '<div class="notification-empty">Ошибка загрузки</div>';
+    list.innerHTML = '<div class="notification-empty">' + window.t('loading_error') + '</div>';
   }
 }
 
@@ -357,7 +380,7 @@ async function performSearch(query) {
       container.style.display = "block";
     } else {
       container.innerHTML =
-        '<div class="search-result-empty">Ничего не найдено</div>';
+        '<div class="search-result-empty">' + window.t('nothing_found') + '</div>';
       container.style.display = "block";
     }
   } catch (e) {
@@ -418,17 +441,17 @@ class FormValidator {
       const value = field.value.trim();
       for (const rule of rules) {
         let error = null;
-        if (rule.type === "required" && !value) error = "Это поле обязательно";
+        if (rule.type === "required" && !value) error = window.t('field_required');
         else if (
           rule.type === "email" &&
           value &&
           !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
         )
-          error = "Введите корректный email";
+          error = window.t('invalid_email');
         else if (rule.type === "minLength" && value.length < rule.params.length)
-          error = `Минимум ${rule.params.length} символов`;
+          error = window.t('min_chars', { n: rule.params.length });
         else if (rule.type === "maxLength" && value.length > rule.params.length)
-          error = `Максимум ${rule.params.length} символов`;
+          error = window.t('max_chars', { n: rule.params.length });
         if (error) {
           this.errors[name] = error;
           this.showFieldError(name, error);
@@ -753,6 +776,8 @@ window.generateAndStoreKeyPairGlobal = generateAndStoreKeyPairGlobal;
 window.ensureUserHasKeys = generateAndStoreKeyPairGlobal;
 
 // ==================== Exports ====================
+window.toggleLanguageMenu = toggleLanguageMenu;
+window.toggleMobileLanguageMenu = toggleMobileLanguageMenu;
 window.toggleUserMenu = toggleUserMenu;
 window.toggleNotifications = toggleNotifications;
 window.toggleMobileNotifications = toggleMobileNotifications;

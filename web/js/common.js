@@ -40,7 +40,7 @@ function showNotification(msg, type = 'info') {
     notification.innerHTML = `
         <span class="notification-icon">${getNotificationIcon(type)}</span>
         <span class="notification-text">${escapeHtml(msg)}</span>
-        <button class="notification-close" aria-label="Закрыть уведомление">×</button>
+        <button class="notification-close" aria-label="${window.translations.close}">×</button>
     `;
     container.appendChild(notification);
 
@@ -72,7 +72,7 @@ function showDeleteModal(text, onConfirm) {
     const m = document.getElementById('delete-modal');
     const t = document.getElementById('delete-modal-text');
     const b = document.getElementById('delete-modal-confirm');
-    if (t) t.textContent = text || 'Удалить?';
+    if (t) t.textContent = text || window.translations.delete_question;
     deleteModalCallback = onConfirm;
     if (b && !b.hasAttribute('data-handler-attached')) {
         b.onclick = function () {
@@ -98,7 +98,7 @@ function hideDeleteModal() {
 // ==================== Like ====================
 async function handleLike(postId, btn) {
   if (!window.currentUserId) {
-    showNotification("Войдите, чтобы поставить лайк", "error");
+    showNotification(window.translations.login_to_like, "error");
     return;
   }
 
@@ -129,13 +129,13 @@ async function handleLike(postId, btn) {
       });
 
       showNotification(
-        result.liked ? "Лайк поставлен" : "Лайк убран",
+        result.liked ? window.translations.like_added : window.translations.like_removed,
         "success",
       );
     }
   } catch (error) {
     console.error("Like error:", error);
-    showNotification("Ошибка", "error");
+    showNotification(window.translations.error, "error");
   } finally {
     if (btn) {
       btn.style.opacity = "";
@@ -147,7 +147,7 @@ async function handleLike(postId, btn) {
 // ==================== Save ====================
 async function handleSave(postId) {
   if (!window.currentUserId) {
-    showNotification("Войдите, чтобы сохранить", "error");
+    showNotification(window.translations.login_to_save, "error");
     return;
   }
 
@@ -171,20 +171,20 @@ async function handleSave(postId) {
       });
 
       showNotification(
-        result.saved ? "Сохранено" : "Удалено из сохраненных",
+        result.saved ? window.translations.saved : window.translations.removed_from_saved,
         "success",
       );
     }
   } catch (error) {
     console.error("Save error:", error);
-    showNotification("Ошибка", "error");
+    showNotification(window.translations.error, "error");
   }
 }
 
 // ==================== Repost ====================
 async function toggleRepost(postId) {
   if (!window.currentUserId) {
-    showNotification("Войдите, чтобы сделать репост", "error");
+    showNotification(window.translations.login_to_repost, "error");
     return;
   }
 
@@ -210,13 +210,13 @@ async function toggleRepost(postId) {
       });
 
       showNotification(
-        result.reposted ? "Репост сделан" : "Репост отменен",
+        result.reposted ? window.translations.repost_made : window.translations.repost_cancelled,
         "success",
       );
     }
   } catch (error) {
     console.error("Repost error:", error);
-    showNotification("Ошибка", "error");
+    showNotification(window.translations.error, "error");
   }
 }
 
@@ -241,7 +241,7 @@ function refreshTab(tabId, loadFunction) {
 
 // ==================== Delete ====================
 async function deletePost(postId) {
-    showDeleteModal('Удалить пост?', async function () {
+    showDeleteModal(window.translations.delete_post_question, async function () {
         try {
             const r = await fetch('/post/delete?id=' + postId, {
                 method: 'POST',
@@ -252,7 +252,7 @@ async function deletePost(postId) {
             });
             const res = await r.json();
             if (res.success) {
-                showNotification('Пост удалён', 'success');
+                showNotification(window.translations.post_deleted, 'success');
                 document.querySelectorAll(`[data-post-id="${postId}"]`).forEach(p => p.remove());
                 const c = document.querySelector('.profile-stats .stat:first-child .stat-value');
                 if (c) {
@@ -260,7 +260,7 @@ async function deletePost(postId) {
                     c.textContent = Math.max(0, v - 1);
                 }
             } else {
-                showNotification(res.error || 'Ошибка', 'error');
+                showNotification(res.error || window.translations.error, 'error');
             }
         } catch (e) { }
     });
@@ -283,7 +283,7 @@ async function loadComments(postId, listId = 'modal-comments-list') {
     } catch (error) {
         console.error('Error loading comments:', error);
         const commentsList = document.getElementById(listId);
-        if (commentsList) commentsList.innerHTML = '<p class="error-message">Ошибка загрузки комментариев</p>';
+        if (commentsList) commentsList.innerHTML = `<p class="error-message">${window.translations.error_loading_comments}</p>`;
     }
 }
 
@@ -312,17 +312,17 @@ function initCommentForm(postId) {
     const sendComment = async () => {
         const content = textarea.value.trim();
         if (!content) {
-            showNotification('Напишите комментарий', 'error');
+            showNotification(window.translations.write_comment, 'error');
             return;
         }
         
         if (!window.currentUserId) {
-            showNotification('Войдите, чтобы оставить комментарий', 'error');
+            showNotification(window.translations.login_to_comment, 'error');
             return;
         }
         
         submitBtn.disabled = true;
-        submitBtn.textContent = '⏳...';
+        submitBtn.textContent = window.translations.loading;
         
         try {
             const response = await postWithCsrf('/api/comment/create', {
@@ -357,16 +357,16 @@ function initCommentForm(postId) {
                     }
                 }
                 
-                showNotification('Комментарий добавлен!', 'success');
+                showNotification(window.translations.comment_added, 'success');
             } else {
-                showNotification(result.error || 'Ошибка', 'error');
+                showNotification(result.error || window.translations.error, 'error');
             }
         } catch (error) {
             console.error('Comment error:', error);
-            showNotification('Ошибка отправки', 'error');
+            showNotification(window.translations.error_sending, 'error');
         } finally {
             submitBtn.disabled = false;
-            submitBtn.textContent = '📤 Отправить';
+            submitBtn.textContent = window.translations.send;
         }
     };
     
@@ -425,18 +425,18 @@ async function submitModalComment(postId) {
     const textarea = document.querySelector('#post-modal .comment-form__input, #modal-comment-input');
     if (!textarea) {
         console.error('Comment textarea not found');
-        showNotification('Ошибка: поле ввода не найдено', 'error');
+        showNotification(window.translations.input_field_not_found, 'error');
         return;
     }
     
     const content = textarea.value.trim();
     if (!content) {
-        showNotification('Напишите комментарий', 'error');
+        showNotification(window.translations.write_comment, 'error');
         return;
     }
     
     if (!window.currentUserId) {
-        showNotification('Войдите, чтобы оставить комментарий', 'error');
+        showNotification(window.translations.login_to_comment, 'error');
         return;
     }
     
@@ -444,7 +444,7 @@ async function submitModalComment(postId) {
     const submitBtn = textarea.closest('.comment-form')?.querySelector('.comment-form__btn, .btn-send');
     if (submitBtn) {
         submitBtn.disabled = true;
-        submitBtn.textContent = '⏳ Отправка...';
+        submitBtn.textContent = window.translations.sending;
     }
     
     try {
@@ -479,29 +479,29 @@ async function submitModalComment(postId) {
                 commentsHeaderCount.textContent = currentCount + 1;
             }
             
-            showNotification('Комментарий добавлен!', 'success');
+            showNotification(window.translations.comment_added, 'success');
         } else {
-            showNotification(result.error || 'Ошибка отправки комментария', 'error');
+            showNotification(result.error || window.translations.error_sending_comment, 'error');
         }
     } catch (error) {
         console.error('Comment error:', error);
-        showNotification('Ошибка отправки комментария', 'error');
+        showNotification(window.translations.error_sending_comment, 'error');
     } finally {
         if (submitBtn) {
             submitBtn.disabled = false;
-            submitBtn.textContent = '📤 Отправить';
+            submitBtn.textContent = window.translations.send;
         }
     }
 }
 
 async function deleteComment(commentId, postId) {
-    showDeleteModal('Удалить комментарий?', async () => {
+    showDeleteModal(window.translations.delete_comment_question, async () => {
         try {
             const response = await postWithCsrf('/api/comment/delete', { comment_id: commentId });
             const result = await response.json();
             
             if (result.success) {
-                showNotification('Комментарий удалён', 'success');
+                showNotification(window.translations.comment_deleted, 'success');
                 
                 // Удаляем комментарий из DOM
                 const commentEl = document.querySelector(`.comment-item[data-comment-id="${commentId}"]`);
@@ -530,17 +530,17 @@ async function deleteComment(commentId, postId) {
                     commentsList.innerHTML = `
                         <div class="empty-comments">
                             <div class="empty-comments-icon">💬</div>
-                            <p>Нет комментариев</p>
-                            <p class="empty-hint">Будьте первым, кто оставит комментарий!</p>
+                            <p>${window.translations.no_comments}</p>
+                            <p class="empty-hint">${window.translations.be_first_to_comment}</p>
                         </div>
                     `;
                 }
             } else {
-                showNotification(result.error || 'Ошибка удаления', 'error');
+                showNotification(result.error || window.translations.error_deleting, 'error');
             }
         } catch (error) {
             console.error('Delete comment error:', error);
-            showNotification('Ошибка удаления', 'error');
+            showNotification(window.translations.error_deleting, 'error');
         }
     });
 }
@@ -569,8 +569,8 @@ async function editComment(commentId, postId) {
     editForm.innerHTML = `
         <textarea class="comment-edit-textarea" rows="2">${escapeHtml(currentText)}</textarea>
         <div class="comment-edit-actions">
-            <button class="btn-save-edit">💾 Сохранить</button>
-            <button class="btn-cancel-edit">❌ Отмена</button>
+            <button class="btn-save-edit">${window.translations.save}</button>
+            <button class="btn-cancel-edit">${window.translations.cancel}</button>
         </div>
     `;
     
@@ -610,16 +610,16 @@ async function editComment(commentId, postId) {
                 if (header && !header.querySelector('.edited-mark')) {
                     const mark = document.createElement('span');
                     mark.className = 'edited-mark';
-                    mark.textContent = ' (ред.)';
+                    mark.textContent = window.translations.edited_mark;
                     header.appendChild(mark);
                 }
-                showNotification('Комментарий обновлён', 'success');
+                showNotification(window.translations.comment_updated, 'success');
                 newCancelBtn.click();
             } else {
-                showNotification(data.error || 'Ошибка', 'error');
+                showNotification(data.error || window.translations.error, 'error');
             }
         } catch (error) {
-            showNotification('Ошибка', 'error');
+            showNotification(window.translations.error, 'error');
         }
     };
     
@@ -652,14 +652,14 @@ function submitPollVote(pollId, postId) {
 
   if (!pollContainer) {
     console.error("Poll container not found for pollId:", pollId);
-    showNotification("Ошибка: контейнер опроса не найден", "error");
+    showNotification(window.translations.poll_container_not_found, "error");
     return;
   }
 
   const selected = pollContainer.querySelectorAll("input:checked");
 
   if (!selected.length) {
-    showNotification("Выберите вариант ответа", "error");
+    showNotification(window.translations.select_answer_option, "error");
     return;
   }
 
@@ -668,7 +668,7 @@ function submitPollVote(pollId, postId) {
   const voteBtn = pollContainer.querySelector(".poll-widget-vote-btn");
   if (voteBtn) {
     voteBtn.disabled = true;
-    voteBtn.textContent = "⏳...";
+    voteBtn.textContent = window.translations.loading;
   }
 
   postWithCsrf("/poll/vote", { poll_id: pollId, option_ids: optionIds })
@@ -703,14 +703,14 @@ function submitPollVote(pollId, postId) {
                   if (percentageSpan)
                     percentageSpan.textContent = option.percentage + "%";
                   if (votesSpan)
-                    votesSpan.textContent = option.votes_count + " голосов";
+                    votesSpan.textContent = option.votes_count + " " + window.translations.votes;
                   if (bar) bar.style.width = option.percentage + "%";
                 }
               });
               // Обновляем общее количество голосов
               const totalSpan = pollInCard.querySelector(".poll-widget-total");
               if (totalSpan) {
-                totalSpan.textContent = `📊 ${data.poll.total_votes} гол.`;
+                totalSpan.textContent = `📊 ${data.poll.total_votes} ` + window.translations.votes_abbr;
               }
             }
 
@@ -723,9 +723,9 @@ function submitPollVote(pollId, postId) {
           }
         }
 
-        showNotification("Ваш голос учтен!", "success");
+        showNotification(window.translations.vote_counted, "success");
       } else {
-        showNotification(data.error || "Ошибка голосования", "error");
+        showNotification(data.error || window.translations.voting_error, "error");
         const newPollContainer = document.querySelector(
           `.poll-widget[data-poll-id="${pollId}"]`,
         );
@@ -734,13 +734,13 @@ function submitPollVote(pollId, postId) {
         );
         if (newVoteBtn) {
           newVoteBtn.disabled = false;
-          newVoteBtn.textContent = "🗳️ Голосовать";
+          newVoteBtn.textContent = window.translations.vote_button;
         }
       }
     })
     .catch((error) => {
       console.error("Vote error:", error);
-      showNotification("Ошибка сети", "error");
+      showNotification(window.translations.network_error, "error");
       const newPollContainer = document.querySelector(
         `.poll-widget[data-poll-id="${pollId}"]`,
       );
@@ -749,7 +749,7 @@ function submitPollVote(pollId, postId) {
       );
       if (newVoteBtn) {
         newVoteBtn.disabled = false;
-        newVoteBtn.textContent = "🗳️ Голосовать";
+        newVoteBtn.textContent = window.translations.vote_button;
       }
     });
 }
@@ -772,12 +772,12 @@ function cancelPollVote(pollId, postId) {
         allPollContainers.forEach((container) => {
           container.outerHTML = newHtml;
         });
-        showNotification("Голос отменен", "success");
+        showNotification(window.translations.vote_cancelled, "success");
       } else {
-        showNotification(data.error || "Ошибка", "error");
+        showNotification(data.error || window.translations.error, "error");
       }
     })
-    .catch(() => showNotification("Ошибка сети", "error"));
+    .catch(() => showNotification(window.translations.network_error, "error"));
 }
 
 function renderPoll(poll) {
@@ -811,8 +811,8 @@ function renderPoll(poll) {
       html += `<div class="poll-widget-results">
                         <div class="poll-widget-bar" style="width: ${percentage}%"></div>
                         <span class="poll-widget-percentage">${percentage}%</span>
-                        <span class="poll-widget-votes">${votesCount} гол.</span>
-                        ${isChecked ? '<span class="poll-widget-checked">✓ Ваш голос</span>' : ""}
+                        <span class="poll-widget-votes">${votesCount} ` + window.translations.votes_abbr + `</span>
+                        ${isChecked ? '<span class="poll-widget-checked">' + window.translations.your_vote + '</span>' : ""}
                     </div>`;
     }
 
@@ -820,12 +820,12 @@ function renderPoll(poll) {
   });
 
   html += `</div><div class="poll-widget-footer">
-        <span class="poll-widget-total">📊 ${totalVotes} гол.</span>`;
+        <span class="poll-widget-total">📊 ${totalVotes} ` + window.translations.votes_abbr + `</span>`;
 
   if (!hasUserVoted) {
-    html += `<button class="poll-widget-vote-btn" onclick="submitPollVote(${poll.id})">🗳️ Голосовать</button>`;
+    html += `<button class="poll-widget-vote-btn" onclick="submitPollVote(${poll.id})">${window.translations.vote_button}</button>`;
   } else {
-    html += `<button class="poll-widget-cancel-btn" onclick="cancelPollVote(${poll.id})">🔄 Отменить</button>`;
+    html += `<button class="poll-widget-cancel-btn" onclick="cancelPollVote(${poll.id})">${window.translations.cancel}</button>`;
   }
 
   html += `</div></div>`;

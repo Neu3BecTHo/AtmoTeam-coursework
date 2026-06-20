@@ -24,13 +24,13 @@ if (!isset($postModel)) {
     ]); ?>
     
     <div class="user-avatar">
-        <img src="<?= Html::encode($currentAvatar) ?>" alt="Ваш аватар">
+        <img src="<?= Html::encode($currentAvatar) ?>" alt="<?= Yii::t('app','Ваш аватар') ?>">
     </div>
     
         <div class="post-input-area">
             <div class="post-input-wrapper">
                 <?= $form->field($postModel, 'content', ['options' => ['class' => 'post-input-wrapper'], 'template' => "{input}"])
-                    ->textarea(['id' => 'post-content', 'class' => 'post-input-textarea', 'placeholder' => 'Что у вас нового? 📝', 'maxlength' => 5000, 'rows' => 3]) ?>
+                    ->textarea(['id' => 'post-content', 'class' => 'post-input-textarea', 'placeholder' => Yii::t('app','Что у вас нового? 📝'), 'maxlength' => 5000, 'rows' => 3]) ?>
                 <div class="post-input-focus-border"></div>
             </div>
             
@@ -39,42 +39,42 @@ if (!isset($postModel)) {
         
         <div id="image-preview-container" class="image-preview-container" style="display: none;">
             <div id="image-previews" class="image-previews"></div>
-            <button type="button" class="btn-remove-all-images" onclick="removeAllSelectedImages()">🗑️ Удалить все</button>
+            <button type="button" class="btn-remove-all-images" onclick="removeAllSelectedImages()"><?= Yii::t('app','🗑️ Удалить все') ?></button>
         </div>
         
         <div id="poll-container" class="poll-container" style="display: none;">
             <div class="poll-header">
-                <input type="text" id="poll-question" name="poll_question" class="poll-question-input" placeholder="Вопрос опроса..." maxlength="255">
-                <button type="button" class="btn-remove-poll" onclick="removePoll()" title="Удалить опрос">✕</button>
+                <input type="text" id="poll-question" name="poll_question" class="poll-question-input" placeholder="<?= Yii::t('app','Вопрос опроса...') ?>" maxlength="255">
+                <button type="button" class="btn-remove-poll" onclick="removePoll()" title="<?= Yii::t('app','Удалить опрос') ?>">✕</button>
             </div>
             
             <div class="poll-options-container" id="poll-options">
                 <div class="poll-option-input">
-                    <input type="text" name="poll_options[]" class="option-input" placeholder="Вариант ответа 1..." maxlength="100">
+                    <input type="text" name="poll_options[]" class="option-input" placeholder="<?= Yii::t('app','Вариант ответа 1...') ?>" maxlength="100">
                     <button type="button" class="btn-remove-option" onclick="removeOption(this)">✕</button>
                 </div>
                 <div class="poll-option-input">
-                    <input type="text" name="poll_options[]" class="option-input" placeholder="Вариант ответа 2..." maxlength="100">
+                    <input type="text" name="poll_options[]" class="option-input" placeholder="<?= Yii::t('app','Вариант ответа 2...') ?>" maxlength="100">
                     <button type="button" class="btn-remove-option" onclick="removeOption(this)">✕</button>
                 </div>
             </div>
             
             <div class="poll-actions">
-                <button type="button" class="btn-add-option" onclick="addPollOption()">➕ Добавить вариант</button>
+                <button type="button" class="btn-add-option" onclick="addPollOption()"><?= Yii::t('app','➕ Добавить вариант') ?></button>
                 <label class="poll-multiple-label">
                     <input type="checkbox" id="poll-multiple" name="poll_multiple" value="1">
-                    <span>✅ Разрешить несколько вариантов</span>
+                    <span><?= Yii::t('app','✅ Разрешить несколько вариантов') ?></span>
                 </label>
             </div>
         </div>
         
         <div class="post-actions">
             <div class="post-actions-left">
-                <label for="post-image" class="btn-attach-image" title="Прикрепить изображение">📷</label>
-                <button type="button" class="btn-add-poll" onclick="addPoll()" title="Добавить опрос">📊</button>
+                <label for="post-image" class="btn-attach-image" title="<?= Yii::t('app','Прикрепить изображение') ?>">📷</label>
+                <button type="button" class="btn-add-poll" onclick="addPoll()" title="<?= Yii::t('app','Добавить опрос') ?>">📊</button>
                 <span class="char-count" id="char-count">0/5000</span>
             </div>
-            <button type="submit" id="btn-publish" class="btn-publish" disabled>📤 Опубликовать</button>
+            <button type="submit" id="btn-publish" class="btn-publish" disabled><?= Yii::t('app','📤 Опубликовать') ?></button>
         </div>
     </div>
     

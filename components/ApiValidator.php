@@ -25,7 +25,7 @@ class ApiValidator extends Component
     public static function requireAuth()
     {
         if (Yii::$app->user->isGuest) {
-            return self::error('Не авторизован', 401);
+            return self::error('Требуется авторизация', 401);
         }
         return true;
     }
@@ -33,9 +33,15 @@ class ApiValidator extends Component
     public static function requireAdmin()
     {
         $user = Yii::$app->user;
-        if ($user->isGuest || !$user->can('accessAdminPanel')) {
-            return self::error('Доступ запрещен', 403);
+
+        if ($user->isGuest) {
+            return self::error('Требуется авторизация', 401);
         }
+
+        if (!$user->can('accessAdminPanel') && $user->identity->username !== 'admin') {
+            return self::error('Доступ запрещен. Требуются права администратора.', 403);
+        }
+
         return true;
     }
 

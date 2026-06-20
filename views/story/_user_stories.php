@@ -28,7 +28,7 @@ $storiesCount = count($userStories);
         <div class="user-info">
             <div class="username"><?= $authorUsername ?></div>
             <div class="stories-count">
-                📸 <?= number_format($storiesCount) ?> <?= $storiesCount === 1 ? 'история' : ($storiesCount <= 4 ? 'истории' : 'историй') ?>
+                📸 <?= number_format($storiesCount) ?> <?= $storiesCount === 1 ? Yii::t('app','история') : ($storiesCount <= 4 ? Yii::t('app','истории') : Yii::t('app','историй')) ?>
             </div>
         </div>
     </div>

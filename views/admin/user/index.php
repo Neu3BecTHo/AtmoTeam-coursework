@@ -9,8 +9,8 @@ use yii\widgets\Pjax;
  * @var \yii\data\ActiveDataProvider $dataProvider
  */
 
-$this->title = 'Управление пользователями';
-$this->params['breadcrumbs'][] = ['label' => 'Админ панель', 'url' => ['/admin']];
+$this->title = Yii::t('app','Управление пользователями');
+$this->params['breadcrumbs'][] = ['label' => Yii::t('app','Админ панель'), 'url' => ['/admin']];
 $this->params['breadcrumbs'][] = $this->title;
 
 ?>
@@ -18,13 +18,13 @@ $this->params['breadcrumbs'][] = $this->title;
 <div class="admin-container">
     <div class="admin-header">
         <h1 class="admin-title">👥 <?= Html::encode($this->title) ?></h1>
-        <p class="admin-subtitle">Просмотр, создание и управление пользователями системы</p>
+        <p class="admin-subtitle"><?= Yii::t('app','Просмотр, создание и управление пользователями системы') ?></p>
     </div>
 
     <div class="admin-content">
         <div class="admin-actions">
-            <?= Html::a('➕ Создать пользователя', ['create'], ['class' => 'btn btn-primary']) ?>
-            <?= Html::button('🗑️ Удалить выбранные', [
+            <?= Html::a('➕ ' . Yii::t('app','Создать пользователя'), ['create'], ['class' => 'btn btn-primary']) ?>
+            <?= Html::button('🗑️ ' . Yii::t('app','Удалить выбранные'), [
                 'class' => 'btn btn-danger bulk-delete-btn',
                 'id' => 'bulk-delete',
                 'style' => 'display:none;'
@@ -61,7 +61,7 @@ $this->params['breadcrumbs'][] = $this->title;
                     
                     [
                         'attribute' => 'username',
-                        'label' => 'Имя пользователя',
+                        'label' => Yii::t('app','Имя пользователя'),
                         'format' => 'raw',
                         'value' => function ($model) {
                             $avatar = $model->getAvatarUrl();
@@ -82,23 +82,23 @@ $this->params['breadcrumbs'][] = $this->title;
                     
                     [
                         'attribute' => 'status',
-                        'label' => 'Статус',
-                        'filter' => [10 => 'Активен', 0 => 'Заблокирован'],
+                        'label' => Yii::t('app','Статус'),
+                        'filter' => [10 => Yii::t('app','Активен'), 0 => Yii::t('app','Заблокирован')],
                         'format' => 'raw',
                         'value' => function ($model) {
                             if ($model->username === 'admin') {
-                                return '<span class="badge badge-super-admin">👑 Супер админ</span>';
+                                return '<span class="badge badge-super-admin">👑 ' . Yii::t('app','Супер админ') . '</span>';
                             }
                             if ($model->status == 10) {
-                                return '<span class="badge badge-success">✅ Активен</span>';
+                                return '<span class="badge badge-success">✅ ' . Yii::t('app','Активен') . '</span>';
                             }
-                            return '<span class="badge badge-danger">🔒 Заблокирован</span>';
+                            return '<span class="badge badge-danger">🔒 ' . Yii::t('app','Заблокирован') . '</span>';
                         },
                     ],
                     
                     [
                         'attribute' => 'created_at',
-                        'label' => 'Дата регистрации',
+                        'label' => Yii::t('app','Дата регистрации'),
                         'format' => 'datetime',
                         'filter' => false,
                         'headerOptions' => ['style' => 'width: 180px;'],
@@ -106,13 +106,13 @@ $this->params['breadcrumbs'][] = $this->title;
                     
                     [
                         'class' => 'yii\grid\ActionColumn',
-                        'header' => 'Действия',
+                        'header' => Yii::t('app','Действия'),
                         'headerOptions' => ['style' => 'width: 140px;'],
                         'template' => '{view} {update} {toggle} {delete}',
                         'buttons' => [
                             'view' => function ($url, $model) {
                                 return Html::a('👁️', $url, [
-                                    'title' => 'Просмотр',
+                                    'title' => Yii::t('app','Просмотр'),
                                     'class' => 'action-btn action-btn-view',
                                     'data-pjax' => 0,
                                 ]);
@@ -120,7 +120,7 @@ $this->params['breadcrumbs'][] = $this->title;
                             'update' => function ($url, $model) {
                                 if ($model->username === 'admin') return '';
                                 return Html::a('✏️', $url, [
-                                    'title' => 'Редактировать',
+                                    'title' => Yii::t('app','Редактировать'),
                                     'class' => 'action-btn action-btn-edit',
                                     'data-pjax' => 0,
                                 ]);
@@ -128,7 +128,7 @@ $this->params['breadcrumbs'][] = $this->title;
                             'toggle' => function ($url, $model) {
                                 if ($model->username === 'admin') return '';
                                 $icon = $model->status == 10 ? '🔒' : '🔓';
-                                $title = $model->status == 10 ? 'Заблокировать' : 'Активировать';
+                                $title = $model->status == 10 ? Yii::t('app','Заблокировать') : Yii::t('app','Активировать');
                                 $class = $model->status == 10 ? 'action-btn action-btn-block' : 'action-btn action-btn-unblock';
                                 return Html::a($icon, ['toggle-status', 'id' => $model->id], [
                                     'title' => $title,
@@ -138,7 +138,7 @@ $this->params['breadcrumbs'][] = $this->title;
                             },
                             'delete' => function ($url, $model) {
                                 if ($model->username === 'admin') return '';
-                                $confirm = 'Вы уверены, что хотите удалить пользователя ' . Html::encode($model->username) . ' и все связанные с ним данные?';
+                                $confirm = Yii::t('app','Вы уверены, что хотите удалить пользователя {username} и все связанные с ним данные?', ['username' => Html::encode($model->username)]);
                                 return Html::beginForm(['delete', 'id' => $model->id], 'post', [
                                     'data-confirm' => $confirm,
                                     'class' => 'delete-form',
@@ -146,7 +146,7 @@ $this->params['breadcrumbs'][] = $this->title;
                                 ]) . 
                                 Html::button('🗑️', [
                                     'type' => 'submit',
-                                    'title' => 'Удалить',
+                                    'title' => Yii::t('app','Удалить'),
                                     'class' => 'action-btn action-btn-delete',
                                 ]) .
                                 Html::endForm();
@@ -165,29 +165,29 @@ $this->params['breadcrumbs'][] = $this->title;
 <div id="bulkActionsModal" class="modal bulk-modal" style="display:none;">
     <div class="modal-content">
         <div class="modal-header">
-            <h3>📦 Массовые действия</h3>
+            <h3>📦 <?= Yii::t('app','Массовые действия') ?></h3>
             <button class="modal-close">&times;</button>
         </div>
         <div class="modal-body">
-            <p>Выберите действие для <strong id="selected-count">0</strong> выбранных пользователей:</p>
+            <p><?= Yii::t('app','Выберите действие для {n} выбранных пользователей:', ['n' => '<strong id="selected-count">0</strong>']) ?></p>
             <div class="bulk-actions-options">
                 <label class="bulk-action-option">
                     <input type="radio" name="bulk_action" value="activate">
-                    <span>✅ Активировать</span>
+                    <span>✅ <?= Yii::t('app','Активировать') ?></span>
                 </label>
                 <label class="bulk-action-option">
                     <input type="radio" name="bulk_action" value="deactivate">
-                    <span>🔒 Заблокировать</span>
+                    <span>🔒 <?= Yii::t('app','Заблокировать') ?></span>
                 </label>
                 <label class="bulk-action-option">
                     <input type="radio" name="bulk_action" value="delete">
-                    <span>🗑️ Удалить</span>
+                    <span>🗑️ <?= Yii::t('app','Удалить') ?></span>
                 </label>
             </div>
         </div>
         <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" id="cancelBulk">Отмена</button>
-            <button type="button" class="btn btn-danger" id="confirmBulk">Выполнить</button>
+            <button type="button" class="btn btn-secondary" id="cancelBulk"><?= Yii::t('app','Отмена') ?></button>
+            <button type="button" class="btn btn-danger" id="confirmBulk"><?= Yii::t('app','Выполнить') ?></button>
         </div>
     </div>
 </div>
@@ -244,12 +244,12 @@ document.addEventListener('DOMContentLoaded', function() {
             const actionValue = action.value;
             
             const confirmText = {
-                'activate': 'активировать выбранных пользователей',
-                'deactivate': 'заблокировать выбранных пользователей',
-                'delete': 'УДАЛИТЬ выбранных пользователей (это действие нельзя отменить)'
+                'activate': '<?= Yii::t('app','активировать выбранных пользователей') ?>',
+                'deactivate': '<?= Yii::t('app','заблокировать выбранных пользователей') ?>',
+                'delete': '<?= Yii::t('app','УДАЛИТЬ выбранных пользователей (это действие нельзя отменить)') ?>'
             };
             
-            if (!confirm(`Вы уверены, что хотите ${confirmText[actionValue]}?`)) {
+            if (!confirm(`<?= Yii::t('app','Вы уверены, что хотите {action}?') ?>`.replace('{action}', confirmText[actionValue]))) {
                 return;
             }
 
@@ -267,11 +267,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (data.success) {
                     location.reload();
                 } else {
-                    alert('❌ Ошибка: ' + (data.error || 'Неизвестная ошибка'));
+                    alert('❌ <?= Yii::t('app','Ошибка') ?>: ' + (data.error || '<?= Yii::t('app','Неизвестная ошибка') ?>'));
                 }
             })
             .catch(error => {
-                alert('❌ Произошла ошибка при выполнении запроса');
+                alert('❌ <?= Yii::t('app','Произошла ошибка при выполнении запроса') ?>');
             });
             
             closeModal();

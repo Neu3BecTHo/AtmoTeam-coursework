@@ -47,7 +47,7 @@ $currentAvatar = $currentUser ? $currentUser->getAvatarUrl() : '';
         <div class="post-modal__gallery gallery gallery--<?= $imagesCount > 1 ? 'multi' : 'single' ?>">
             <?php foreach ($imageUrls as $index => $url): ?>
                 <div class="gallery__item" onclick="openImageFullscreen('<?= Html::encode($url) ?>', <?= $imagesCount ?>, <?= $index ?>)">
-                    <img src="<?= Html::encode($url) ?>" alt="Изображение <?= $index + 1 ?>" loading="lazy">
+                    <img src="<?= Html::encode($url) ?>" alt="<?= Yii::t('app','Изображение') ?> <?= $index + 1 ?>" loading="lazy">
                 </div>
             <?php endforeach; ?>
         </div>
@@ -62,7 +62,7 @@ $currentAvatar = $currentUser ? $currentUser->getAvatarUrl() : '';
 
 <div class="post-modal__comments">
     <div class="comments-header">
-        <span>💬 Комментарии</span>
+        <span>💬 <?= Yii::t('app','Комментарии') ?></span>
         <span class="comments-header__count"><?= number_format($post->comments_count) ?></span>
     </div>
     
@@ -76,13 +76,13 @@ $currentAvatar = $currentUser ? $currentUser->getAvatarUrl() : '';
                             <span class="comment-author"><?= Html::encode($comment->user->username) ?></span>
                             <span class="comment-time"><?= $comment->getTimeAgo() ?></span>
                             <?php if ($comment->updated_at > $comment->created_at): ?>
-                                <span class="edited-mark">(ред.)</span>
+                                <span class="edited-mark"><?= Yii::t('app','(ред.)') ?></span>
                             <?php endif; ?>
                         </div>
                         <?php if (!Yii::$app->user->isGuest && Yii::$app->user->id == $comment->user_id): ?>
                             <div class="comment-actions">
-                                <button class="btn-edit-comment" data-comment-id="<?= $comment->id ?>" data-post-id="<?= $post->id ?>" title="Редактировать">✏️</button>
-                                <button class="btn-delete-comment" data-comment-id="<?= $comment->id ?>" data-post-id="<?= $post->id ?>" title="Удалить">🗑️</button>
+                                <button class="btn-edit-comment" data-comment-id="<?= $comment->id ?>" data-post-id="<?= $post->id ?>" title="<?= Yii::t('app','Редактировать') ?>">✏️</button>
+                                <button class="btn-delete-comment" data-comment-id="<?= $comment->id ?>" data-post-id="<?= $post->id ?>" title="<?= Yii::t('app','Удалить') ?>">🗑️</button>
                             </div>
                         <?php endif; ?>
                     </div>
@@ -94,27 +94,27 @@ $currentAvatar = $currentUser ? $currentUser->getAvatarUrl() : '';
         <?php if (empty($post->comments)): ?>
             <div class="empty-comments">
                 <div class="empty-comments-icon">💬</div>
-                <p>Нет комментариев</p>
-                <p class="empty-hint">Будьте первым, кто оставит комментарий!</p>
+                <p><?= Yii::t('app','Нет комментариев') ?></p>
+                <p class="empty-hint"><?= Yii::t('app','Будьте первым, кто оставит комментарий!') ?></p>
             </div>
         <?php endif; ?>
     </div>
     
     <?php if (!Yii::$app->user->isGuest): ?>
         <div class="comment-form" data-post-id="<?= $post->id ?>">
-            <img src="<?= Html::encode($currentAvatar) ?>" class="comment-avatar" alt="Ваш аватар">
+            <img src="<?= Html::encode($currentAvatar) ?>" class="comment-avatar" alt="<?= Yii::t('app','Ваш аватар') ?>">
             <div class="comment-form__wrapper">
-                <textarea class="comment-form__input modal-comment-input" placeholder="Написать комментарий..." rows="1" maxlength="1000"></textarea>
+                <textarea class="comment-form__input modal-comment-input" placeholder="<?= Yii::t('app','Написать комментарий...') ?>" rows="1" maxlength="1000"></textarea>
                 <div class="comment-form__footer">
                     <span class="comment-form__counter">0</span>
                     <span class="comment-form__counter-max">/1000</span>
-                    <button class="comment-form__btn modal-comment-submit" data-post-id="<?= $post->id ?>">📤 Отправить</button>
+                    <button class="comment-form__btn modal-comment-submit" data-post-id="<?= $post->id ?>">📤 <?= Yii::t('app','Отправить') ?></button>
                 </div>
             </div>
         </div>
     <?php else: ?>
         <div class="login-to-comment">
-            <p><a href="<?= Url::to(['/site/login']) ?>">Войдите</a>, чтобы оставить комментарий</p>
+            <p><a href="<?= Url::to(['/site/login']) ?>"><?= Yii::t('app','Войдите') ?></a><?= Yii::t('app', ', чтобы оставить комментарий') ?></p>
         </div>
     <?php endif; ?>
 </div>

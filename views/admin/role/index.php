@@ -4,7 +4,7 @@ use yii\helpers\Html;
 use yii\grid\GridView;
 use yii\widgets\Pjax;
 
-$this->title = 'Управление ролями';
+$this->title = Yii::t('app','Управление ролями');
 $this->params['breadcrumbs'][] = $this->title;
 
 ?>
@@ -12,14 +12,14 @@ $this->params['breadcrumbs'][] = $this->title;
 <div class="role-index admin-container">
     <div class="admin-header">
         <h1 class="admin-title"><?= Html::encode($this->title) ?></h1>
-        <p class="admin-subtitle">Управление ролями пользователей и их правами</p>
+        <p class="admin-subtitle"><?= Yii::t('app','Управление ролями пользователей и их правами') ?></p>
     </div>
 
     <div class="admin-section">
         <div class="section-header">
-            <h2 class="section-title">Список ролей</h2>
+            <h2 class="section-title"><?= Yii::t('app','Список ролей') ?></h2>
             <div class="section-actions">
-                <?= Html::a('+ Создать роль', ['create'], ['class' => 'btn btn-primary']) ?>
+                <?= Html::a('+ ' . Yii::t('app','Создать роль'), ['create'], ['class' => 'btn btn-primary']) ?>
             </div>
         </div>
 
@@ -39,7 +39,7 @@ $this->params['breadcrumbs'][] = $this->title;
                 
                 [
                     'attribute' => 'name',
-                    'label' => 'Название',
+                    'label' => Yii::t('app','Название'),
                     'format' => 'raw',
                     'value' => function ($model) {
                         return Html::a(
@@ -52,33 +52,33 @@ $this->params['breadcrumbs'][] = $this->title;
                 
                 [
                     'attribute' => 'description',
-                    'label' => 'Описание',
+                    'label' => Yii::t('app','Описание'),
                     'format' => 'text',
-                    'filterInputOptions' => ['class' => 'form-input', 'placeholder' => 'Поиск...'],
+                    'filterInputOptions' => ['class' => 'form-input', 'placeholder' => Yii::t('app','Поиск...')],
                 ],
                 
                 [
                     'attribute' => 'is_system',
-                    'label' => 'Тип',
+                    'label' => Yii::t('app','Тип'),
                     'format' => 'raw',
-                    'filter' => [0 => 'Пользовательская', 1 => 'Системная'],
+                    'filter' => [0 => Yii::t('app','Пользовательская'), 1 => Yii::t('app','Системная')],
                     'value' => function ($model) {
                         return $model->is_system 
-                            ? '<span class="badge badge-warning">🔒 Системная</span>' 
-                            : '<span class="badge badge-info">👤 Пользовательская</span>';
+                            ? '<span class="badge badge-warning">🔒 ' . Yii::t('app','Системная') . '</span>' 
+                            : '<span class="badge badge-info">👤 ' . Yii::t('app','Пользовательская') . '</span>';
                     },
                 ],
                 
                 [
                     'attribute' => 'created_at',
-                    'label' => 'Создана',
+                    'label' => Yii::t('app','Создана'),
                     'format' => 'datetime',
                     'headerOptions' => ['style' => 'width: 180px;'],
                 ],
                 
                 [
                     'class' => 'yii\grid\ActionColumn',
-                    'header' => 'Действия',
+                    'header' => Yii::t('app','Действия'),
                     'headerOptions' => ['style' => 'width: 120px;'],
                     'template' => '{view} {update} {delete}',
                     'buttons' => [
@@ -87,36 +87,36 @@ $this->params['breadcrumbs'][] = $this->title;
                                 '👁️', 
                                 $url, 
                                 [
-                                    'title' => 'Просмотр',
+                                    'title' => Yii::t('app','Просмотр'),
                                     'class' => 'action-btn action-btn-view',
                                 ]
                             );
                         },
                         'update' => function ($url, $model) {
                             if ($model->is_system) {
-                                return '<span class="action-disabled" title="Системную роль нельзя редактировать">✏️</span>';
+                                return '<span class="action-disabled" title="' . Yii::t('app','Системную роль нельзя редактировать') . '">✏️</span>';
                             }
                             return Html::a(
                                 '✏️', 
                                 $url, 
                                 [
-                                    'title' => 'Редактировать',
+                                    'title' => Yii::t('app','Редактировать'),
                                     'class' => 'action-btn action-btn-edit',
                                 ]
                             );
                         },
                         'delete' => function ($url, $model) {
                             if ($model->is_system) {
-                                return '<span class="action-disabled" title="Системную роль нельзя удалить">🗑️</span>';
+                                return '<span class="action-disabled" title="' . Yii::t('app','Системную роль нельзя удалить') . '">🗑️</span>';
                             }
                             return Html::a(
                                 '🗑️', 
                                 $url, 
                                 [
-                                    'title' => 'Удалить',
+                                    'title' => Yii::t('app','Удалить'),
                                     'class' => 'action-btn action-btn-delete',
                                     'data' => [
-                                        'confirm' => 'Вы уверены, что хотите удалить эту роль? Это действие нельзя отменить.',
+                                        'confirm' => Yii::t('app','Вы уверены, что хотите удалить эту роль? Это действие нельзя отменить.'),
                                         'method' => 'post',
                                     ],
                                 ]
