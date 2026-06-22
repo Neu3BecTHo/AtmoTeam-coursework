@@ -282,6 +282,9 @@ $navAvatar = $currentUser ? ($currentUser->avatar ?: 'https://api.dicebear.com/7
                     <div class="mobile-language-menu" id="mobile-language-menu">
                         <a href="<?= Url::to(['site/language', 'lang' => 'ru-RU']) ?>" class="mobile-dropdown-item <?= Yii::$app->language === 'ru-RU' ? 'active' : '' ?>" onclick="closeMobileMenu()">🇷🇺 <?= Yii::t('app', 'Русский') ?></a>
                         <a href="<?= Url::to(['site/language', 'lang' => 'en-US']) ?>" class="mobile-dropdown-item <?= Yii::$app->language === 'en-US' ? 'active' : '' ?>" onclick="closeMobileMenu()">🇺🇸 <?= Yii::t('app', 'English') ?></a>
+                        <a href="<?= Url::to(['site/language', 'lang' => 'es-ES']) ?>"
+                        class="dropdown-item <?= Yii::$app->language === 'es-ES' ? 'active' : '' ?>">🇪🇸
+                        <?= Yii::t('app', 'Español') ?></a>
                     </div>
                 </li>
                 <li><a href="<?= Url::to(['feed/index']) ?>" class="mobile-nav-link" onclick="closeMobileMenu()">🏠 <?= Yii::t('app','Лента') ?></a></li>
