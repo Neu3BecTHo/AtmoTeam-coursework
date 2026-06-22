@@ -212,6 +212,7 @@ $translations = [
     'language' => Yii::t('app', 'Язык'),
     'russian' => Yii::t('app', 'Русский'),
     'english' => Yii::t('app', 'English'),
+    'spanish' => Yii::t('app', 'Español'),  // ← ДОБАВЬ ЭТО!
     'delete_post' => Yii::t('app', 'Удалить пост'),
     'post_image_n' => Yii::t('app', 'Изображение поста {n}'),
     'avatar_username' => Yii::t('app', 'Аватар {username}'),
@@ -227,14 +228,14 @@ $translations = [
 ?>
 
 <script>
-window.translations = <?php echo json_encode($translations, JSON_UNESCAPED_UNICODE); ?>;
-window.t = function(key, params) {
-    let str = (window.translations && window.translations[key]) || key;
-    if (params) {
-        Object.keys(params).forEach(function(k) {
-            str = str.replace(new RegExp('\\{' + k + '\\}', 'g'), params[k]);
-        });
-    }
-    return str;
-};
+    window.translations = <?php echo json_encode($translations, JSON_UNESCAPED_UNICODE); ?>;
+    window.t = function (key, params) {
+        let str = (window.translations && window.translations[key]) || key;
+        if (params) {
+            Object.keys(params).forEach(function (k) {
+                str = str.replace(new RegExp('\\{' + k + '\\}', 'g'), params[k]);
+            });
+        }
+        return str;
+    };
 </script>

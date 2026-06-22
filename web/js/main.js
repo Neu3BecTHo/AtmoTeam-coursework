@@ -16,6 +16,13 @@ function getNotificationIcon(type) {
   return icons[type] || "ℹ️";
 }
 
+function escapeHtml(text) {
+  if (!text) return "";
+  const div = document.createElement("div");
+  div.textContent = text;
+  return div.innerHTML;
+}
+
 function showAnimatedNotification(message, type = "info") {
   let container = document.getElementById("notification-container");
   if (!container) {
@@ -30,7 +37,7 @@ function showAnimatedNotification(message, type = "info") {
   notification.innerHTML = `
         <span class="notification-icon">${getNotificationIcon(type)}</span>
         <span class="notification-text">${escapeHtml(message)}</span>
-        <button class="notification-close" aria-label="${window.t('close_notification')}">×</button>
+        <button class="notification-close" aria-label="${window.t ? window.t("close_notification") : "Закрыть"}">×</button>
     `;
   container.appendChild(notification);
 
@@ -59,7 +66,8 @@ function closeNotification(notification) {
 let loadingCount = 0;
 
 function showLoading(message) {
-  if (message === undefined) message = window.t('loading');
+  if (message === undefined)
+    message = window.t ? window.t("loading") : "Загрузка...";
   loadingCount++;
   let container = document.getElementById("loading-container");
   if (!container) {
@@ -104,16 +112,27 @@ async function fetchWithLoading(url, options = {}) {
 async function getErrorMessage(response) {
   try {
     const data = await response.clone().json();
-    return data.message || data.error || window.t('http_error', { status: response.status });
+    return (
+      data.message ||
+      data.error ||
+      (window.t
+        ? window.t("http_error", { status: response.status })
+        : `Ошибка HTTP ${response.status}`)
+    );
   } catch {
     const messages = {
-      401: window.t('auth_required'),
-      403: window.t('access_denied'),
-      404: window.t('not_found'),
-      429: window.t('too_many_requests'),
-      500: window.t('server_error'),
+      401: window.t ? window.t("auth_required") : "Требуется авторизация",
+      403: window.t ? window.t("access_denied") : "Доступ запрещен",
+      404: window.t ? window.t("not_found") : "Ресурс не найден",
+      429: window.t ? window.t("too_many_requests") : "Слишком много запросов",
+      500: window.t ? window.t("server_error") : "Ошибка сервера",
     };
-    return messages[response.status] || window.t('http_error', { status: response.status });
+    return (
+      messages[response.status] ||
+      (window.t
+        ? window.t("http_error", { status: response.status })
+        : `Ошибка HTTP ${response.status}`)
+    );
   }
 }
 
@@ -193,16 +212,14 @@ function closeMenus(e) {
   }
 }
 
-// ==================== Notifications Dropdown (исправлен) ====================
+// ==================== Notifications Dropdown ====================
 function toggleNotifications(e) {
   e?.preventDefault();
   const dropdown = document.getElementById("notification-dropdown");
   if (!dropdown) return;
   dropdown.classList.toggle("show");
-  // Закрываем другие открытые меню
   const userMenu = document.getElementById("user-menu");
   if (userMenu) userMenu.classList.remove("show");
-  // Загружаем уведомления если ещё не загружены
   if (!dropdown.dataset.loaded) {
     loadNotifications();
   }
@@ -212,9 +229,7 @@ function toggleMobileNotifications() {
   const dropdown = document.getElementById("notification-dropdown");
   if (!dropdown) return;
   dropdown.classList.toggle("show");
-  // Закрываем мобильное меню
   closeMobileMenu();
-  // Загружаем уведомления если ещё не загружены
   if (!dropdown.dataset.loaded) {
     loadNotifications();
   }
@@ -235,7 +250,7 @@ async function loadNotifications() {
                         <img src="${n.from_user?.avatar || ""}" alt="">
                     </div>
                     <div class="notification-content">
-                        <div class="notification-title">${escapeHtml(n.from_user?.username || window.t('user'))}</div>
+                        <div class="notification-title">${escapeHtml(n.from_user?.username || (window.t ? window.t("user") : "Пользователь"))}</div>
                         <div class="notification-message">${escapeHtml(n.text)}</div>
                         <div class="notification-time">${n.timeAgo}</div>
                     </div>
@@ -245,12 +260,17 @@ async function loadNotifications() {
         .join("");
       updateNotificationBadge(data.unread_count || 0);
     } else {
-      list.innerHTML = '<div class="notification-empty">' + window.t('no_notifications') + '</div>';
+      list.innerHTML =
+        '<div class="notification-empty">' +
+        (window.t ? window.t("no_notifications") : "Нет уведомлений") +
+        "</div>";
       updateNotificationBadge(0);
     }
   } catch (e) {
-    console.error(e);
-    list.innerHTML = '<div class="notification-empty">' + window.t('loading_error') + '</div>';
+    list.innerHTML =
+      '<div class="notification-empty">' +
+      (window.t ? window.t("loading_error") : "Ошибка загрузки") +
+      "</div>";
   }
 }
 
@@ -267,7 +287,7 @@ async function markNotificationRead(id) {
     });
     loadNotifications();
   } catch (e) {
-    console.error(e);
+    // ignore
   }
 }
 
@@ -280,7 +300,7 @@ async function markAllNotificationsRead() {
     });
     loadNotifications();
   } catch (e) {
-    console.error(e);
+    // ignore
   }
 }
 
@@ -295,7 +315,6 @@ function updateNotificationBadge(count) {
   }
 }
 
-// Периодическое обновление счётчика непрочитанных уведомлений
 function startNotificationPolling() {
   if (!window.currentUserId) return;
   setInterval(() => {
@@ -307,7 +326,7 @@ function startNotificationPolling() {
             updateNotificationBadge(data.count);
           }
         })
-        .catch(console.error);
+        .catch(() => {});
     }
   }, 30000);
 }
@@ -326,7 +345,6 @@ function getOptimizedImageUrl(url) {
 
 // ==================== Search ====================
 let linkPreviewTimeout;
-let searchResults = [];
 
 function initSearchFeatures() {
   const input = document.getElementById("global-search");
@@ -380,11 +398,13 @@ async function performSearch(query) {
       container.style.display = "block";
     } else {
       container.innerHTML =
-        '<div class="search-result-empty">' + window.t('nothing_found') + '</div>';
+        '<div class="search-result-empty">' +
+        (window.t ? window.t("nothing_found") : "Ничего не найдено") +
+        "</div>";
       container.style.display = "block";
     }
   } catch (e) {
-    console.error(e);
+    // ignore
   }
 }
 
@@ -441,17 +461,26 @@ class FormValidator {
       const value = field.value.trim();
       for (const rule of rules) {
         let error = null;
-        if (rule.type === "required" && !value) error = window.t('field_required');
+        if (rule.type === "required" && !value)
+          error = window.t
+            ? window.t("field_required")
+            : "Это поле обязательно";
         else if (
           rule.type === "email" &&
           value &&
           !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
         )
-          error = window.t('invalid_email');
+          error = window.t
+            ? window.t("invalid_email")
+            : "Введите корректный email";
         else if (rule.type === "minLength" && value.length < rule.params.length)
-          error = window.t('min_chars', { n: rule.params.length });
+          error = window.t
+            ? window.t("min_chars", { n: rule.params.length })
+            : `Минимум ${rule.params.length} символов`;
         else if (rule.type === "maxLength" && value.length > rule.params.length)
-          error = window.t('max_chars', { n: rule.params.length });
+          error = window.t
+            ? window.t("max_chars", { n: rule.params.length })
+            : `Максимум ${rule.params.length} символов`;
         if (error) {
           this.errors[name] = error;
           this.showFieldError(name, error);
@@ -510,68 +539,76 @@ function initFormValidation() {
 // ==================== Service Worker ====================
 function initServiceWorker() {
   if ("serviceWorker" in navigator) {
-    navigator.serviceWorker
-      .register("/js/service-worker.js")
-      .catch((e) => console.error("SW registration failed:", e));
+    navigator.serviceWorker.register("/js/service-worker.js").catch(() => {});
   }
 }
 
 // ==================== Online Count ====================
 function updateOnlineCount() {
   fetch("/api/poll")
-    .then((r) => r.json())
-    .then((data) => {
-      const el = document.getElementById("online-count");
-      if (el && data.online_count !== undefined)
-        el.textContent = data.online_count;
+    .then((r) => {
+      if (!r.ok) throw new Error();
+      return r.text();
     })
-    .catch((e) => console.error(e));
+    .then((text) => {
+      try {
+        const cleanText = text.trim().replace(/^\uFEFF/, "");
+        const data = JSON.parse(cleanText);
+        const el = document.getElementById("online-count");
+        if (el && data.online_count !== undefined)
+          el.textContent = data.online_count;
+      } catch (e) {
+        // ignore
+      }
+    })
+    .catch(() => {});
 }
 
 // ==================== Mobile Menu ====================
 function toggleMobileMenu() {
-  const overlay = document.getElementById('mobile-menu-overlay');
+  const overlay = document.getElementById("mobile-menu-overlay");
   if (!overlay) return;
-  const isOpen = overlay.classList.contains('show');
+  const isOpen = overlay.classList.contains("show");
   if (isOpen) {
     closeMobileMenu();
   } else {
-    overlay.classList.add('show');
-    document.body.style.overflow = 'hidden';
+    overlay.classList.add("show");
+    document.body.style.overflow = "hidden";
   }
 }
 
 function closeMobileMenu() {
-  const overlay = document.getElementById('mobile-menu-overlay');
-  if (overlay) overlay.classList.remove('show');
-  document.body.style.overflow = '';
+  const overlay = document.getElementById("mobile-menu-overlay");
+  if (overlay) overlay.classList.remove("show");
+  document.body.style.overflow = "";
 }
 
-// Закрытие всех модалок
 function closeAllModals() {
-  // Закрываем пост-модалку
-  const postModal = document.getElementById('post-modal');
+  const postModal = document.getElementById("post-modal");
   if (postModal) {
-    postModal.classList.remove('show');
-    postModal.classList.add('hidden');
+    postModal.classList.remove("show");
+    postModal.classList.add("hidden");
   }
-  
-  // Закрываем все остальные модалки с классом modal-overlay
-  document.querySelectorAll('.modal-overlay.show').forEach(modal => {
-    modal.classList.remove('show');
-    modal.classList.add('hidden');
+  document.querySelectorAll(".modal-overlay.show").forEach((modal) => {
+    modal.classList.remove("show");
+    modal.classList.add("hidden");
   });
-  
-  // Закрываем fullscreen image modal
-  const fullscreenModal = document.getElementById('fullscreen-image-modal');
+  const fullscreenModal = document.getElementById("fullscreen-image-modal");
   if (fullscreenModal) {
-    fullscreenModal.style.display = 'none';
-    const img = document.getElementById('fullscreen-image');
-    if (img) img.src = '';
+    fullscreenModal.style.display = "none";
+    const img = document.getElementById("fullscreen-image");
+    if (img) img.src = "";
   }
-  
-  // Восстанавливаем скролл
-  document.body.style.overflow = '';
+  document.body.style.overflow = "";
+}
+
+function closePostModal() {
+  const modal = document.getElementById("post-modal");
+  if (modal) {
+    modal.classList.remove("show");
+    modal.classList.add("hidden");
+    document.body.style.overflow = "";
+  }
 }
 
 // ==================== Gestures ====================
@@ -580,29 +617,34 @@ function initSwipeGestures() {
   let startY = 0;
   let isSwiping = false;
 
-  document.addEventListener("touchstart", (e) => {
-    startX = e.touches[0].clientX;
-    startY = e.touches[0].clientY;
-    isSwiping = true;
-  }, { passive: true });
+  document.addEventListener(
+    "touchstart",
+    (e) => {
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+      isSwiping = true;
+    },
+    { passive: true },
+  );
 
-  document.addEventListener("touchend", (e) => {
-    if (!isSwiping) return;
-    isSwiping = false;
+  document.addEventListener(
+    "touchend",
+    (e) => {
+      if (!isSwiping) return;
+      isSwiping = false;
 
-    const endX = e.changedTouches[0].clientX;
-    const endY = e.changedTouches[0].clientY;
-    const deltaX = endX - startX;
-    const deltaY = Math.abs(endY - startY);
+      const endX = e.changedTouches[0].clientX;
+      const endY = e.changedTouches[0].clientY;
+      const deltaX = endX - startX;
+      const deltaY = Math.abs(endY - startY);
 
-    // Если был вертикальный скролл — игнорируем
-    if (deltaY > 50) return;
-    
-    // Свайп вправо только если начался с левого края экрана (до 30px)
-    if (deltaX > 50 && startX < 30) {
-      toggleMobileMenu();
-    }
-  }, { passive: true });
+      if (deltaY > 50) return;
+      if (deltaX > 50 && startX < 30) {
+        toggleMobileMenu();
+      }
+    },
+    { passive: true },
+  );
 }
 
 // ==================== Cache ====================
@@ -683,97 +725,25 @@ document.addEventListener("DOMContentLoaded", () => {
   updateOnlineCount();
   document.addEventListener("click", closeMenus);
   setInterval(updateOnlineCount, 30000);
-  
-  // Закрытие мобильного меню и модалок по Escape
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
       closeMobileMenu();
       closePostModal();
       closeAllModals();
     }
   });
-  
-  // Закрытие модалок по клику вне их
-  document.addEventListener('click', (e) => {
-    if (e.target.classList.contains('modal-overlay')) {
+
+  document.addEventListener("click", (e) => {
+    if (e.target.classList.contains("modal-overlay")) {
       closeAllModals();
     }
   });
-  
-  if (window.currentUserId) {
-    fetch(`/api/user/public-key?id=${window.currentUserId}`)
-        .then(r => r.json())
-        .then(data => {
-            if (!data.public_key) {
-                if (typeof window.ensureUserHasKeys === 'function') {
-                    window.ensureUserHasKeys();
-                } else {
-                    generateAndStoreKeyPairGlobal();
-                }
-            }
-        })
-        .catch(e => console.error('Ошибка проверки ключа', e));
-    }
 
   if (window.currentUserId) {
     startNotificationPolling();
   }
 });
-
-// ==================== E2EE key initialization ====================
-if (window.currentUserId) {
-    // Проверяем наличие публичного ключа у текущего пользователя
-    fetch(`/api/user/public-key?id=${window.currentUserId}`)
-        .then(r => r.json())
-        .then(data => {
-            if (!data.public_key) {
-                console.log('У пользователя нет ключа шифрования, генерируем...');
-                // Если функция из message.js недоступна, создаём ключи прямо здесь
-                if (typeof window.ensureUserHasKeys === 'function') {
-                    window.ensureUserHasKeys();
-                } else {
-                    generateAndStoreKeyPairGlobal();
-                }
-            }
-        })
-        .catch(e => console.error('Ошибка проверки ключа', e));
-}
-
-// Глобальная функция генерации ключей (без зависимостей от message.js)
-async function generateAndStoreKeyPairGlobal() {
-    try {
-        const keyPair = await window.crypto.subtle.generateKey(
-            { name: "RSA-OAEP", modulusLength: 2048, publicExponent: new Uint8Array([1,0,1]), hash: "SHA-256" },
-            true,
-            ["encrypt", "decrypt"]
-        );
-        const exportedPrivate = await window.crypto.subtle.exportKey("pkcs8", keyPair.privateKey);
-        const exportedPublic  = await window.crypto.subtle.exportKey("spki", keyPair.publicKey);
-        const privateBase64 = btoa(String.fromCharCode(...new Uint8Array(exportedPrivate)));
-        const publicBase64  = btoa(String.fromCharCode(...new Uint8Array(exportedPublic)));
-        localStorage.setItem('rsa_private_key', privateBase64);
-        localStorage.setItem('rsa_public_key', publicBase64);
-        // Отправляем публичный ключ на сервер
-        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
-        const response = await fetch('/api/user/save-public-key', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
-            body: JSON.stringify({ public_key: publicBase64 })
-        });
-        const result = await response.json();
-        if (result.success) {
-            console.log('Публичный ключ сохранён');
-        } else {
-            console.error('Ошибка сохранения ключа', result.error);
-        }
-    } catch(e) {
-        console.error('Ошибка генерации ключей', e);
-    }
-}
-
-// Экспортируем функцию для возможного вызова из других скриптов
-window.generateAndStoreKeyPairGlobal = generateAndStoreKeyPairGlobal;
-window.ensureUserHasKeys = generateAndStoreKeyPairGlobal;
 
 // ==================== Exports ====================
 window.toggleLanguageMenu = toggleLanguageMenu;
@@ -783,6 +753,8 @@ window.toggleNotifications = toggleNotifications;
 window.toggleMobileNotifications = toggleMobileNotifications;
 window.toggleMobileMenu = toggleMobileMenu;
 window.closeMobileMenu = closeMobileMenu;
+window.closePostModal = closePostModal;
+window.closeAllModals = closeAllModals;
 window.getOptimizedImageUrl = getOptimizedImageUrl;
 window.supportsWebP = supportsWebP;
 window.showLoading = showLoading;
@@ -792,3 +764,5 @@ window.fadeIn = fadeIn;
 window.fadeOut = fadeOut;
 window.markNotificationRead = markNotificationRead;
 window.markAllNotificationsRead = markAllNotificationsRead;
+window.showAnimatedNotification = showAnimatedNotification;
+window.escapeHtml = escapeHtml;

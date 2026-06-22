@@ -105,7 +105,7 @@ class SiteController extends Controller
 
     public function actionLanguage($lang)
     {
-        $allowed = ['en-US', 'ru-RU', 'ru_RU', 'en_US'];
+        $allowed = ['en-US', 'ru-RU', 'ru_RU', 'en_US', 'es-ES', 'es_ES'];
         if (!in_array($lang, $allowed, true)) {
             return $this->goHome();
         }

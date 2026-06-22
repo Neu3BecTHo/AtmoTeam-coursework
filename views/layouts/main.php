@@ -196,13 +196,21 @@ $navAvatar = $currentUser ? ($currentUser->avatar ?: 'https://api.dicebear.com/7
             <nav class="header-nav">
                 <ul class="nav-list">
                     <li class="nav-dropdown language-dropdown">
-                        <button class="nav-lang-btn" onclick="toggleLanguageMenu()" aria-label="<?= Yii::t('app','Язык') ?>">
-                            🌐 <span class="current-lang"><?= Yii::$app->language === 'ru-RU' ? 'RU' : 'EN' ?></span>
+                        <button class="nav-lang-btn" onclick="toggleLanguageMenu()" aria-label="<?= Yii::t('app', 'Язык') ?>">
+                            🌐 <span
+                                class="current-lang"><?= Yii::$app->language === 'ru-RU' ? 'RU' : (Yii::$app->language === 'en-US' ? 'EN' : 'ES') ?></span>
                             <span class="nav-dropdown-arrow">▼</span>
                         </button>
                         <div class="nav-dropdown-menu" id="language-menu">
-                            <a href="<?= Url::to(['site/language', 'lang' => 'ru-RU']) ?>" class="dropdown-item <?= Yii::$app->language === 'ru-RU' ? 'active' : '' ?>">🇷🇺 <?= Yii::t('app', 'Русский') ?></a>
-                            <a href="<?= Url::to(['site/language', 'lang' => 'en-US']) ?>" class="dropdown-item <?= Yii::$app->language === 'en-US' ? 'active' : '' ?>">🇺🇸 <?= Yii::t('app', 'English') ?></a>
+                            <a href="<?= Url::to(['site/language', 'lang' => 'ru-RU']) ?>"
+                                class="dropdown-item <?= Yii::$app->language === 'ru-RU' ? 'active' : '' ?>">🇷🇺
+                                <?= Yii::t('app', 'Русский') ?></a>
+                            <a href="<?= Url::to(['site/language', 'lang' => 'en-US']) ?>"
+                                class="dropdown-item <?= Yii::$app->language === 'en-US' ? 'active' : '' ?>">🇺🇸
+                                <?= Yii::t('app', 'English') ?></a>
+                            <a href="<?= Url::to(['site/language', 'lang' => 'es-ES']) ?>"
+                                class="dropdown-item <?= Yii::$app->language === 'es-ES' ? 'active' : '' ?>">🇪🇸
+                                <?= Yii::t('app', 'Español') ?></a>
                         </div>
                     </li>
                     <li><a href="<?= Url::to(['feed/index']) ?>" class="nav-link">🏠 <?= Yii::t('app','Лента') ?></a></li>

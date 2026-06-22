@@ -79,27 +79,22 @@ class UserController extends Controller
     /**
      * Получить публичный ключ пользователя по ID
      */
-    public function actionPublicKey($id)
+    public function actionPublicKey($id = null)
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
-        
-        $rateLimitCheck = RateLimiter::checkApiLimit();
-        if ($rateLimitCheck !== true) {
-            return $rateLimitCheck;
+
+        if (!$id) {
+            return ['success' => false, 'error' => 'User ID required'];
         }
-        
+
         $user = User::findOne($id);
         if (!$user) {
-            return ['success' => false, 'error' => Yii::t('app', 'Пользователь не найден')];
+            return ['success' => false, 'error' => 'User not found'];
         }
-        
-        if (Yii::$app->user->isGuest && !$user->canViewProfile(null)) {
-            return ['success' => false, 'error' => Yii::t('app', 'Доступ запрещён')];
-        }
-        
+
         return [
             'success' => true,
-            'public_key' => $user->public_key
+            'public_key' => $user->public_key ?? null,
         ];
     }
 }

@@ -18,7 +18,8 @@ class LanguageComponent extends Component implements BootstrapInterface
         }
         if ($lang) {
             $lang = str_replace('_', '-', $lang);
-            if (in_array($lang, ['en-US', 'ru-RU'], true)) {
+            // ← ДОБАВЬ 'es-ES' в разрешённые языки
+            if (in_array($lang, ['en-US', 'ru-RU', 'es-ES'], true)) {
                 $app->language = $lang;
             }
         }

@@ -558,6 +558,16 @@ class FeedController extends Controller
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
 
+        // Если пользователь не авторизован — возвращаем пустой ответ
+        if (Yii::$app->user->isGuest) {
+            return [
+                'timestamp' => time(),
+                'posts' => [],
+                'comments' => [],
+                'online_count' => \app\models\OnlineUser::getOnlineCount(),
+            ];
+        }
+
         $lastCheck = (int) $last_check;
         $now = time();
         $userId = Yii::$app->user->id;
@@ -572,15 +582,16 @@ class FeedController extends Controller
             ->with('user')
             ->where(['>', 'created_at', $lastCheck])
             ->all();
-        
+
         return [
             'timestamp' => $now,
-            'posts' => array_map(function($post) use ($userId) {
+            'posts' => array_map(function ($post) use ($userId) {
                 $data = $post->toArray();
                 $data['is_liked'] = $userId ? $post->isLikedBy($userId) : false;
                 return $data;
             }, $newPosts),
-            'comments' => array_map(function($c) { return $c->toArray(); }, $newComments),
+            'comments' => array_map(function ($c) {
+                return $c->toArray(); }, $newComments),
             'online_count' => \app\models\OnlineUser::getOnlineCount(),
         ];
     }

@@ -71,7 +71,6 @@ function startPolling() {
 
 // ==================== Feed Switching ====================
 function switchFeed(type) {
-  console.log("Switching feed to:", type);
   currentFeedType = type;
   feedOffset = 0;
   hasMorePosts = true;
@@ -88,7 +87,6 @@ function switchFeed(type) {
   const container = document.getElementById("posts-container");
   if (container) {
     container.innerHTML = "";
-    console.log("Container cleared");
   }
   loadPosts();
 }
@@ -959,6 +957,5 @@ document.addEventListener("DOMContentLoaded", () => {
 function handleFilterClick(e) {
   const btn = e.currentTarget;
   const type = btn.dataset.type;
-  console.log("Filter clicked:", type);
   switchFeed(type);
 }
