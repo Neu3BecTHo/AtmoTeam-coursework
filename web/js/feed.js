@@ -7,9 +7,9 @@ let feedLimit = 10;
 let isLoadingFeed = false;
 let hasMorePosts = true;
 let currentModalPostId = null;
-let lastCheck = 0;
+let lastCheck = Math.floor(Date.now() / 1000);
 let selectedImages = [];
-let processedCommentIds = new Set(); // Для предотвращения дублирования комментариев
+let processedCommentIds = new Set();
 
 // === Настройки сжатия изображений ===
 const MAX_IMAGE_WIDTH = 1200;
@@ -50,7 +50,12 @@ function startPolling() {
     try {
       const response = await fetch(`/api/poll?last_check=${lastCheck}`);
       const data = await response.json();
-      lastCheck = data.timestamp;
+
+      // ✅ Обновляем lastCheck ТОЛЬКО если пришли данные
+      if (data.timestamp) {
+        lastCheck = data.timestamp;
+      }
+
       if (data.success && data.posts?.length) {
         data.posts.forEach((post) => {
           if (!posts.find((p) => p.id === post.id)) {
@@ -59,14 +64,26 @@ function startPolling() {
           }
         });
       }
-      if (data.likes) data.likes.forEach((like) => updatePostLikes(like));
-      if (data.comments?.length)
-        data.comments.forEach((comment) => addCommentToPost(comment));
-    } catch (e) {}
+
+      if (data.likes) {
+        data.likes.forEach((like) => updatePostLikes(like));
+      }
+
+      if (data.comments?.length) {
+        data.comments.forEach((comment) => {
+          if (!processedCommentIds.has(comment.id)) {
+            addCommentToPost(comment);
+          }
+        });
+      }
+    } catch (e) {
+      console.error("Polling error:", e);
+    }
   }, interval);
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") lastCheck = 0;
-  });
+}
+
+function resetPollingTimestamp() {
+  lastCheck = Math.floor(Date.now() / 1000);
 }
 
 // ==================== Feed Switching ====================
@@ -74,6 +91,9 @@ function switchFeed(type) {
   currentFeedType = type;
   feedOffset = 0;
   hasMorePosts = true;
+
+  resetPollingTimestamp();
+  processedCommentIds.clear();
 
   document.querySelectorAll(".feed-filter").forEach((btn) => {
     if (btn.dataset.type === type) {
@@ -131,6 +151,25 @@ async function loadPosts(append = false) {
           feedOffset = result.count;
         }
         initializePosts();
+
+        // ✅ КРИТИЧЕСКИ ВАЖНО: Собираем ID всех комментариев после загрузки
+        container
+          .querySelectorAll(".comment-item, .comment")
+          .forEach((comment) => {
+            const commentId = Number(comment.dataset?.commentId);
+            if (commentId) {
+              processedCommentIds.add(commentId);
+            }
+          });
+
+        // ✅ Также собираем ID комментариев из data.comments, если они есть
+        if (result.comments && Array.isArray(result.comments)) {
+          result.comments.forEach((comment) => {
+            if (comment.id) {
+              processedCommentIds.add(Number(comment.id));
+            }
+          });
+        }
       }
     }
   } catch (error) {
@@ -154,11 +193,11 @@ function showEmptyStateForGuest() {
   container.innerHTML = `
         <div class="guest-notice" style="text-align: center; padding: var(--space-10);">
             <div class="guest-notice-icon" style="font-size: 48px; margin-bottom: var(--space-4);">🔒</div>
-            <p style="font-size: var(--text-lg); color: var(--text-primary); margin-bottom: var(--space-4);">${window.t('login_to_see_feed')}</p>
-            <p style="color: var(--text-secondary); margin-bottom: var(--space-6);">${window.t('publish_likes_friends')}</p>
+            <p style="font-size: var(--text-lg); color: var(--text-primary); margin-bottom: var(--space-4);">${window.t("login_to_see_feed")}</p>
+            <p style="color: var(--text-secondary); margin-bottom: var(--space-6);">${window.t("publish_likes_friends")}</p>
             <div class="guest-notice-actions" style="display: flex; gap: var(--space-3); justify-content: center;">
-                <a href="/login" class="btn btn-primary">${window.t('login')}</a>
-                <a href="/register" class="btn btn-secondary">${window.t('register')}</a>
+                <a href="/login" class="btn btn-primary">${window.t("login")}</a>
+                <a href="/register" class="btn btn-secondary">${window.t("register")}</a>
             </div>
         </div>
     `;
@@ -173,7 +212,9 @@ function showEmptyState() {
   if (!container) return;
   if (container.querySelectorAll(".post-card").length > 0) return;
   container.innerHTML =
-    '<div class="empty-state"><div class="empty-icon">📝</div><p>' + window.t('no_posts') + '</p></div>';
+    '<div class="empty-state"><div class="empty-icon">📝</div><p>' +
+    window.t("no_posts") +
+    "</p></div>";
 }
 
 // ==================== Add Post to Feed ====================
@@ -193,7 +234,14 @@ async function addPostToFeed(post, prepend = false) {
     const newCards = container.querySelectorAll(
       ".post-card:not([data-handlers-initialized])",
     );
-    newCards.forEach((card) => initializeSinglePost(card));
+    newCards.forEach((card) => {
+      initializeSinglePost(card);
+      // Собираем ID комментариев из нового поста
+      card.querySelectorAll(".comment-item, .comment").forEach((comment) => {
+        const commentId = Number(comment.dataset?.commentId);
+        if (commentId) processedCommentIds.add(commentId);
+      });
+    });
   } catch (error) {
     location.reload();
   }
@@ -205,13 +253,13 @@ function initializeSinglePost(card) {
   card.dataset.handlersInitialized = "true";
   const postId = card.dataset.postId;
   if (!postId) return;
-  
+
   // Помечаем все существующие комментарии как обработанные
-  card.querySelectorAll(".comment-item, .comment").forEach(comment => {
-    const commentId = comment.dataset?.commentId;
-    if (commentId) processedCommentIds.add(parseInt(commentId));
+  card.querySelectorAll(".comment-item, .comment").forEach((comment) => {
+    const commentId = Number(comment.dataset?.commentId);
+    if (commentId) processedCommentIds.add(commentId);
   });
-  
+
   const likeBtn = card.querySelector(".btn-like");
   if (likeBtn) {
     likeBtn.removeEventListener("click", () => handleLike(postId));
@@ -305,7 +353,8 @@ async function openPostModal(postId) {
   if (!modal || !body) return;
   modal.classList.remove("hidden");
   modal.classList.add("show");
-  body.innerHTML = '<div class="loading-spinner">' + window.t('loading') + '</div>';
+  body.innerHTML =
+    '<div class="loading-spinner">' + window.t("loading") + "</div>";
   try {
     const response = await fetch(`/post/modal-content?id=${postId}`);
     body.innerHTML = await response.text();
@@ -315,7 +364,8 @@ async function openPostModal(postId) {
     initCommentForm(postId);
   } catch (error) {
     console.error("Error loading post:", error);
-    body.innerHTML = '<p class="error-message">' + window.t('post_load_error') + '</p>';
+    body.innerHTML =
+      '<p class="error-message">' + window.t("post_load_error") + "</p>";
   }
 }
 
@@ -438,65 +488,152 @@ function updatePostLikes(data) {
     countSpan.textContent = data.likes_count;
 }
 
+/**
+ * Добавляет комментарий в ленту (карточка поста)
+ * Проверяет, что комментарий ещё не добавлен
+ */
 function addCommentToPost(data) {
-  // Проверяем, не обрабатывали ли уже этот комментарий
-  if (processedCommentIds.has(data.id)) return;
-  
+  // 1. Проверяем, не обрабатывали ли уже этот комментарий
+  if (processedCommentIds.has(data.id)) {
+    return;
+  }
+
+  // 2. Ищем пост в ленте
   const postEl = document.querySelector(`[data-post-id="${data.post_id}"]`);
   if (!postEl) return;
-  
-  // Помечаем комментарий как обработанный
-  processedCommentIds.add(data.id);
-  
-  // Обновляем счётчик в карточке поста (в ленте)
-  const countEl = postEl.querySelector(".btn-comment-toggle .action-count");
-  if (countEl) {
-    const current = parseInt(countEl.textContent) || 0;
-    countEl.textContent = current + 1;
+
+  // 3. Проверяем, есть ли уже такой комментарий в DOM этого поста
+  const existingComment = postEl.querySelector(
+    `.comment-item[data-comment-id="${data.id}"], .comment[data-comment-id="${data.id}"]`,
+  );
+  if (existingComment) {
+    processedCommentIds.add(data.id);
+    return;
   }
+
+  // 4. Помечаем как обработанный
+  processedCommentIds.add(data.id);
+
+  // 5. Ищем контейнер комментариев
+  const commentsContainer = postEl.querySelector(
+    ".comments-container, .post-comments",
+  );
+
+  // 6. Если контейнер существует — добавляем комментарий
+  if (commentsContainer) {
+    const emptyState = commentsContainer.querySelector(".comments-empty");
+    if (emptyState) emptyState.remove();
+
+    const commentHtml = buildFeedCommentHtml(data);
+    commentsContainer.insertAdjacentHTML("beforeend", commentHtml);
+  }
+
+  // 7. ✅ ОБНОВЛЯЕМ ВСЕ СЧЁТЧИКИ КОММЕНТАРИЕВ
+  updateAllCommentCounters(postEl, 1);
 }
-  
-function addCommentToModal(data) {
-  const modalCommentList = document.getElementById("modal-comments-list");
-  if (!modalCommentList) return;
-  
-  // Проверяем, не был ли уже добавлен этот комментарий
-  const existingComment = modalCommentList.querySelector(`[data-comment-id="${data.id}"]`);
-  if (existingComment) return;
-  
-  // Удаляем пустое состояние если есть
-  const emptyState = modalCommentList.querySelector('.empty-comments');
-  if (emptyState) emptyState.remove();
-  
-  const commentHtml = `
+
+function updateAllCommentCounters(postEl, increment) {
+  if (!postEl) return;
+
+  // 1. Счётчик в кнопке "Комментарии" (action-count)
+  const actionCounts = postEl.querySelectorAll(
+    ".btn-comment-toggle .action-count, .post-action .action-count",
+  );
+  actionCounts.forEach((el) => {
+    const current = parseInt(el.textContent) || 0;
+    el.textContent = Math.max(0, current + increment);
+  });
+
+  // 2. Счётчик в заголовке комментариев (.comments-header__count)
+  const headerCount = postEl.querySelector(".comments-header__count");
+  if (headerCount) {
+    const current = parseInt(headerCount.textContent) || 0;
+    headerCount.textContent = Math.max(0, current + increment);
+  }
+
+  // 3. Любой другой счётчик с классом .comments-count
+  const commentsCounts = postEl.querySelectorAll(".comments-count");
+  commentsCounts.forEach((el) => {
+    const current = parseInt(el.textContent) || 0;
+    el.textContent = Math.max(0, current + increment);
+  });
+}
+
+/**
+ * Строит HTML для комментария в ленте
+ */
+function buildFeedCommentHtml(data) {
+  return `
     <div class="comment-item" data-comment-id="${data.id}">
       <div class="comment-author">
-        <img src="${data.author?.avatar || ''}" class="comment-avatar" alt="">
+        <img src="${data.author?.avatar || ""}" class="comment-avatar" alt="">
         <div class="comment-author-info">
-          <a href="/profile/view?id=${data.author?.id}" class="comment-author-name">${escapeHtml(data.author?.username || window.t('user'))}</a>
-          <span class="comment-time">${data.timeAgo || window.t('just_now')}</span>
+          <a href="/profile/${data.author?.id}" class="comment-author-name">${escapeHtml(data.author?.username || window.t("user"))}</a>
+          <span class="comment-time">${data.timeAgo || window.t("just_now")}</span>
         </div>
       </div>
       <div class="comment-content">${escapeHtml(data.content)}</div>
-      ${data.canDelete ? `<button class="btn-delete-comment" data-comment-id="${data.id}">🗑️</button>` : ''}
     </div>
   `;
-  
-  modalCommentList.insertAdjacentHTML('beforeend', commentHtml);
-  
+}
+
+/**
+ * Добавляет комментарий в модалку (при открытом посте)
+ */
+function addCommentToModal(data) {
+  const modalCommentList = document.getElementById("modal-comments-list");
+  if (!modalCommentList) return;
+
+  // Проверяем, не был ли уже добавлен этот комментарий
+  const existingComment = modalCommentList.querySelector(
+    `[data-comment-id="${data.id}"]`,
+  );
+  if (existingComment) return;
+
+  // Удаляем пустое состояние если есть
+  const emptyState = modalCommentList.querySelector(".empty-comments");
+  if (emptyState) emptyState.remove();
+
+  const commentHtml = `
+    <div class="comment-item" data-comment-id="${data.id}">
+      <div class="comment-author">
+        <img src="${data.author?.avatar || ""}" class="comment-avatar" alt="">
+        <div class="comment-author-info">
+          <a href="/profile/${data.author?.id}" class="comment-author-name">${escapeHtml(data.author?.username || window.t("user"))}</a>
+          <span class="comment-time">${data.timeAgo || window.t("just_now")}</span>
+        </div>
+      </div>
+      <div class="comment-content">${escapeHtml(data.content)}</div>
+      ${data.canDelete ? `<button class="btn-delete-comment" data-comment-id="${data.id}">🗑️</button>` : ""}
+    </div>
+  `;
+
+  modalCommentList.insertAdjacentHTML("beforeend", commentHtml);
+
+  // Обновляем счётчик в модалке
+  const modalHeaderCount = document.querySelector(
+    "#post-modal .comments-header__count, #post-modal .comments-count",
+  );
+  if (modalHeaderCount) {
+    const current = parseInt(modalHeaderCount.textContent) || 0;
+    modalHeaderCount.textContent = current + 1;
+  }
+
   // Инициализируем обработчики для нового комментария
-  const deleteBtn = modalCommentList.querySelector(`.btn-delete-comment[data-comment-id="${data.id}"]`);
+  const deleteBtn = modalCommentList.querySelector(
+    `.btn-delete-comment[data-comment-id="${data.id}"]`,
+  );
   if (deleteBtn) {
-    deleteBtn.addEventListener('click', (e) => {
+    deleteBtn.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
-      if (typeof window.deleteComment === 'function') {
+      if (typeof window.deleteComment === "function") {
         window.deleteComment(data.id, data.post_id);
       }
     });
   }
 }
-  
+
 // ==================== Сжатие изображений в WebP ====================
 /**
  * Сжимает одно изображение, масштабирует и конвертирует в WebP (или JPEG)
@@ -545,7 +682,7 @@ async function compressImage(file) {
         canvas.toBlob(
           (blob) => {
             if (!blob) {
-              reject(new Error(window.t('blob_creation_error')));
+              reject(new Error(window.t("blob_creation_error")));
               return;
             }
             // Сохраняем исходное имя, но меняем расширение на .webp (если надо)
@@ -563,9 +700,9 @@ async function compressImage(file) {
           quality,
         );
       };
-      img.onerror = () => reject(new Error(window.t('image_loading_error')));
+      img.onerror = () => reject(new Error(window.t("image_loading_error")));
     };
-    reader.onerror = () => reject(new Error(window.t('file_reading_error')));
+    reader.onerror = () => reject(new Error(window.t("file_reading_error")));
   });
 }
 
@@ -608,7 +745,12 @@ function updateTotalSizeWarning() {
   }
   if (selectedImages.length > 0 && totalSize > MAX_TOTAL_SIZE) {
     warningEl.style.display = "block";
-    warningEl.innerHTML = '⚠️ ' + window.t('image_size_warning', { size: totalSizeMB, limit: MAX_TOTAL_SIZE / (1024 * 1024) });
+    warningEl.innerHTML =
+      "⚠️ " +
+      window.t("image_size_warning", {
+        size: totalSizeMB,
+        limit: MAX_TOTAL_SIZE / (1024 * 1024),
+      });
     warningEl.style.color = "#ef4444";
   } else {
     warningEl.style.display = "none";
@@ -670,7 +812,7 @@ function addPoll() {
     btn.classList.add("active");
     btn.textContent = "📊";
     // Добавляем обработчики на существующие инпуты
-    document.querySelectorAll(".option-input").forEach(input => {
+    document.querySelectorAll(".option-input").forEach((input) => {
       input.addEventListener("input", updatePublishButton);
     });
   } else {
@@ -696,10 +838,10 @@ function removePoll() {
   if (multiple) multiple.checked = false;
   const options = document.getElementById("poll-options");
   if (options) {
-    options.innerHTML = `<div class="poll-option-input"><input type="text" class="option-input" placeholder="${window.t('poll_option_1')}"><button type="button" class="btn-remove-option" onclick="removeOption(this)">✕</button></div>
-                            <div class="poll-option-input"><input type="text" class="option-input" placeholder="${window.t('poll_option_2')}"><button type="button" class="btn-remove-option" onclick="removeOption(this)">✕</button></div>`;
+    options.innerHTML = `<div class="poll-option-input"><input type="text" class="option-input" placeholder="${window.t("poll_option_1")}"><button type="button" class="btn-remove-option" onclick="removeOption(this)">✕</button></div>
+                            <div class="poll-option-input"><input type="text" class="option-input" placeholder="${window.t("poll_option_2")}"><button type="button" class="btn-remove-option" onclick="removeOption(this)">✕</button></div>`;
     // Добавляем обработчики на новые инпуты
-    options.querySelectorAll(".option-input").forEach(input => {
+    options.querySelectorAll(".option-input").forEach((input) => {
       input.addEventListener("input", updatePublishButton);
     });
   }
@@ -711,7 +853,7 @@ function addPollOption() {
   if (!options) return;
   const current = options.querySelectorAll(".poll-option-input").length;
   if (current >= 10) {
-    showNotification(window.t('max_poll_options'), "error");
+    showNotification(window.t("max_poll_options"), "error");
     return;
   }
   const div = document.createElement("div");
@@ -719,12 +861,14 @@ function addPollOption() {
   const input = document.createElement("input");
   input.type = "text";
   input.className = "option-input";
-  input.placeholder = window.t('poll_option_n', { n: current + 1 });
+  input.placeholder = window.t("poll_option_n", { n: current + 1 });
   const removeBtn = document.createElement("button");
   removeBtn.type = "button";
   removeBtn.className = "btn-remove-option";
   removeBtn.textContent = "✕";
-  removeBtn.onclick = function() { removeOption(this); };
+  removeBtn.onclick = function () {
+    removeOption(this);
+  };
   div.appendChild(input);
   div.appendChild(removeBtn);
   options.appendChild(div);
@@ -736,7 +880,7 @@ function removeOption(btn) {
   const options = document.getElementById("poll-options");
   if (!options) return;
   if (options.querySelectorAll(".poll-option-input").length <= 2) {
-    showNotification(window.t('min_poll_options'), "error");
+    showNotification(window.t("min_poll_options"), "error");
     return;
   }
   btn.closest(".poll-option-input").remove();
@@ -766,7 +910,7 @@ function updatePublishButton() {
   const hasImages = selectedImages.length > 0;
   const pollContainer = document.getElementById("poll-container");
   const hasPollUI = pollContainer && pollContainer.style.display !== "none";
-  
+
   // Проверяем опрос: если UI показан, проверяем вопрос и варианты
   let hasValidPoll = false;
   if (hasPollUI) {
@@ -778,7 +922,7 @@ function updatePublishButton() {
     });
     hasValidPoll = question && options.length >= 2;
   }
-  
+
   // Кнопка активна если есть текст, изображения, или заполненный опрос
   btn.disabled = !(hasText || hasImages || hasValidPoll);
 }
@@ -791,7 +935,7 @@ async function publishPost() {
   const pollData = getPollData();
 
   if (!content && images.length === 0 && !pollData) {
-    showNotification(window.t('fill_at_least_one_field'), "error");
+    showNotification(window.t("fill_at_least_one_field"), "error");
     return;
   }
 
@@ -800,7 +944,9 @@ async function publishPost() {
   const totalSize = images.reduce((sum, img) => sum + img.size, 0);
   if (images.length > 0 && totalSize > MAX_TOTAL_SIZE) {
     showNotification(
-      window.t('image_total_size_exceeds', { size: (totalSize / 1024 / 1024).toFixed(2) }),
+      window.t("image_total_size_exceeds", {
+        size: (totalSize / 1024 / 1024).toFixed(2),
+      }),
       "error",
     );
     return;
@@ -809,7 +955,7 @@ async function publishPost() {
   const btnPublish = document.getElementById("btn-publish");
   if (btnPublish) {
     btnPublish.disabled = true;
-    btnPublish.textContent = window.t('publishing');
+    btnPublish.textContent = window.t("publishing");
   }
 
   try {
@@ -840,7 +986,7 @@ async function publishPost() {
       if (charCount) charCount.textContent = "0/5000";
       removeSelectedImages();
       removePoll();
-      showNotification(window.t('post_published'), "success");
+      showNotification(window.t("post_published"), "success");
 
       if (data.post && typeof addPostToFeed === "function") {
         addPostToFeed(data.post, true);
@@ -850,15 +996,15 @@ async function publishPost() {
         location.reload();
       }
     } else {
-      showNotification(data.error || window.t('publish_error'), "error");
+      showNotification(data.error || window.t("publish_error"), "error");
     }
   } catch (error) {
     console.error("Publish error:", error);
-    showNotification(window.t('publish_error'), "error");
+    showNotification(window.t("publish_error"), "error");
   } finally {
     if (btnPublish) {
       btnPublish.disabled = false;
-      btnPublish.textContent = window.t('publish_button');
+      btnPublish.textContent = window.t("publish_button");
     }
   }
 }
@@ -888,16 +1034,16 @@ function initPostForm() {
   if (textarea) {
     textarea.addEventListener("input", updatePublishButton);
     const charCount = document.getElementById("char-count");
-      if (charCount) {
-        const updateCharCount = () => {
-          const len = textarea.value.length;
-          charCount.textContent = `${len}/5000`;
-          charCount.style.color =
-            len > 4900 ? "#ef4444" : len > 4800 ? "#f59e0b" : "inherit";
-        };
-        textarea.addEventListener("input", updateCharCount);
-        updateCharCount();
-      }
+    if (charCount) {
+      const updateCharCount = () => {
+        const len = textarea.value.length;
+        charCount.textContent = `${len}/5000`;
+        charCount.style.color =
+          len > 4900 ? "#ef4444" : len > 4800 ? "#f59e0b" : "inherit";
+      };
+      textarea.addEventListener("input", updateCharCount);
+      updateCharCount();
+    }
   }
   if (imageInput) {
     imageInput.removeEventListener("change", handleImageSelect);
@@ -940,6 +1086,10 @@ document.addEventListener("DOMContentLoaded", () => {
     console.log("Feed container not found, skipping feed initialization");
     return;
   }
+
+  // ✅ Устанавливаем lastCheck в текущее время
+  lastCheck = Math.floor(Date.now() / 1000);
+
   const urlParams = new URLSearchParams(window.location.search);
   currentFeedType = urlParams.get("type") || "following";
   document.querySelectorAll(".feed-filter").forEach((btn) => {
