@@ -106,7 +106,8 @@ class MessageController extends Controller
         if ($authCheck !== true) return $authCheck;
 
         $rateLimitCheck = RateLimiter::checkMessageLimit();
-        if ($rateLimitCheck !== true) return $rateLimitCheck;
+        if ($rateLimitCheck !== true)
+            return $rateLimitCheck;
 
         $data = ApiValidator::getRequestData();
         $receiverId = $data['receiver_id'] ?? null;
@@ -184,17 +185,26 @@ class MessageController extends Controller
     public function actionGetDialogue($id)
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
-        
+        Yii::$app->response->headers->set('Cache-Control', 'no-cache, no-store, must-revalidate');
+        Yii::$app->response->headers->set('Pragma', 'no-cache');
+        Yii::$app->response->headers->set('Expires', '0');
+
         $userId = Yii::$app->user->id;
         $otherUser = User::findOne($id);
-        
+
         if (!$otherUser) {
             return ['success' => false, 'error' => 'Пользователь не найден'];
         }
 
+        // Используем лимит для диалогов (120 в минуту)
+        $rateLimitCheck = RateLimiter::checkDialogueLimit();
+        if ($rateLimitCheck !== true) {
+            return $rateLimitCheck;
+        }
+
         Message::markAsRead($userId, $id);
         $messages = Message::getDialogue($userId, $id, 50);
-        
+
         return [
             'success' => true,
             'messages' => array_map(fn($msg) => $msg->toArray(), $messages)
@@ -206,7 +216,15 @@ class MessageController extends Controller
     public function actionGetDialogues()
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
+
         $userId = Yii::$app->user->id;
+
+        // Используем лимит для списка диалогов (60 в минуту)
+        $rateLimitCheck = RateLimiter::checkDialoguesListLimit();
+        if ($rateLimitCheck !== true) {
+            return $rateLimitCheck;
+        }
+
         $dialogues = Message::getDialogues($userId);
         return ['success' => true, 'dialogues' => $dialogues];
     }
@@ -280,67 +298,71 @@ class MessageController extends Controller
      * API: Загрузить изображения для сообщения
      */
     public function actionUploadImages()
-{
-    Yii::$app->response->format = Response::FORMAT_JSON;
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
 
-    $receiverId = (int) Yii::$app->request->post('receiver_id');
-    $content    = trim(Yii::$app->request->post('content', ''));
+        $rateLimitCheck = RateLimiter::checkImageUploadLimit();
+        if ($rateLimitCheck !== true)
+            return $rateLimitCheck;
 
-    $receiver = User::findOne($receiverId);
-    if (!$receiver) {
-        return ['success' => false, 'error' => 'Пользователь не найден'];
-    }
+        $receiverId = (int) Yii::$app->request->post('receiver_id');
+        $content = trim(Yii::$app->request->post('content', ''));
 
-    if (!Message::canSendMessage(Yii::$app->user->id, $receiverId)) {
-        return ['success' => false, 'error' => 'Нельзя отправлять сообщения этому пользователю'];
-    }
-
-    $images = UploadedFile::getInstancesByName('images');
-    if (empty($images)) {
-        $images = UploadedFile::getInstancesByName('images[]');
-    }
-
-    if (empty($images)) {
-        return ['success' => false, 'error' => 'Изображения не найдены'];
-    }
-
-    $uploadedImages = [];
-    foreach ($images as $image) {
-        $url = $this->uploadMessageImage($image);
-        if ($url !== null) {
-            $uploadedImages[] = $url;
+        $receiver = User::findOne($receiverId);
+        if (!$receiver) {
+            return ['success' => false, 'error' => 'Пользователь не найден'];
         }
+
+        if (!Message::canSendMessage(Yii::$app->user->id, $receiverId)) {
+            return ['success' => false, 'error' => 'Нельзя отправлять сообщения этому пользователю'];
+        }
+
+        $images = UploadedFile::getInstancesByName('images');
+        if (empty($images)) {
+            $images = UploadedFile::getInstancesByName('images[]');
+        }
+
+        if (empty($images)) {
+            return ['success' => false, 'error' => 'Изображения не найдены'];
+        }
+
+        $uploadedImages = [];
+        foreach ($images as $image) {
+            $url = $this->uploadMessageImage($image);
+            if ($url !== null) {
+                $uploadedImages[] = $url;
+            }
+        }
+
+        if (empty($uploadedImages)) {
+            return ['success' => false, 'error' => 'Не удалось загрузить ни одного изображения'];
+        }
+
+        $message = new Message([
+            'sender_id' => Yii::$app->user->id,
+            'receiver_id' => $receiverId,
+            'content' => $content,
+            'image_urls' => json_encode($uploadedImages, JSON_UNESCAPED_UNICODE),
+        ]);
+
+        if ($message->save()) {
+            \app\models\Notification::create(
+                $receiverId,
+                \app\models\Notification::TYPE_MESSAGE,
+                Yii::$app->user->id,
+                null,
+                'Новое сообщение с изображениями'
+            );
+
+            // ⚠️ ВАЖНО: используем $message->toArray(), но image_urls должно быть массивом
+            $messageData = $message->toArray();
+            // Переопределяем image_urls, т.к. в toArray() оно возвращается как массив через getImageUrls()
+            // Но если в fields() уже определено, то все ок
+            return ['success' => true, 'message' => $messageData];
+        }
+
+        return ['success' => false, 'error' => 'Не удалось отправить сообщение'];
     }
-
-    if (empty($uploadedImages)) {
-        return ['success' => false, 'error' => 'Не удалось загрузить ни одного изображения'];
-    }
-
-    // Создаём сообщение напрямую, заполняя image_urls
-    $message = new Message([
-        'sender_id'   => Yii::$app->user->id,
-        'receiver_id' => $receiverId,
-        'content'     => $content,
-        'image_urls'  => json_encode($uploadedImages, JSON_UNESCAPED_UNICODE),
-    ]);
-
-    if ($message->save()) {
-        // Уведомление (не забываем импортировать Notification)
-        \app\models\Notification::create(
-            $receiverId,
-            \app\models\Notification::TYPE_MESSAGE,
-            Yii::$app->user->id,
-            null,
-            'Новое сообщение с изображениями'
-        );
-        // Возвращаем данные, чтобы image_urls попал в ответ
-        $messageData = $message->toArray();
-        $messageData['image_urls'] = $message->getImageUrls(); // убеждаемся, что это массив
-        return ['success' => true, 'message' => $messageData];
-    }
-
-    return ['success' => false, 'error' => 'Не удалось отправить сообщение'];
-}
 
     /**
      * Загрузить изображение сообщения

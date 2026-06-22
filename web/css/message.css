@@ -46,11 +46,12 @@
 
 .dialogue-item {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     gap: var(--space-3);
     padding: var(--space-4);
     border-bottom: 1px solid var(--border-primary);
     transition: all var(--transition-fast);
+    cursor: pointer;
 }
 
 .dialogue-item:hover {
@@ -63,29 +64,50 @@
     border-radius: var(--radius-lg);
     object-fit: cover;
     border: 2px solid var(--border-primary);
+    flex-shrink: 0;
+}
+
+.dialogue-avatar-link {
+    flex-shrink: 0;
 }
 
 .dialogue-content {
     flex: 1;
-    cursor: pointer;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
 }
 
 .dialogue-header-info {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: var(--space-1);
+    gap: 8px;
 }
 
 .dialogue-user {
     font-weight: var(--font-semibold);
     font-size: var(--text-base);
     color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .dialogue-time {
     font-size: var(--text-xs);
     color: var(--text-tertiary);
+    flex-shrink: 0;
+}
+
+/* Нижняя строка: превью + бейдж в одну линию */
+.dialogue-bottom-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-width: 0;
 }
 
 .dialogue-preview {
@@ -94,16 +116,21 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    flex: 1;
+    min-width: 0;
 }
 
 .unread-badge {
-    background-color: var(--error);
+    background-color: var(--error, #e74c3c);
     color: white;
     font-size: var(--text-xs);
     font-weight: var(--font-bold);
-    padding: 2px 6px;
+    padding: 2px 8px;
     border-radius: var(--radius-full);
-    margin-left: var(--space-2);
+    flex-shrink: 0;
+    min-width: 20px;
+    text-align: center;
+    line-height: 1.4;
 }
 
 /* Chat Container */
@@ -184,7 +211,7 @@
     max-width: 300px;
     background: transparent;
     padding: 0;
-    text-align: center;  /* центрируем изображение по горизонтали */
+    text-align: center;
 }
 
 .message-image-content {
@@ -202,8 +229,8 @@
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
-    align-items: center;      /* выравниваем миниатюры по центру по вертикали */
-    justify-content: center;  /* по желанию – центрируем всю группу */
+    align-items: center;
+    justify-content: center;
     background: var(--surface-100);
     border-radius: var(--radius-lg);
     padding: 6px;
@@ -219,7 +246,7 @@
     flex-shrink: 0;
 }
 
-/* Контейнер для множественных изображений (если используется в разметке) */
+/* Контейнер для множественных изображений */
 .message-images-container {
     display: flex;
     flex-wrap: wrap;
@@ -371,7 +398,6 @@
 }
 
 /* Image Viewer Modal */
-/* Image Viewer Modal */
 .message-image-viewer-modal {
     position: fixed;
     top: 0;
@@ -411,199 +437,6 @@
     object-fit: contain;
     display: block;
     margin: 0 auto;
-}
-
-.message-image-viewer-modal .image-viewer-overlay {
-    position: absolute;
-    inset: 0;
-    background: transparent;
-    display: block;
-    cursor: pointer;
-}
-
-.message-image-viewer-modal .image-viewer-content {
-    position: relative;
-    max-width: 90vw;
-    max-height: 90vh;
-    background: transparent;
-    cursor: default;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.message-image-viewer-modal .image-viewer-image {
-    max-width: 100%;
-    max-height: 85vh;
-    border-radius: 16px;
-    object-fit: contain;
-    display: block;
-    margin: 0 auto;
-}
-
-.message-image-viewer-modal .image-viewer-overlay {
-    position: absolute;
-    inset: 0;
-    background: transparent;
-    display: block;
-    cursor: pointer;
-}
-
-.message-image-viewer-modal .image-viewer-content {
-    position: relative;
-    max-width: 90vw;
-    max-height: 90vh;
-    background: transparent;
-    cursor: default;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.message-image-viewer-modal .image-viewer-image {
-    max-width: 100%;
-    max-height: 85vh;
-    border-radius: 16px;
-    object-fit: contain;
-    display: block;
-    margin: 0 auto;
-}
-
-.message-image-viewer-modal .image-viewer-overlay {
-    position: absolute;
-    inset: 0;
-    background: transparent;
-    display: block;
-    cursor: pointer;
-}
-
-.message-image-viewer-modal .image-viewer-content {
-    position: relative;
-    max-width: 90vw;
-    max-height: 90vh;
-    background: transparent;
-    cursor: default;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.message-image-viewer-modal .image-viewer-image {
-    max-width: 100%;
-    max-height: 85vh;
-    border-radius: 16px;
-    object-fit: contain;
-    display: block;
-    margin: 0 auto;
-}
-
-.message-image-viewer-modal .image-viewer-overlay {
-    position: absolute;
-    inset: 0;
-    background: transparent;
-    display: block;
-    cursor: pointer;
-}
-
-.message-image-viewer-modal .image-viewer-content {
-    position: relative;
-    max-width: 90vw;
-    max-height: 90vh;
-    background: transparent;
-    cursor: default;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.message-image-viewer-modal .image-viewer-image {
-    max-width: 100%;
-    max-height: 85vh;
-    border-radius: 16px;
-    object-fit: contain;
-    display: block;
-    margin: 0 auto;
-}
-
-.message-image-viewer-modal .image-viewer-overlay {
-    position: absolute;
-    inset: 0;
-    background: transparent;
-    display: block;
-    cursor: pointer;
-}
-
-.message-image-viewer-modal .image-viewer-content {
-    position: relative;
-    max-width: 90vw;
-    max-height: 90vh;
-    background: transparent;
-    cursor: default;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.message-image-viewer-modal .image-viewer-image {
-    max-width: 100%;
-    max-height: 85vh;
-    border-radius: 16px;
-    object-fit: contain;
-    display: block;
-}
-
-.message-image-viewer-modal .image-viewer-close-btn {
-    position: absolute;
-    top: -40px;
-    right: -40px;
-    background: rgba(255, 255, 255, 0.2);
-    color: white;
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    cursor: pointer;
-    font-size: 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: none;
-    transition: all 0.2s;
-}
-
-.message-image-viewer-modal .image-viewer-close-btn:hover {
-    background: rgba(255, 255, 255, 0.4);
-    transform: scale(1.1);
-}
-
-.message-image-viewer-modal .image-viewer-overlay {
-    position: fixed;
-    inset: 0;
-    background: transparent;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-}
-
-.message-image-viewer-modal .image-viewer-content {
-    position: relative;
-    max-width: 90vw;
-    max-height: 90vh;
-    background: transparent;
-    cursor: default;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin: auto;
-}
-
-.message-image-viewer-modal .image-viewer-image {
-    max-width: 100%;
-    max-height: 85vh;
-    border-radius: 16px;
-    object-fit: contain;
-    display: block;
-    margin: auto;
 }
 
 .message-image-viewer-modal .image-viewer-close-btn {

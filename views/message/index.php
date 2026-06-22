@@ -57,14 +57,16 @@ function getTimeAgo($timestamp) {
                                         <?= Html::encode(getTimeAgo($dialogue['last_message_time'] ?? 0)) ?>
                                     </div>
                                 </div>
-                                <div class="dialogue-preview">
-                                    <?= Html::encode($dialogue['last_message'] ?? Yii::t('app', 'Начните диалог...')) ?>
+                                <div class="dialogue-bottom-row">
+                                    <div class="dialogue-preview">
+                                        <?= Html::encode($dialogue['last_message'] ?? Yii::t('app', 'Начните диалог...')) ?>
+                                    </div>
+                                    <?php if (($dialogue['unread_count'] ?? 0) > 0): ?>
+                                        <span class="unread-badge" title="<?= Yii::t('app', 'Непрочитанных: {count}', ['count' => $dialogue['unread_count']]) ?>">
+                                            <?= $dialogue['unread_count'] ?>
+                                        </span>
+                                    <?php endif; ?>
                                 </div>
-                                <?php if (($dialogue['unread_count'] ?? 0) > 0): ?>
-                                    <span class="unread-badge" title="<?= Yii::t('app', 'Непрочитанных: {count}', ['count' => $dialogue['unread_count']]) ?>">
-                                        <?= $dialogue['unread_count'] ?>
-                                    </span>
-                                <?php endif; ?>
                             </div>
                         </div>
                     <?php endforeach; ?>
