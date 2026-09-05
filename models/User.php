@@ -80,7 +80,7 @@ class User extends ActiveRecord implements IdentityInterface
     {
         $scenarios = parent::scenarios();
         $scenarios['register'] = ['username', 'email', 'password'];
-        $scenarios['update'] = ['username', 'email', 'bio', 'location', 'website', 'avatar', 'is_private', 'newPassword'];
+        $scenarios['update'] = ['username', 'email', 'bio', 'location', 'website', 'is_private', 'newPassword'];
         return $scenarios;
     }
 
@@ -119,6 +119,10 @@ class User extends ActiveRecord implements IdentityInterface
 
         if ($insert && $this->scenario === 'register') {
             $this->setPassword($this->password);
+        }
+
+        if (empty($this->auth_key)) {
+            $this->auth_key = Yii::$app->security->generateRandomString(32);
         }
 
         $this->uploadAvatar();
@@ -203,6 +207,12 @@ class User extends ActiveRecord implements IdentityInterface
     {
         return $this->hasMany(User::class, ['id' => 'following_id'])
             ->viaTable('follow', ['follower_id' => 'id']);
+    }
+
+    public function getRoles()
+    {
+        return $this->hasMany(Role::class, ['name' => 'item_name'])
+            ->viaTable('auth_assignment', ['user_id' => 'id']);
     }
 
     public function isFollowedBy($userId): bool
@@ -354,12 +364,12 @@ class User extends ActiveRecord implements IdentityInterface
 
     public function getAuthKey()
     {
-        return null;
+        return $this->auth_key;
     }
 
     public function validateAuthKey($authKey)
     {
-        return false;
+        return $this->auth_key === $authKey;
     }
 
     public function validatePassword($password): bool
@@ -396,8 +406,9 @@ class User extends ActiveRecord implements IdentityInterface
                 $message->delete();
             }
             
-            // Удаляем все уведомления
+            // Удаляем все уведомления (полученные и отправленные)
             Notification::deleteAll(['user_id' => $this->id]);
+            Notification::deleteAll(['from_user_id' => $this->id]);
             
             // Удаляем все блокировки
             Block::deleteAll(['blocker_id' => $this->id]);

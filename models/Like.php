@@ -63,7 +63,7 @@ class Like extends ActiveRecord
     {
         parent::afterSave($insert, $changedAttributes);
         
-        $this->updatePostLikesCount();
+        $this->updatePostLikesCount(1);
 
         if ($insert && $this->post && $this->post->user_id != $this->user_id) {
             Notification::create(
@@ -78,15 +78,13 @@ class Like extends ActiveRecord
     public function afterDelete()
     {
         parent::afterDelete();
-        $this->updatePostLikesCount();
+        $this->updatePostLikesCount(-1);
     }
 
-    private function updatePostLikesCount()
+    private function updatePostLikesCount(int $delta)
     {
-        $count = static::find()->where(['post_id' => $this->post_id])->count();
-        
         Post::updateAllCounters(
-            ['likes_count' => $count - ($this->post->likes_count ?? 0)],
+            ['likes_count' => $delta],
             ['id' => $this->post_id]
         );
     }

@@ -6,7 +6,7 @@ $db = require __DIR__ . '/db.php';
 $config = [
     'id' => 'basic',
     'basePath' => dirname(__DIR__),
-    'bootstrap' => ['log', 'app\components\LanguageComponent'],
+    'bootstrap' => ['log', 'app\components\LanguageComponent', 'securityHeaders'],
     'aliases' => [
         '@bower' => '@vendor/bower-asset',
         '@npm'   => '@vendor/npm-asset',
@@ -14,9 +14,23 @@ $config = [
     'language' => 'ru-RU', // ← ЖЕСТКО задайте язык по умолчанию
     'sourceLanguage' => 'ru-RU',
     'timeZone' => 'Europe/Moscow',
+    'modules' => [
+        'api' => [
+            'class' => 'app\modules\api\Module',
+        ],
+    ],
     'components' => [
+        'securityHeaders' => [
+            'class' => 'app\components\SecurityHeadersBootstrap',
+        ],
         'request' => [
-            'cookieValidationKey' => 'NA8T9KvhpGCoaKIaGEA8RKklqZMss0H_',
+            'cookieValidationKey' => function() {
+                $key = getenv('COOKIE_VALIDATION_KEY');
+                if ($key === false || $key === '') {
+                    throw new \yii\base\InvalidConfigException('COOKIE_VALIDATION_KEY environment variable is required');
+                }
+                return $key;
+            }(),
             'baseUrl' => '',
             'parsers' => [
                 'application/json' => 'yii\web\JsonParser',

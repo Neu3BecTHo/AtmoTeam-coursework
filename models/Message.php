@@ -232,48 +232,82 @@ class Message extends ActiveRecord
             return [];
         }
 
-        // 2. Для каждого собеседника получаем последнее сообщение
+        // 2. Получаем последние сообщения одним запросом (window function / subquery)
+        $sql = "
+            SELECT m.*, 
+                ROW_NUMBER() OVER (PARTITION BY 
+                    CASE 
+                        WHEN sender_id = :uid THEN receiver_id 
+                        ELSE sender_id 
+                    END 
+                    ORDER BY created_at DESC
+                ) as rn
+            FROM {{%message}}
+            WHERE (sender_id = :uid OR receiver_id = :uid)
+        ";
+        
+        $messages = static::findBySql($sql, [':uid' => $userId])
+            ->andWhere('rn = 1')
+            ->with(['sender', 'receiver'])
+            ->orderBy(['created_at' => SORT_DESC])
+            ->all();
+
+        // Собираем ID собеседников
+        $otherIds = [];
+        $lastMessages = [];
+        foreach ($messages as $msg) {
+            $otherId = ($msg->sender_id == $userId) ? $msg->receiver_id : $msg->sender_id;
+            if (!isset($lastMessages[$otherId])) {
+                $lastMessages[$otherId] = $msg;
+                $otherIds[] = $otherId;
+            }
+        }
+
+        if (empty($otherIds)) {
+            return [];
+        }
+
+        // Получаем пользователей одним запросом
+        $users = User::find()
+            ->select(['id', 'username', 'avatar'])
+            ->where(['id' => $otherIds])
+            ->indexBy('id')
+            ->all();
+
+        // Получаем непрочитанные счетчики одним запросом
+        $unreadCounts = static::find()
+            ->select(['sender_id', 'COUNT(*) as cnt'])
+            ->where(['receiver_id' => $userId, 'is_read' => 0])
+            ->andWhere(['sender_id' => $otherIds])
+            ->groupBy('sender_id')
+            ->indexBy('sender_id')
+            ->asArray()
+            ->column();
+
         $dialogues = [];
-        foreach ($otherUserIds as $otherId) {
-            $lastMessage = self::find()
-                ->with(['sender', 'receiver'])
-                ->where([
-                    'or',
-                    ['and', ['sender_id' => $userId, 'receiver_id' => $otherId]],
-                    ['and', ['sender_id' => $otherId, 'receiver_id' => $userId]],
-                ])
-                ->orderBy(['created_at' => SORT_DESC])
-                ->limit(1)
-                ->one();
-
-            if (!$lastMessage) {
-                continue;
-            }
-
-            $otherUser = User::findOne($otherId);
-            if (!$otherUser) {
-                continue;
-            }
-
+        foreach ($otherIds as $otherId) {
+            $msg = $lastMessages[$otherId] ?? null;
+            $user = $users[$otherId] ?? null;
+            if (!$msg || !$user) continue;
+            
             $dialogues[] = [
                 'user' => [
-                    'id' => $otherUser->id,
-                    'username' => $otherUser->username,
-                    'avatar' => $otherUser->getAvatarUrl(),
+                    'id' => $user->id,
+                    'username' => $user->username,
+                    'avatar' => $user->getAvatarUrl(),
                 ],
-                'last_message' => $lastMessage->getPreviewText(),
-                'last_message_time' => $lastMessage->created_at,
-                'last_message_time_ago' => $lastMessage->timeAgo,
-                'unread_count' => self::getUnreadCountFromUser($userId, $otherId),
+                'last_message' => $msg->getPreviewText(),
+                'last_message_time' => $msg->created_at,
+                'last_message_time_ago' => $msg->timeAgo,
+                'unread_count' => $unreadCounts[$otherId] ?? 0,
             ];
         }
 
-        // 3. Сортируем по времени последнего сообщения (новые сверху)
+        // Сортировка и пагинация
         usort($dialogues, function ($a, $b) {
             return $b['last_message_time'] - $a['last_message_time'];
         });
-
-        // 4. Пагинация
+        
         return array_slice($dialogues, $offset, $limit);
     }
 

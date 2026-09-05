@@ -65,6 +65,20 @@ class UserController extends Controller
             return ['success' => false, 'error' => Yii::t('app', 'Неверный публичный ключ')];
         }
         
+        // Валидация: base64, длина 44-88 символов (X25519/Ed25519)
+        if (!preg_match('/^[A-Za-z0-9+\/]+={0,2}$/', $publicKey)) {
+            return ['success' => false, 'error' => Yii::t('app', 'Публичный ключ должен быть в формате base64')];
+        }
+        
+        $decoded = base64_decode($publicKey, true);
+        if ($decoded === false) {
+            return ['success' => false, 'error' => Yii::t('app', 'Неверный формат base64')];
+        }
+        
+        if (strlen($decoded) < 32 || strlen($decoded) > 64) {
+            return ['success' => false, 'error' => Yii::t('app', 'Неверная длина ключа')];
+        }
+        
         $user = Yii::$app->user->identity;
         $user->public_key = $publicKey;
         $user->key_updated_at = time();

@@ -373,6 +373,16 @@ class UserController extends ActiveController
     public function actionCheck()
     {
         $user = Yii::$app->user->identity;
+        if (!$user) {
+            return [
+                'success' => true,
+                'data' => [
+                    'valid' => false,
+                    'user_id' => null,
+                    'username' => null,
+                ],
+            ];
+        }
         
         return [
             'success' => true,

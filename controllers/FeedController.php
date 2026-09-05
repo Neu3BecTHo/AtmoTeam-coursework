@@ -41,14 +41,6 @@ class FeedController extends Controller
 
     public function beforeAction($action)
     {
-        if (in_array($action->id, [
-            'create-post', 'like', 'comment', 'update-comment', 
-            'delete-comment', 'repost', 'save-post', 'poll-vote',
-                'mark-notifications-read'
-        ])) {
-            $this->enableCsrfValidation = false;
-        }
-        
         if (!Yii::$app->user->isGuest) {
             \app\models\OnlineUser::updateActivity(Yii::$app->user->id);
         }
@@ -95,15 +87,25 @@ class FeedController extends Controller
             $query->andWhere(['user_id' => $followingIds]);
         }
         
+        // Видимость: публичные профили + подписки + свои
+        if (!Yii::$app->user->isGuest) {
+            $visibleUserIds = Follow::getFollowingIds(Yii::$app->user->id);
+            $visibleUserIds[] = Yii::$app->user->id;
+        } else {
+            $visibleUserIds = [];
+        }
+        $visibleUserIds = array_merge($visibleUserIds, User::find()
+            ->select('id')
+            ->where(['is_private' => 0, 'is_blocked' => 0, 'status' => 10])
+            ->column());
+        
+        $query->andWhere(['user_id' => $visibleUserIds]);
+        
         if ($since > 0) {
             $query->andWhere(['>', 'created_at', $since]);
         }
         
         $posts = $query->limit($limit)->offset($offset)->all();
-
-        $posts = array_filter($posts, function($post) {
-            return $post->user->canViewProfile(Yii::$app->user->id);
-        });
         
         $html = '';
         $postsData = [];
@@ -164,7 +166,8 @@ class FeedController extends Controller
 
         $content = Yii::$app->request->post('content', '');
         $pollQuestion = Yii::$app->request->post('poll_question');
-        $hasImages = !empty($_FILES['images']['name'][0]);
+        $imageFiles = UploadedFile::getInstancesByName('images');
+        $hasImages = !empty($imageFiles);
 
         // Проверяем, что есть хоть что-то
         if (empty($content) && !$hasImages && empty($pollQuestion)) {
@@ -172,19 +175,23 @@ class FeedController extends Controller
         }
 
         // Проверка ошибок загрузки файлов
-        if ($hasImages && isset($_FILES['images']['error'][0]) && $_FILES['images']['error'][0] !== UPLOAD_ERR_OK) {
-            $errorCode = $_FILES['images']['error'][0];
-            $errorMessages = [
-                UPLOAD_ERR_INI_SIZE => Yii::t('app', 'Файл превышает upload_max_filesize (настройка PHP)'),
-                UPLOAD_ERR_FORM_SIZE => Yii::t('app', 'Файл превышает MAX_FILE_SIZE (HTML-форма)'),
-                UPLOAD_ERR_PARTIAL => Yii::t('app', 'Файл загружен частично'),
-                UPLOAD_ERR_NO_FILE => Yii::t('app', 'Файл не загружен'),
-                UPLOAD_ERR_NO_TMP_DIR => Yii::t('app', 'Отсутствует временная папка'),
-                UPLOAD_ERR_CANT_WRITE => Yii::t('app', 'Не удалось записать файл'),
-                UPLOAD_ERR_EXTENSION => Yii::t('app', 'Расширение PHP остановило загрузку'),
-            ];
-            $errorMsg = $errorMessages[$errorCode] ?? Yii::t('app', 'Неизвестная ошибка загрузки');
-            return ApiValidator::error(Yii::t('app', 'Ошибка загрузки изображения: {error}', ['error' => $errorMsg]));
+        if ($hasImages) {
+            foreach ($imageFiles as $file) {
+                if ($file->error !== UPLOAD_ERR_OK) {
+                    $errorCode = $file->error;
+                    $errorMessages = [
+                        UPLOAD_ERR_INI_SIZE => Yii::t('app', 'Файл превышает upload_max_filesize (настройка PHP)'),
+                        UPLOAD_ERR_FORM_SIZE => Yii::t('app', 'Файл превышает MAX_FILE_SIZE (HTML-форма)'),
+                        UPLOAD_ERR_PARTIAL => Yii::t('app', 'Файл загружен частично'),
+                        UPLOAD_ERR_NO_FILE => Yii::t('app', 'Файл не загружен'),
+                        UPLOAD_ERR_NO_TMP_DIR => Yii::t('app', 'Отсутствует временная папка'),
+                        UPLOAD_ERR_CANT_WRITE => Yii::t('app', 'Не удалось записать файл'),
+                        UPLOAD_ERR_EXTENSION => Yii::t('app', 'Расширение PHP остановило загрузку'),
+                    ];
+                    $errorMsg = $errorMessages[$errorCode] ?? Yii::t('app', 'Неизвестная ошибка загрузки');
+                    return ApiValidator::error(Yii::t('app', 'Ошибка загрузки изображения: {error}', ['error' => $errorMsg]));
+                }
+            }
         }
 
         $post = new Post([
@@ -193,7 +200,7 @@ class FeedController extends Controller
         ]);
 
         // Загружаем изображения
-        $post->imageFiles = UploadedFile::getInstancesByName('images');
+        $post->imageFiles = $imageFiles;
         if (empty($post->imageFiles)) {
             $post->imageFiles = UploadedFile::getInstancesByName('images[]');
         }
@@ -252,6 +259,12 @@ class FeedController extends Controller
                         }
                     }
                 }
+
+                // expires_at если передан
+                if (!empty($pollData['expires_at'])) {
+                    $poll->expires_at = (int) $pollData['expires_at'];
+                    $poll->save(false);
+                }
             }
 
             $postData = $post->toArray();
@@ -286,9 +299,11 @@ class FeedController extends Controller
         }
         
         $post = Post::findOne($postId);
-        
         if (!$post) {
             return ['success' => false, 'error' => 'Пост не найден'];
+        }
+        if (!$post->user->canViewProfile(Yii::$app->user->id)) {
+            return ['success' => false, 'error' => 'Доступ запрещён'];
         }
 
         $userId = Yii::$app->user->id;
@@ -367,6 +382,9 @@ class FeedController extends Controller
         $post = Post::findOne($postId);
         if (!$post) {
             return ApiValidator::error('Пост не найден');
+        }
+        if (!$post->user->canViewProfile(Yii::$app->user->id)) {
+            return ['success' => false, 'error' => 'Доступ запрещён'];
         }
 
         $validation = ApiValidator::validateCommentData(['post_id' => $postId, 'content' => $content]);
@@ -482,6 +500,9 @@ class FeedController extends Controller
 
         if ($comment->delete()) {
             $post = Post::findOne($postId);
+        if (!$post->user->canViewProfile(Yii::$app->user->id)) {
+            return ['success' => false, 'error' => 'Доступ запрещён'];
+        }
             if ($post) {
                 $post->updateCounters(['comments_count' => -1]);
             }
@@ -539,6 +560,9 @@ class FeedController extends Controller
         if (!$post) {
             return ['success' => false, 'error' => 'Пост не найден'];
         }
+        if (!$post->user->canViewProfile(Yii::$app->user->id)) {
+            return ['success' => false, 'error' => 'Доступ запрещён'];
+        }
 
         $result = Repost::toggle(Yii::$app->user->id, $postId);
         
@@ -572,15 +596,25 @@ class FeedController extends Controller
         $now = time();
         $userId = Yii::$app->user->id;
 
+        // Видимые авторы: свои + публичные профили + подписки
+        $visibleUserIds = [Yii::$app->user->id];
+        $visibleUserIds = array_merge($visibleUserIds, Follow::getFollowingIds($userId));
+        $visibleUserIds = array_merge($visibleUserIds, User::find()
+            ->select('id')
+            ->where(['is_private' => 0, 'is_blocked' => 0, 'status' => 10])
+            ->column());
+
         $newPosts = Post::find()
             ->with('user')
             ->where(['>', 'created_at', $lastCheck])
+            ->andWhere(['user_id' => $visibleUserIds])
             ->orderBy(['created_at' => SORT_DESC])
             ->all();
 
         $newComments = Comment::find()
             ->with('user')
             ->where(['>', 'created_at', $lastCheck])
+            ->andWhere(['user_id' => $visibleUserIds])
             ->all();
 
         return [
@@ -668,6 +702,9 @@ class FeedController extends Controller
         $post = Post::findOne($postId);
         if (!$post) {
             return ['success' => false, 'error' => 'Пост не найден'];
+        }
+        if (!$post->user->canViewProfile(Yii::$app->user->id)) {
+            return ['success' => false, 'error' => 'Доступ запрещён'];
         }
 
         $result = SavedPost::toggle(Yii::$app->user->id, $postId);

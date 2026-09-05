@@ -105,6 +105,7 @@ class OnlineUser extends ActiveRecord
     {
         return self::find()
             ->where(['>', 'last_activity', time() - self::ONLINE_TTL])
+            ->distinct('user_id')
             ->count();
     }
 

@@ -63,6 +63,16 @@ class PollController extends Controller
             return ['success' => false, 'error' => 'Опрос не найден'];
         }
 
+        // Проверка срока действия
+        if ($poll->isExpired()) {
+            return ['success' => false, 'error' => 'Срок голосования истёк'];
+        }
+
+        // Проверка множественного выбора
+        if (!$poll->multiple_votes && count($optionIds) > 1) {
+            return ['success' => false, 'error' => 'В этом опросе можно выбрать только один вариант'];
+        }
+
         $userId = Yii::$app->user->id;
 
         $transaction = Yii::$app->db->beginTransaction();
@@ -174,6 +184,16 @@ class PollController extends Controller
         $poll = Poll::findOne($pollId);
         if (!$poll) {
             return ['success' => false, 'error' => 'Опрос не найден'];
+        }
+
+        // Проверка срока действия
+        if ($poll->isExpired()) {
+            return ['success' => false, 'error' => 'Срок голосования истёк'];
+        }
+
+        // Проверка множественного выбора
+        if (!$poll->multiple_votes && count($optionIds) > 1) {
+            return ['success' => false, 'error' => 'В этом опросе можно выбрать только один вариант'];
         }
 
         $userId = Yii::$app->user->id;

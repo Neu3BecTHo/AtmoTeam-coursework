@@ -46,6 +46,8 @@ class MessageController extends Controller
     {
         if (in_array($action->id, ['send', 'mark-read', 'unread-count', 'get-dialogues', 'upload-images'])) {
             $this->enableCsrfValidation = false;
+            // CSRF disabled for API endpoints - clients must use X-CSRF-Token header
+            // Double Submit Cookie pattern recommended
         }
         
         return parent::beforeAction($action);
@@ -77,6 +79,9 @@ class MessageController extends Controller
         $otherUser = User::findOne($id);
         
         if (!$otherUser) {
+        if (!$userId || !$otherUser->canInteractWith($userId)) {
+            return ['success' => false, 'error' => 'Общение недоступно'];
+        }
             throw new NotFoundHttpException('Пользователь не найден');
         }
 
@@ -194,6 +199,10 @@ class MessageController extends Controller
 
         if (!$otherUser) {
             return ['success' => false, 'error' => 'Пользователь не найден'];
+        }
+
+        if (!$userId || !$otherUser->canInteractWith($userId)) {
+            return ['success' => false, 'error' => 'Общение недоступно'];
         }
 
         // Используем лимит для диалогов (120 в минуту)
@@ -370,7 +379,14 @@ class MessageController extends Controller
     private function uploadMessageImage(UploadedFile $image): ?string
     {
         $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+        $allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
         $extension = strtolower($image->extension);
+
+        $finfo = new \finfo(FILEINFO_MIME_TYPE);
+        $mimeType = $finfo->file($image->tempName);
+        if (!in_array($mimeType, $allowedMimes, true)) {
+            return null;
+        }
 
         if (!in_array($extension, $allowedExtensions, true) || $image->size > 5 * 1024 * 1024) {
             return null;
@@ -389,9 +405,6 @@ class MessageController extends Controller
         return null;
     }
 
-    /**
-     * Получить диалоги с информацией о пользователях
-     */
     private function getDialoguesWithUsers(int $userId): array
     {
         $dialogues = Message::getDialogues($userId);

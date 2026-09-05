@@ -93,6 +93,10 @@ class ProfileController extends Controller
                 $base64Data = preg_replace('/^data:image\/\w+;base64,/', '', $croppedAvatar);
                 $decoded = base64_decode($base64Data);
                 if ($decoded !== false && strlen($decoded) > 0) {
+                    // Лимит 2MB
+                    if (strlen($decoded) > 2 * 1024 * 1024) {
+                        return ['success' => false, 'error' => 'Размер аватара не должен превышать 2 МБ'];
+                    }
                     $filename = 'avatar_' . $user->id . '_' . time() . '.png';
                     $path = Yii::getAlias('@webroot/uploads/avatars/');
                     if (!is_dir($path)) {
@@ -131,6 +135,12 @@ class ProfileController extends Controller
         
         $offset = (int) Yii::$app->request->get('offset', 0);
         $id = $id ?? Yii::$app->user->id;
+
+        $profileUser = User::findOne($id);
+        if (!$profileUser || !$profileUser->canViewProfile(Yii::$app->user->id)) {
+            Yii::$app->response->statusCode = 403;
+            return ['html' => '', 'count' => 0, 'error' => 'Доступ запрещён'];
+        }
 
         $posts = Post::find()
             ->where(['user_id' => $id])
@@ -210,9 +220,9 @@ class ProfileController extends Controller
             return ['success' => false, 'error' => 'Пользователь не найден'];
         }
         
-        // Проверка пароля (опционально, для безопасности)
+        // Пароль обязателен: защита от удаления при угнанной сессии/CSRF
         $password = Yii::$app->request->post('password');
-        if ($password && !$user->validatePassword($password)) {
+        if (!$password || !$user->validatePassword($password)) {
             return ['success' => false, 'error' => Yii::t('app', 'Неверный пароль')];
         }
         
@@ -330,6 +340,12 @@ class ProfileController extends Controller
         $id = $id ?? Yii::$app->user->id;
         $offset = (int) Yii::$app->request->get('offset', 0);
 
+        $profileUser = User::findOne($id);
+        if (!$profileUser || !$profileUser->canViewProfile(Yii::$app->user->id)) {
+            Yii::$app->response->statusCode = 403;
+            return ['html' => '', 'count' => 0, 'error' => 'Доступ запрещён'];
+        }
+
         $reposts = Repost::find()
             ->with(['post', 'post.user', 'post.poll.options'])
             ->where(['user_id' => $id])
@@ -410,6 +426,11 @@ class ProfileController extends Controller
         $post = Post::findOne($id);
         if (!$post) {
             throw new \yii\web\NotFoundHttpException(Yii::t('app', 'Пост не найден'));
+        }
+
+        if (!$post->user->canViewProfile(Yii::$app->user->id)) {
+            Yii::$app->response->statusCode = 403;
+            return '<div class="error-message">Доступ запрещён</div>';
         }
         
         // Возвращаем только HTML, без layout

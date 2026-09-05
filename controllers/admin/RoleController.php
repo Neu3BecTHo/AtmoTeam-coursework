@@ -23,19 +23,8 @@ class RoleController extends Controller
                 'class' => AccessControl::class,
                 'rules' => [
                     [
-                        'actions' => ['index', 'view'],
                         'allow' => true,
-                        'roles' => ['admin.access'],
-                    ],
-                    [
-                        'actions' => ['create', 'update'],
-                        'allow' => true,
-                        'roles' => ['user.manage_roles'],
-                    ],
-                    [
-                        'actions' => ['delete', 'assign', 'revoke'],
-                        'allow' => true,
-                        'roles' => ['user.delete'],
+                        'roles' => ['accessAdminPanel'],
                     ],
                 ],
             ],
@@ -72,17 +61,13 @@ class RoleController extends Controller
         $model = $this->findModel($id);
         $auth = Yii::$app->authManager;
 
-        $users = \app\models\UserRole::find()
-            ->with(['user', 'role'])
-            ->where(['role_id' => $id])
-            ->andWhere(['or', 
-                ['expires_at' => null],
-                ['>', 'expires_at', time()]
-            ])
-            ->orderBy(['created_at' => SORT_DESC])
+        $users = User::find()
+            ->joinWith('roles')
+            ->where(['{{%auth_assignment}}.item_name' => $model->name])
+            ->orderBy(['{{%user}}.created_at' => SORT_DESC])
             ->all();
 
-        $permissions = $auth->getPermissionsByRole($id);
+        $permissions = $auth->getPermissionsByRole($model->name);
 
         return $this->render('view', [
             'model' => $model,
@@ -186,12 +171,11 @@ class RoleController extends Controller
             return $this->redirect(['index']);
         }
 
+        $auth = Yii::$app->authManager;
         $transaction = Yii::$app->db->beginTransaction();
         try {
-
-            \app\models\AuthItemChild::deleteAll(['parent' => $model->name]);
-
-            \app\models\AuthAssignment::deleteAll(['item_name' => $model->name]);
+            $auth->removeChildren($model->name);
+            $auth->removeAssignments($model->name);
 
             $model->delete();
             
@@ -210,7 +194,6 @@ class RoleController extends Controller
     {
         $userId = Yii::$app->request->post('user_id');
         $roleName = Yii::$app->request->post('role_name');
-        $expiresAt = Yii::$app->request->post('expires_at');
 
         if (!$userId || !$roleName) {
             return $this->asJson(['success' => false, 'message' => 'Не указаны пользователь или роль']);
@@ -225,17 +208,6 @@ class RoleController extends Controller
 
         try {
             $auth->assign($roleName, $userId);
-
-            if ($expiresAt) {
-                $assignment = \app\models\AuthAssignment::find()
-                    ->where(['user_id' => $userId, 'item_name' => $roleName])
-                    ->one();
-                
-                if ($assignment) {
-                    $assignment->expires_at = strtotime($expiresAt);
-                    $assignment->save();
-                }
-            }
             
             return $this->asJson(['success' => true, 'message' => 'Роль успешно назначена']);
         } catch (\Exception $e) {
@@ -273,15 +245,12 @@ class RoleController extends Controller
     {
         Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
         
-        $auth = Yii::$app->authManager;
-        $users = \app\models\AuthAssignment::find()
-            ->with(['user'])
-            ->where(['item_name' => $roleName])
-            ->andWhere(['or', 
-                ['expires_at' => null],
-                ['>', 'expires_at', time()]
-            ])
-            ->orderBy(['created_at' => SORT_DESC])
+        $users = User::find()
+            ->select(['{{%user}}.id', '{{%user}}.username', '{{%user}}.email'])
+            ->joinWith('roles')
+            ->where(['{{%auth_assignment}}.item_name' => $roleName])
+            ->orderBy(['{{%user}}.created_at' => SORT_DESC])
+            ->asArray()
             ->all();
 
         return $users;

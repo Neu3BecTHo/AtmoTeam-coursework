@@ -17,42 +17,6 @@ use app\components\RateLimiter;
  */
 class PostController extends Controller
 {
-    /**
-     * API: Создать пост
-     */
-    public function actionCreate()
-    {
-        Yii::$app->response->format = Response::FORMAT_JSON;
-        
-        $authCheck = ApiValidator::requireAuth();
-        if ($authCheck !== true) {
-            return $authCheck;
-        }
-        
-        $rateLimitCheck = RateLimiter::checkPostLimit();
-        if ($rateLimitCheck !== true) {
-            return $rateLimitCheck;
-        }
-        
-        $content = trim(Yii::$app->request->post('content', ''));
-        if (empty($content)) {
-            return ApiValidator::error(Yii::t('app', 'Содержание поста обязательно'));
-        }
-
-        $post = new Post([
-            'user_id' => Yii::$app->user->id,
-            'content' => $content,
-        ]);
-
-        $post->imageFiles = UploadedFile::getInstancesByName('images[]');
-        
-        if ($post->save()) {
-            return ['success' => true, 'post' => $post->toArray()];
-        }
-        
-        return ['success' => false, 'error' => Yii::t('app', 'Ошибка создания поста'), 'errors' => $post->errors];
-    }
-
     public function actionModalContent($id)
     {
         Yii::$app->response->format = Response::FORMAT_RAW;
@@ -89,6 +53,11 @@ class PostController extends Controller
             throw new NotFoundHttpException('Пост не найден');
         }
         
+        if (!$post->user->canViewProfile(Yii::$app->user->id)) {
+            Yii::$app->response->statusCode = 403;
+            return '<p class="error-message">Доступ запрещён</p>';
+        }
+        
         return $this->renderAjax('_post_card', ['post' => $post]);
     }
 
@@ -107,6 +76,11 @@ class PostController extends Controller
             return 'Пост не найден';
         }
         
+        if (!$post->user->canViewProfile(Yii::$app->user->id)) {
+            Yii::$app->response->statusCode = 403;
+            return '<p class="error-message">Доступ запрещён</p>';
+        }
+
         // Важно! Используй renderPartial, а не render
         // renderPartial НЕ подключает layout
         Yii::$app->response->format = Response::FORMAT_RAW;
@@ -129,6 +103,11 @@ class PostController extends Controller
             if (!$post) {
                 Yii::$app->response->statusCode = 404;
                 return '<p>Пост не найден</p>';
+            }
+
+            if (!$post->user->canViewProfile(Yii::$app->user->id)) {
+                Yii::$app->response->statusCode = 403;
+                return '<p>Доступ запрещён</p>';
             }
             
             $comments = $post->getComments()
@@ -161,6 +140,11 @@ class PostController extends Controller
             
         if (!$post) {
             return ['success' => false, 'error' => 'Пост не найден'];
+        }
+
+        if (!$post->user->canViewProfile(Yii::$app->user->id)) {
+            Yii::$app->response->statusCode = 403;
+            return ['success' => false, 'error' => 'Доступ запрещён'];
         }
         
         $isGuest = Yii::$app->user->isGuest;
@@ -201,6 +185,10 @@ class PostController extends Controller
         $post = Post::findOne($id);
         if (!$post) {
             throw new NotFoundHttpException('Пост не найден');
+        }
+
+        if (!$post->user->canViewProfile(Yii::$app->user->id)) {
+            throw new ForbiddenHttpException('Доступ запрещён');
         }
 
         $comments = Comment::find()

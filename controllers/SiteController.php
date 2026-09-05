@@ -9,6 +9,7 @@ use yii\web\Response;
 use yii\filters\VerbFilter;
 use app\models\LoginForm;
 use app\models\User;
+use app\components\RateLimiter;
 use yii\web\Cookie;
 
 class SiteController extends Controller
@@ -56,6 +57,11 @@ class SiteController extends Controller
 
     public function actionRegister()
     {
+        $rateLimitCheck = RateLimiter::checkRegisterLimit();
+        if ($rateLimitCheck !== true) {
+            return $this->redirect(['/login']);
+        }
+
         if (!Yii::$app->user->isGuest) {
             return $this->goHome();
         }
@@ -78,7 +84,9 @@ class SiteController extends Controller
             }
         }
 
-        return $this->render('register', ['model' => $model]);
+        return $this->render('register', [
+            'model' => $model,
+        ]);
     }
 
     public function actionLogin()
@@ -87,14 +95,26 @@ class SiteController extends Controller
             return $this->goHome();
         }
 
+        // Rate limiting on login attempts (5 per 15 min per IP)
+        $rateLimitCheck = RateLimiter::checkAuthLimit();
+        if ($rateLimitCheck !== true) {
+            Yii::$app->session->setFlash('error', 'Слишком много попыток входа. Попробуйте позже.');
+            $model = new LoginForm();
+            $model->password = '';
+            return $this->render('login', [
+                'model' => $model,
+            ]);
+        }
+
         $model = new LoginForm();
         if ($model->load(Yii::$app->request->post()) && $model->login()) {
-            Yii::$app->session->removeAllFlashes();
             return $this->goBack();
         }
 
         $model->password = '';
-        return $this->render('login', ['model' => $model]);
+        return $this->render('login', [
+            'model' => $model,
+        ]);
     }
 
     public function actionLogout()
@@ -103,23 +123,53 @@ class SiteController extends Controller
         return $this->goHome();
     }
 
-    public function actionLanguage($lang)
+    public function actionRequestPasswordReset()
     {
-        $allowed = ['en-US', 'ru-RU', 'ru_RU', 'en_US', 'es-ES', 'es_ES'];
-        if (!in_array($lang, $allowed, true)) {
+        $model = new \app\models\PasswordResetRequestForm();
+        if ($model->load(Yii::$app->request->post()) && $model->validate()) {
+            if ($model->sendEmail()) {
+                Yii::$app->session->setFlash('success', 'Инструкции по восстановлению пароля отправлены на вашу почту.');
+
+                return $this->goHome();
+            } else {
+                Yii::$app->session->setFlash('error', 'Извините, мы не можем восстановить пароль для указанного email.');
+            }
+        }
+
+        return $this->render('requestPasswordResetToken', [
+            'model' => $model,
+        ]);
+    }
+
+    public function actionResetPassword($token)
+    {
+        try {
+            $model = new \app\models\ResetPasswordForm($token);
+        } catch (\yii\base\InvalidArgumentException $e) {
+            throw new \yii\web\BadRequestHttpException($e->getMessage());
+        }
+
+        if ($model->load(Yii::$app->request->post()) && $model->validate() && $model->resetPassword()) {
+            Yii::$app->session->setFlash('success', 'Новый пароль успешно установлен.');
+
             return $this->goHome();
         }
 
-        $lang = str_replace('_', '-', $lang);
+        return $this->render('resetPassword', [
+            'model' => $model,
+        ]);
+    }
 
-        setcookie('language', $lang, time() + 60 * 60 * 24 * 365, '/', '', false, true);
-
-        // Устанавливаем язык
-        Yii::$app->language = $lang;
-        Yii::$app->session->set('language', $lang);
-
-        // Возвращаемся на предыдущую страницу
-        $ref = Yii::$app->request->referrer;
-        return $this->redirect($ref ?: ['/']);
+    public function actionRefresh()
+    {
+        $session = Yii::$app->session;
+        if ($session->has('user_id')) {
+            $user = User::findOne($session->get('user_id'));
+            if ($user) {
+                $session->set('user_data', $user->toArray());
+                return $this->asJson(['success' => true]);
+            }
+        }
+        return $this->asJson(['success' => false]);
     }
 }

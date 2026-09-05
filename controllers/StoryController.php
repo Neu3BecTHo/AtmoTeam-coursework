@@ -70,26 +70,17 @@ class StoryController extends Controller
     public function actionCreate()
     {
         $model = new Story();
-        $model->user_id = Yii::$app->user->id;
 
         if (Yii::$app->request->isPost) {
             $model->imageFile = UploadedFile::getInstance($model, 'imageFile');
             $model->caption = Yii::$app->request->post('caption');
+        if (!$model->imageFile) {
+            return ['success' => false, 'error' => 'Файл изображения обязателен'];
+        }
 
             if ($model->validate() && $model->imageFile) {
-                $filename = time() . '_' . uniqid() . '.' . $model->imageFile->extension;
-                $uploadPath = Yii::getAlias('@webroot/uploads/stories');
-
-                if (!is_dir($uploadPath)) {
-                    mkdir($uploadPath, 0777, true);
-                }
-
-                if ($model->imageFile->saveAs($uploadPath . '/' . $filename)) {
-                    $model->image = $filename;
-
-                    if ($model->save()) {
-                        return $this->redirect(['/story/index']);
-                    }
+                if ($model->save()) {
+                    return $this->redirect(['/story/index']);
                 }
             }
         }
@@ -115,6 +106,9 @@ class StoryController extends Controller
         $model->user_id = Yii::$app->user->id;
         $model->imageFile = UploadedFile::getInstanceByName('image');
         $model->caption = Yii::$app->request->post('caption');
+        if (!$model->imageFile) {
+            return ['success' => false, 'error' => 'Файл изображения обязателен'];
+        }
 
         if ($model->validate() && $model->save()) {
             return ['success' => true, 'story' => $model->toArray()];

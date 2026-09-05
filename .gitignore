@@ -42,3 +42,8 @@ tests/_support/_generated
 /web/uploads/*
 # ignore all files in web/uploads except .gitignore
 !/web/uploads/.gitignore
+
+# Environment variables - MUST NOT commit secrets
+.env
+.env.local
+.env.production

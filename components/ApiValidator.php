@@ -104,6 +104,15 @@ class ApiValidator extends Component
             }
         }
 
+        if (!empty($data['expires_at'])) {
+            $expiresAt = (int) $data['expires_at'];
+            if ($expiresAt <= time()) {
+                $errors[] = 'Срок действия должен быть в будущем';
+            } elseif ($expiresAt > time() + 365 * 24 * 3600) {
+                $errors[] = 'Срок действия не может быть больше года';
+            }
+        }
+
         return empty($errors) ? true : $errors;
     }
 

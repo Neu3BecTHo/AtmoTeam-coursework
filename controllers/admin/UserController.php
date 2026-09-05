@@ -117,7 +117,7 @@ class UserController extends Controller
     {
         $model = $this->findModel($id);
         
-        if ($model->username === 'admin') {
+        if ($model->role === 'admin') {
             Yii::$app->session->setFlash('error', 'Нельзя удалить супер администратора');
             return $this->redirect(['index']);
         }
@@ -136,7 +136,7 @@ class UserController extends Controller
     {
         $model = $this->findModel($id);
 
-        if ($model->username === 'admin') {
+        if ($model->role === 'admin') {
             Yii::$app->session->setFlash('error', 'Нельзя изменить статус супер администратора');
             return $this->redirect(['index']);
         }
@@ -166,7 +166,7 @@ class UserController extends Controller
         $count = 0;
         foreach ($ids as $id) {
             $model = User::findOne($id);
-            if (!$model || $model->username === 'admin') {
+            if (!$model || $model->role === 'admin') {
                 continue;
             }
 
@@ -182,12 +182,7 @@ class UserController extends Controller
                     if ($model->save()) $count++;
                     break;
                 case 'delete':
-                    Post::deleteAll(['user_id' => $id]);
-                    Comment::deleteAll(['user_id' => $id]);
-                    Like::deleteAll(['user_id' => $id]);
-                    Follow::deleteAll(['follower_id' => $id]);
-                    Follow::deleteAll(['following_id' => $id]);
-                    if ($model->delete()) $count++;
+                    if ($model->deleteWithContent()) $count++;
                     break;
             }
         }

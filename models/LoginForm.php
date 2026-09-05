@@ -4,6 +4,7 @@ namespace app\models;
 
 use Yii;
 use yii\base\Model;
+use app\components\RateLimiter;
 
 /**
  * LoginForm is the model behind the login form.
@@ -32,7 +33,7 @@ class LoginForm extends Model
         return [
             'username' => 'Имя пользователя',
             'password' => 'Пароль',
-            'rememberMe' => 'Запомнить меня',
+            'rememberMe' => 'Запомни меня',
         ];
     }
 
@@ -42,12 +43,20 @@ class LoginForm extends Model
             $user = $this->getUser();
             if (!$user || !$user->validatePassword($this->password)) {
                 $this->addError($attribute, 'Неверное имя пользователя или пароль.');
+            } elseif ($user->is_blocked) {
+                $this->addError($attribute, 'Аккаунт заблокирован. Обратитесь к администратору.');
+            } elseif ($user->status != 10) {
+                $this->addError($attribute, 'Аккаунт деактивирован.');
             }
         }
     }
 
     public function login()
     {
+        $rateLimitCheck = RateLimiter::checkAuthLimit();
+        if ($rateLimitCheck !== true) {
+            return false;
+        }
         if ($this->validate()) {
             $duration = $this->rememberMe ? 3600 * 24 * 30 : 0;
             return Yii::$app->user->login($this->getUser(), $duration);

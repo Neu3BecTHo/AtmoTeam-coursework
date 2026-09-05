@@ -25,10 +25,9 @@ class AdminController extends Controller
                     [
                         'allow' => true,
                         'roles' => ['@'],
-                        'matchCallback' => function ($rule, $action) {
-                            return Yii::$app->user->can('accessAdminPanel') ||
-                                Yii::$app->user->identity->username === 'admin';
-                        },
+                'matchCallback' => function ($rule, $action) {
+                    return Yii::$app->user->can('accessAdminPanel');
+                },
                     ],
                 ],
             ],
@@ -49,13 +48,16 @@ class AdminController extends Controller
 
     public function beforeAction($action)
     {
-        AdminAsset::register($this->view);
+        // Регистрируем Asset и язык только для HTML-экшенов (не JSON API)
+        if ($this->response->format !== Response::FORMAT_JSON) {
+            AdminAsset::register($this->view);
 
-        // Устанавливаем язык для админки
-        if (isset($_COOKIE['language'])) {
-            $lang = $_COOKIE['language'];
-            if (in_array($lang, ['en-US', 'ru-RU'], true)) {
-                Yii::$app->language = $lang;
+            // Устанавливаем язык для админки
+            if (isset($_COOKIE['language'])) {
+                $lang = $_COOKIE['language'];
+                if (in_array($lang, ['en-US', 'ru-RU'], true)) {
+                    Yii::$app->language = $lang;
+                }
             }
         }
 
@@ -193,17 +195,9 @@ class AdminController extends Controller
             return ['success' => false, 'error' => 'Нельзя удалить администратора'];
         }
 
-        // Удаляем все связанные данные
-        Post::deleteAll(['user_id' => $user->id]);
-        Comment::deleteAll(['user_id' => $user->id]);
-        \app\models\Like::deleteAll(['user_id' => $user->id]);
-        \app\models\Follow::deleteAll(['follower_id' => $user->id]);
-        \app\models\Follow::deleteAll(['following_id' => $user->id]);
-        \app\models\SavedPost::deleteAll(['user_id' => $user->id]);
-        \app\models\Repost::deleteAll(['user_id' => $user->id]);
-        \app\models\Notification::deleteAll(['user_id' => $user->id]);
-
-        if ($user->delete()) {
+        // Удаляем пользователя со всем содержимым в транзакции
+        // (посты с картинками, сообщения, уведомления, сторис, аватар)
+        if ($user->deleteWithContent()) {
             return ['success' => true, 'message' => 'Пользователь удален'];
         }
 

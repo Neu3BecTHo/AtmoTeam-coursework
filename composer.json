@@ -14,9 +14,9 @@
     },
     "minimum-stability": "stable",
     "require": {
-        "php": ">=7.4.0",
-        "yiisoft/yii2": "~2.0.45",
-        "yiisoft/yii2-symfonymailer": "~2.0.3"
+        "php": ">=8.1.0",
+        "yiisoft/yii2": "~2.0.55",
+        "yiisoft/yii2-symfonymailer": "~2.0.4"
     },
     "require-dev": {
         "yiisoft/yii2-debug": "~2.1.0",
