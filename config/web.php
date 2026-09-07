@@ -30,7 +30,7 @@ $config = [
                     throw new \yii\base\InvalidConfigException('COOKIE_VALIDATION_KEY environment variable is required');
                 }
                 return $key;
-            }(),
+            },
             'baseUrl' => '',
             'parsers' => [
                 'application/json' => 'yii\web\JsonParser',
